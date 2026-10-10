@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>overLy</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="mode-card">
+  <!-- Dynamic Ambient Glow Aura -->
+  <div id="ambientAura" class="ambient-aura"></div>
+
+  <!-- Floating Ghost Mode Banner (Shows outside the overlay card when locked) -->
+  <div id="lockToast" class="lock-toast hidden" title="Click here or press Ctrl+Shift+L to unlock">
+    <svg class="lock-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </svg>
+    <span>Locked • <u>Click to unlock</u> (Ctrl+Shift+L)</span>
+  </div>
+
+  <!-- Main Floating Container -->
+  <div id="overlayContainer" class="overlay-container">
+
+    <!-- Collapsed View Rounded Border Progress Bar (View-Only Indicator) -->
+    <svg id="pillBorderSvg" class="pill-border-progress" aria-hidden="true">
+      <defs>
+        <linearGradient id="pillProgressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop id="pillGradStop1" offset="0%" stop-color="var(--accent)" />
+          <stop id="pillGradStop2" offset="100%" stop-color="var(--accent-light, var(--accent))" />
+        </linearGradient>
+      </defs>
+      <path id="pillBorderTrack" class="pill-border-track" />
+      <path id="pillBorderRect" class="pill-border-bar" />
+    </svg>
+
+    <!-- Top Floating Handle & Control Bar -->
+    <header class="top-bar">
+      <div class="header-drag-zone" id="headerDragZone">
+        <span class="brand-pill" id="brandPill" title="Hold & Drag to move overlay">
+          <svg class="icon-brand" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+          </svg>
+          <span class="brand-name">overLy</span>
+        </span>
+      </div>
+
+      <div class="window-actions no-drag">
+        <!-- Layout Mode Toggle (Normal / Collapsed / Lyrics / Expanded) -->
+        <button id="btnModeToggle" class="icon-btn" title="Toggle Layout: Normal / Collapsed / Only Lyrics / Expanded (M)">
+          <svg id="iconModeCard" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="4"/>
+            <line x1="7" y1="9" x2="17" y2="9"/>
+            <line x1="7" y1="13" x2="17" y2="13"/>
+            <line x1="7" y1="17" x2="13" y2="17"/>
+          </svg>
+        </button>
+
+        <!-- Lock / Click-Through Mode Toggle -->
+        <button id="btnLockToggle" class="icon-btn" title="Lock (Click-Through Mode, Ctrl+Shift+L)">
+          <svg id="iconLock" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </button>
+
+        <!-- Always on Top Pin -->
+        <button id="btnPinToggle" class="icon-btn active" title="Always on Top">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="17" x2="12" y2="22"/>
+            <path d="M5 17h14l-2-7V4h1V2H6v2h1v6L5 17z"/>
+          </svg>
+        </button>
+
+        <!-- Window Resize Toggle -->
+        <button id="btnResizeToggle" class="icon-btn" title="Toggle Window Resizing (R) • Double-click to reset size">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 20 20 20 20 16"/>
+            <line x1="14" y1="14" x2="20" y2="20"/>
+            <polyline points="8 4 4 4 4 8"/>
+            <line x1="4" y1="4" x2="10" y2="10"/>
+          </svg>
+        </button>
+
+        <!-- Settings Button -->
+        <button id="btnSettingsToggle" class="icon-btn" title="Settings & Styling">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+
+        <!-- Minimize & Close -->
+        <button id="btnMinimize" class="icon-btn" title="Minimize">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+        <button id="btnClose" class="icon-btn close-btn" title="Exit">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Content Body -->
+    <main class="overlay-main">
+
+      <!-- Track Info Row (Album Art, Title, Artist, Playback Wave) -->
+      <div class="track-header">
+        <div class="art-container no-drag">
+          <div id="artWrapper" class="art-wrapper">
+            <img id="albumArt" class="album-art" src="" alt="Album Art">
+            <div id="albumPlaceholder" class="album-placeholder">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
+              </svg>
+            </div>
+          </div>
+          <!-- Playing status badge pulse -->
+          <span id="playingIndicator" class="playing-indicator"></span>
+        </div>
+
+        <div class="meta-container">
+          <div class="title-row">
+            <h2 id="trackTitle" class="track-title">Waiting for music...</h2>
+          </div>
+          <p id="trackArtist" class="track-artist">Spotify • Apple Music • Any Player</p>
+        </div>
+
+        <!-- Quick Media Controls (prev / play-pause / next) -->
+        <div class="media-controls no-drag">
+          <button id="btnPrev" class="media-btn" title="Previous Track">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+            </svg>
+          </button>
+          <button id="btnPlayPause" class="media-btn play-btn" title="Play / Pause">
+            <svg id="iconPlay" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            <svg id="iconPause" class="hidden" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            </svg>
+          </button>
+          <button id="btnNext" class="media-btn" title="Next Track">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+            </svg>
+          </button>
+
+          <!-- Retry & Search Lyrics in Pill / Collapsed View (revealed on hover with media controls) -->
+          <button id="btnPillRetry" class="media-btn pill-action-btn pill-retry-btn hidden" title="Retry fetching lyrics" aria-label="Retry lyrics">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+            </svg>
+          </button>
+          <button id="btnPillSearch" class="media-btn pill-action-btn pill-search-btn hidden" title="Search lyrics online" aria-label="Search lyrics">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+
+          <!-- Collapsed View Expandable More Menu (Three-Dots) -->
+          <div id="pillMoreContainer" class="pill-more-container" title="More Actions">
+            <div id="pillMoreActions" class="pill-more-actions">
+              <!-- Cycle Layout View -->
+              <button id="btnPillExpand" class="media-btn pill-sub-btn" title="Cycle Layout View (M)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                </svg>
+              </button>
+
+              <!-- Always on Top Pin -->
+              <button id="btnPillPin" class="media-btn pill-sub-btn active" title="Always on Top (P)">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="17" x2="12" y2="22"/>
+                  <path d="M5 17h14l-2-7V4h1V2H6v2h1v6L5 17z"/>
+                </svg>
+              </button>
+
+              <!-- Toggle Window Resizing -->
+              <button id="btnPillResize" class="media-btn pill-sub-btn" title="Toggle Window Resizing (R)">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 20 20 20 20 16"/>
+                  <line x1="14" y1="14" x2="20" y2="20"/>
+                  <polyline points="8 4 4 4 4 8"/>
+                  <line x1="4" y1="4" x2="10" y2="10"/>
+                </svg>
+              </button>
+
+              <!-- Click-Through Lock -->
+              <button id="btnPillLock" class="media-btn pill-sub-btn" title="Lock (Click-Through Mode, Ctrl+Shift+L)">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </button>
+
+              <!-- Settings & Styling -->
+              <button id="btnPillSettings" class="media-btn pill-sub-btn" title="Settings & Styling">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </button>
+
+              <span class="pill-divider"></span>
+
+              <!-- Minimize Window -->
+              <button id="btnPillMinimize" class="media-btn pill-sub-btn" title="Minimize">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+
+              <!-- Close App -->
+              <button id="btnPillClose" class="media-btn pill-sub-btn close-btn" title="Exit">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Three Dots Trigger Button -->
+            <button id="btnPillMore" class="media-btn pill-more-btn" aria-label="More actions" title="More Actions">
+              <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="2"/>
+                <circle cx="19" cy="12" r="2"/>
+                <circle cx="5" cy="12" r="2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pill View Single Lyric Line (Used in Pill Mode) -->
+      <div id="pillLyricContainer" class="pill-lyric-container">
+        <p id="pillLyricText" class="pill-lyric-text">Listening for playback</p>
+      </div>
+
+      <!-- Synced Lyrics Scroll Area (Used in Card & Expanded Modes) -->
+      <div id="lyricsScrollArea" class="lyrics-scroll-area">
+        <div id="lyricsList" class="lyrics-list">
+          <div class="lyric-line placeholder-line">Listening for playback...</div>
+        </div>
+      </div>
+
+      <!-- Timeline Progress Bar -->
+      <div class="progress-container no-drag">
+        <span id="timeCurrent" class="time-label">0:00</span>
+        <div id="progressBar" class="progress-bar-bg" role="slider" aria-label="Playback progress" tabindex="0" title="Click or pull to seek">
+          <div id="progressFill" class="progress-fill"></div>
+          <div id="progressThumb" class="progress-thumb"></div>
+        </div>
+        <span id="timeDuration" class="time-label">0:00</span>
+      </div>
+
+    </main>
+
+    <!-- Corner resize handle (interactive when resize mode is toggled ON) -->
+    <div id="resizeHandle" class="resize-handle no-drag" role="button" aria-label="Resize window" title="Drag to resize • Double-click to reset size">
+      <svg class="resize-grip-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <line x1="10" y1="2" x2="2" y2="10"/>
+        <line x1="10" y1="6" x2="6" y2="10"/>
+        <line x1="10" y1="10" x2="10" y2="10"/>
+      </svg>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>overLy Settings</title>
+  <link rel="stylesheet" href="settings.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="settings-window">
+    <!-- Draggable Custom Title Bar -->
+    <header class="settings-titlebar" id="settingsTitlebar">
+      <div class="title-left">
+        <svg class="icon-brand" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+        </svg>
+        <span class="title-text">overLy Settings</span>
+      </div>
+      <button id="btnCloseSettingsWindow" class="btn-close-window" title="Close Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="settings-content">
+
+      <!-- Window Layout View Mode -->
+      <section class="settings-section">
+        <div class="section-header">
+          <label>Window Layout View</label>
+        </div>
+        <div class="layout-mode-grid">
+          <button class="layout-mode-btn active" data-mode="card" title="Normal Card View (Art, Details, Lyrics, Progress)">
+            <span class="mode-name">Normal</span>
+            <span class="mode-sub">Card View</span>
+          </button>
+          <button class="layout-mode-btn" data-mode="collapsed" title="Compact Pill View">
+            <span class="mode-name">Collapsed</span>
+            <span class="mode-sub">Compact Pill</span>
+          </button>
+          <button class="layout-mode-btn" data-mode="lyrics" title="Only Show Lyrics (Floating Aesthetic Overlay)">
+            <span class="mode-name">Only Lyrics</span>
+            <span class="mode-sub">Pure Floating</span>
+          </button>
+          <button class="layout-mode-btn" data-mode="expanded" title="Full Height Lyrics Sheet">
+            <span class="mode-name">Expanded</span>
+            <span class="mode-sub">Full Sheet</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Accent Color Selection -->
+      <section class="settings-section">
+        <div class="section-header">
+          <label>Accent Color</label>
+          <span id="labelCurrentColor">#FF3040</span>
+        </div>
+        <div class="accent-palette">
+          <button class="color-swatch active" data-color="#FF3040" style="background: #FF3040;" title="Crimson Red"></button>
+          <button class="color-swatch" data-color="#FF6B4A" style="background: #FF6B4A;" title="Coral Orange"></button>
+          <button class="color-swatch" data-color="#E1306C" style="background: #E1306C;" title="Ins Magenta"></button>
+          <button class="color-swatch" data-color="#8A3AB9" style="background: #8A3AB9;" title="Deep Purple"></button>
+          <button class="color-swatch" data-color="#4F86F7" style="background: #4F86F7;" title="Electric Blue"></button>
+          <button class="color-swatch" data-color="#00C9A7" style="background: #00C9A7;" title="Mint Green"></button>
+          <button class="color-swatch" data-color="#FFFFFF" style="background: #FFFFFF;" title="Pure White"></button>
+          <div class="custom-color-wrapper" title="Custom Color">
+            <span class="custom-color-icon">+</span>
+            <input type="color" id="inputCustomColor" value="#FF3040">
+          </div>
+        </div>
+      </section>
+
+      <!-- Glass Opacity Slider -->
+      <section class="settings-section">
+        <div class="section-header">
+          <label>Glass Opacity</label>
+          <span id="opacityVal">85%</span>
+        </div>
+        <input type="range" id="sliderOpacity" min="15" max="100" value="85">
+        <p class="section-hint">Changes overlay background transparency without obscuring this settings window.</p>
+      </section>
+
+      <!-- Lyrics Font Size -->
+      <section class="settings-section">
+        <div class="section-header">
+          <label>Lyrics Font Size</label>
+          <span id="fontSizeVal">18px</span>
+        </div>
+        <input type="range" id="sliderFontSize" min="14" max="28" value="18">
+      </section>
+
+      <!-- Timing Sync Offset -->
+      <section class="settings-section">
+        <div class="section-header">
+          <label>Lyrics Timing Offset</label>
+          <span id="offsetVal">0.0s</span>
+        </div>
+        <div class="offset-controls">
+          <button id="btnOffsetMinus" class="sub-btn">-0.2s</button>
+          <input type="range" id="sliderOffset" min="-3" max="3" step="0.1" value="0" style="flex: 1;">
+          <button id="btnOffsetPlus" class="sub-btn">+0.2s</button>
+        </div>
+      </section>
+
+      <!-- Manual Lyric Search -->
+      <section class="settings-section">
+        <div class="section-header">
+          <label>Search Lyrics Manually</label>
+        </div>
+        <div class="search-box">
+          <input type="text" id="inputSearchTrack" placeholder="Title - Artist">
+          <button id="btnSearch" class="sub-btn highlight">Search</button>
+        </div>
+        <div id="searchFeedback" class="search-feedback"></div>
+      </section>
+
+      <!-- Shortcuts / Tips -->
+      <section class="settings-section shortcut-section">
+        <div class="shortcut-row">
+          <span>Toggle Window Resize</span>
+          <code>R</code>
+        </div>
+        <div class="shortcut-row">
+          <span>Cycle Layout Mode</span>
+          <code>M</code>
+        </div>
+        <div class="shortcut-row">
+          <span>Always on Top Pin</span>
+          <code>P</code>
+        </div>
+        <div class="shortcut-row">
+          <span>Click-Through Lock</span>
+          <code>Ctrl + Shift + L</code>
+        </div>
+        <div class="shortcut-row">
+          <span>Reset Window Size</span>
+          <code>Double-click Handle / R</code>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

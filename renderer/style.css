@@ -1,0 +1,1711 @@
+/* ==========================================================================
+   overLy - Modern Instagram Aesthetic Minimalist Floating Overlay
+   ========================================================================== */
+
+:root {
+  --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  
+  /* Dynamic Minimalist Ins Glass Tokens */
+  --accent: #FF3040;
+  --accent-contrast: #ffffff;
+  --accent-light: #ff8ea5;
+  --accent-glow: rgba(255, 48, 64, 0.35);
+  --accent-glow-subtle: rgba(255, 48, 64, 0.12);
+  --glass-opacity: 0.85;
+  --bg-glass: rgba(14, 16, 24, var(--glass-opacity));
+  --bg-glass-card: rgba(255, 255, 255, 0.08);
+  --border-glass: rgba(255, 255, 255, 0.12);
+  --border-focus: rgba(255, 255, 255, 0.3);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-muted: rgba(255, 255, 255, 0.35);
+  --shadow-overlay: none;
+  --aura-color1: rgba(255, 48, 64, 0.22);
+  --aura-color2: rgba(255, 48, 64, 0.10);
+  
+  --lyric-font-size: 18px;
+  --pill-radius: 9999px;
+  --card-radius: 24px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+body {
+  font-family: var(--font-family);
+  background: transparent;
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 34px 10px 10px 10px;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+/* Window drag surface & brand pill */
+.header-drag-zone,
+.brand-pill,
+.overlay-container {
+  user-select: none;
+  cursor: grab;
+}
+
+.brand-pill:active,
+.overlay-container:active,
+body.is-dragging,
+body.is-dragging * {
+  cursor: grabbing !important;
+}
+
+/* SVGs and text labels inside brand pill ignore pointer events */
+.brand-pill svg,
+.brand-pill .brand-name {
+  pointer-events: none;
+}
+
+/* Ensure SVG icons do not intercept or swallow clicks meant for buttons */
+button svg,
+.icon-btn svg,
+.media-btn svg,
+.icon {
+  pointer-events: none;
+}
+
+/* Ensure SVG icons do not intercept or swallow clicks meant for buttons */
+button svg,
+.icon-btn svg,
+.media-btn svg,
+.icon {
+  pointer-events: none;
+}
+
+/* Lock / Click-Through Floating Banner (Floats OUTSIDE above the overlay card) */
+.lock-toast {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(18, 20, 28, 0.92);
+  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: var(--text-primary);
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 10px var(--accent-glow);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  z-index: 10000;
+  cursor: pointer;
+  pointer-events: auto !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.lock-toast .lock-toast-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.lock-toast:hover {
+  background: rgba(28, 32, 44, 0.96);
+  border-color: var(--accent);
+  transform: translateX(-50%) scale(1.04);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.6), 0 0 16px var(--accent-glow);
+}
+
+.lock-toast u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  color: var(--accent);
+}
+
+.lock-toast.hidden {
+  display: none !important;
+}
+
+/* Dynamic Ambient Glow Behind Card */
+.ambient-aura {
+  display: none !important;
+  position: absolute;
+  top: 24px;
+  bottom: 0px;
+  left: 0px;
+  right: 0px;
+  background: radial-gradient(circle at 30% 40%, var(--aura-color1) 0%, transparent 60%),
+              radial-gradient(circle at 75% 65%, var(--aura-color2) 0%, transparent 65%);
+  filter: blur(40px);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.85;
+  transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, background;
+}
+
+/* Main Container (Not draggable itself to allow interactive children) */
+.overlay-container {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-glass);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border-radius: var(--card-radius);
+  box-shadow: none;
+  border: 1px solid var(--border-glass);
+  overflow: hidden;
+  transition: border-radius 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.4s ease,
+              padding 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.4s ease;
+}
+
+/* ==========================================================================
+   Header Bar (Handle & Window Actions)
+   ========================================================================== */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateY(-8px);
+  transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              padding 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              margin 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.overlay-container:hover .top-bar,
+.overlay-container.is-hovered .top-bar,
+body.is-dragging .top-bar {
+  max-height: 38px;
+  opacity: 1;
+  padding: 8px 14px 2px 14px;
+  margin-bottom: 2px;
+  overflow: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.header-drag-zone {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.drag-btn {
+  cursor: grab !important;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-glass);
+  background: var(--bg-glass-card);
+}
+
+.drag-btn:active {
+  cursor: grabbing !important;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.drag-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+}
+
+.brand-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  cursor: grab;
+}
+
+.brand-pill:active {
+  cursor: grabbing;
+}
+
+.icon-brand {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+}
+
+.window-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+.icon-btn.active {
+  color: var(--accent);
+  background: var(--bg-glass-card);
+}
+
+.icon-btn.close-btn:hover {
+  background: rgba(255, 75, 75, 0.25);
+  color: #ff5555;
+}
+
+.icon-btn svg, .icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* ==========================================================================
+   Main Content Area
+   ========================================================================== */
+.overlay-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 18px 14px 18px;
+  min-height: 0;
+}
+
+/* Track Header: Artwork, Title, Artist, Controls */
+.track-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.art-container {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.art-wrapper {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-glass-card);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-glass);
+  position: relative;
+}
+
+.album-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+}
+
+.album-art.visible {
+  display: block;
+}
+
+.album-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.album-placeholder svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Playing status dot */
+.playing-indicator {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-glass);
+  box-shadow: 0 0 8px var(--accent-glow);
+  display: none;
+}
+
+.playing-indicator.active {
+  display: block;
+  animation: pulseBadge 2s infinite;
+}
+
+@keyframes pulseBadge {
+  0% { transform: scale(0.9); opacity: 0.9; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.9; }
+}
+
+.meta-container {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+}
+
+.track-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.track-artist {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+/* Media Controls on Header - Collapses smoothly when not hovered */
+.media-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: scale(0.88);
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              max-width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.overlay-container:hover .media-controls,
+.overlay-container.is-hovered .media-controls {
+  opacity: 1;
+  max-width: 140px;
+  overflow: visible;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.media-btn {
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.2s ease,
+              border-color 0.2s ease,
+              box-shadow 0.25s ease;
+}
+
+.media-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(1.12);
+}
+
+.media-btn:active {
+  transform: scale(0.92);
+}
+
+.media-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.media-btn.play-btn {
+  width: 32px;
+  height: 32px;
+  background: var(--accent);
+  color: var(--accent-contrast, #ffffff);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 14px var(--accent-glow);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.2s ease,
+              box-shadow 0.25s ease;
+}
+
+.media-btn.play-btn svg {
+  fill: var(--accent-contrast, #ffffff);
+  color: var(--accent-contrast, #ffffff);
+}
+
+.media-btn.play-btn:hover {
+  transform: scale(1.12);
+  box-shadow: 0 6px 20px var(--accent-glow);
+}
+
+.media-btn.play-btn:active {
+  transform: scale(0.94);
+}
+
+/* ==========================================================================
+   Collapsed View Expandable More Menu (Three-Dots Pill)
+   ========================================================================== */
+.pill-more-container {
+  display: none;
+  position: relative;
+  align-items: center;
+}
+
+body.mode-pill .pill-more-container,
+body.mode-collapsed .pill-more-container {
+  display: flex;
+}
+
+.pill-more-btn {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.pill-more-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.pill-more-btn:hover,
+.pill-more-container:hover .pill-more-btn,
+.pill-more-container.open .pill-more-btn {
+  color: var(--accent);
+  background: var(--bg-glass-card);
+  border-color: var(--border-focus);
+  transform: none !important;
+}
+
+.pill-more-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(16, 18, 26, 0.94);
+  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border-radius: 999px;
+  padding: 0;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 10px var(--accent-glow-subtle);
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: scale(0.96);
+  transform-origin: right center;
+  transition: max-width 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              margin 0.2s ease,
+              padding 0.2s ease,
+              border-color 0.2s ease;
+  margin-right: 0;
+  border-color: transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pill-more-container:hover .pill-more-actions,
+.pill-more-container.open .pill-more-actions,
+.overlay-container.pill-more-open .pill-more-actions {
+  max-width: 270px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+  margin-right: 4px;
+  padding: 2px 4px;
+  border-color: var(--border-glass);
+}
+
+.media-btn.pill-sub-btn {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.media-btn.pill-sub-btn svg {
+  width: 12.5px;
+  height: 12.5px;
+}
+
+.media-btn.pill-sub-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+  transform: scale(1.12);
+}
+
+.media-btn.pill-sub-btn.active {
+  color: var(--accent);
+  background: var(--bg-glass-card);
+  box-shadow: 0 0 8px var(--accent-glow-subtle);
+}
+
+.media-btn.pill-sub-btn.close-btn:hover {
+  background: rgba(255, 75, 75, 0.25);
+  color: #ff5555;
+}
+
+.pill-divider {
+  width: 1px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.media-btn.active {
+  color: var(--accent);
+  background: var(--bg-glass-card);
+  border-color: var(--border-focus);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Lyrics Scroll Area (Card & Expanded Modes)
+   ========================================================================== */
+.lyrics-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin: 6px 0 10px 0;
+  position: relative;
+  scrollbar-width: none; /* Hide scrollbar for ultra sleek look */
+  mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%);
+}
+
+.lyrics-scroll-area::-webkit-scrollbar {
+  display: none;
+}
+
+.lyrics-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 100%;
+  box-sizing: border-box;
+  padding: 40px 10px 60px 10px;
+  gap: 10px;
+}
+
+.lyric-line {
+  font-size: var(--lyric-font-size);
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--text-primary);
+  opacity: 0.30;
+  transform: scale(0.95) translateY(0px);
+  filter: blur(0.5px);
+  cursor: pointer;
+  transition: opacity 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              color 0.4s ease,
+              text-shadow 0.5s ease;
+  width: 100%;
+  max-width: 95%;
+  margin: 0 auto;
+  word-break: break-word;
+  box-sizing: border-box;
+  will-change: transform, opacity, filter;
+}
+
+.lyric-line.active {
+  opacity: 1;
+  font-weight: 600;
+  transform: scale(1.05) translateY(0px);
+  filter: blur(0);
+  color: var(--text-primary);
+  text-shadow: 0 0 20px var(--accent-glow), 0 0 40px var(--accent-glow-subtle, var(--accent-glow));
+}
+
+.lyric-line.near-active {
+  opacity: 0.58;
+  filter: blur(0.2px);
+  transform: scale(0.98) translateY(0px);
+  color: var(--text-primary);
+}
+
+.lyric-line:hover:not(.active) {
+  opacity: 0.75;
+  filter: blur(0);
+  transform: scale(0.99);
+}
+
+.lyric-line.placeholder-line {
+  opacity: 0.5;
+  font-style: italic;
+  font-size: 15px;
+}
+
+/* ==========================================================================
+   Pill View Lyric Container (Active only in Pill Mode)
+   ========================================================================== */
+.pill-lyric-container {
+  display: none;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 8px;
+  gap: 8px;
+}
+
+.pill-lyric-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  text-align: center;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  text-shadow: 0 0 12px var(--accent-glow);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pill-lyrics-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.pill-lyrics-badge.hidden {
+  display: none !important;
+}
+
+.pill-searching-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.pill-searching-indicator.hidden {
+  display: none !important;
+}
+
+.pill-searching-indicator .searching-spin-icon {
+  width: 13px;
+  height: 13px;
+  animation: spinSearch 0.9s linear infinite;
+}
+
+.pill-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pill-action-btn:hover {
+  background: var(--accent);
+  color: var(--accent-contrast, #ffffff);
+  border-color: var(--accent);
+  transform: scale(1.12);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.pill-action-btn:active {
+  transform: scale(0.92);
+}
+
+.pill-action-btn svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
+.pill-action-btn.spinning svg,
+.no-lyrics-btn.retry-btn.spinning svg {
+  animation: spinRetry 0.75s linear infinite;
+}
+
+@keyframes spinRetry {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.pill-action-btn.hidden {
+  display: none !important;
+}
+
+body:not(.mode-pill):not(.mode-collapsed) .media-controls .pill-action-btn {
+  display: none !important;
+}
+
+.pill-lyric-text.anim-change {
+  animation: pillLyricPop 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pillLyricPop {
+  0% {
+    opacity: 0.2;
+    transform: translateY(3px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeInLyric {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+   Timeline Progress Bar - Hairline by default, reveals on hover
+   ========================================================================== */
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.45;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  padding-top: 2px;
+  user-select: none;
+}
+
+.overlay-container:hover .progress-container,
+.progress-container:has(.is-dragging),
+.progress-container.is-dragging,
+.progress-container.active-hover {
+  opacity: 1;
+}
+
+.time-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  max-width: 0;
+  min-width: 0;
+  overflow: hidden;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              min-width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.overlay-container:hover .time-label,
+.progress-container.is-dragging .time-label,
+.progress-container:has(.is-dragging) .time-label {
+  opacity: 1;
+  max-width: 36px;
+  min-width: 28px;
+}
+
+.progress-bar-bg {
+  flex: 1;
+  height: 2.5px;
+  background: var(--border-glass);
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  touch-action: none;
+  transition: height 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.25s ease;
+}
+
+/* Expanded invisible hit-box so it's effortless to grab and pull */
+.progress-bar-bg::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  bottom: -10px;
+  left: 0;
+  right: 0;
+  z-index: 1;
+}
+
+.progress-bar-bg:hover,
+.progress-bar-bg.is-dragging {
+  height: 7px;
+  background: rgba(255, 255, 255, 0.22);
+  cursor: grab;
+}
+
+.progress-bar-bg.is-dragging {
+  cursor: grabbing !important;
+}
+
+.progress-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light, var(--accent)));
+  border-radius: 999px;
+  transition: width 0.15s cubic-bezier(0.25, 1, 0.5, 1);
+  pointer-events: none;
+}
+
+.progress-bar-bg.is-dragging .progress-fill {
+  transition: none !important;
+}
+
+/* Draggable thumb scrubber */
+.progress-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 10px var(--accent-glow), 0 2px 4px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%) scale(0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s ease;
+  z-index: 2;
+}
+
+.progress-bar-bg:hover .progress-thumb,
+.progress-bar-bg.is-dragging .progress-thumb {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.progress-bar-bg.is-dragging .progress-thumb {
+  transform: translate(-50%, -50%) scale(1.25);
+  box-shadow: 0 0 14px var(--accent), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* ==========================================================================
+   Mode Adaptations: Normal (Card), Collapsed (Pill), Only Show Lyrics, Expanded
+   ========================================================================== */
+
+/* Mode: Dynamic Island / Collapsed Pill */
+body.mode-pill .overlay-container,
+body.mode-collapsed .overlay-container {
+  border-radius: var(--pill-radius);
+  padding: 4px 10px;
+  border: none !important;
+  box-shadow: none;
+}
+
+/* Collapsed Pill Rounded Border Progress Bar (View-Only Perimeter Indicator) */
+.pill-border-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none !important;
+  z-index: 4;
+  display: none;
+  overflow: hidden;
+}
+
+body.mode-pill .pill-border-progress,
+body.mode-collapsed .pill-border-progress {
+  display: block;
+}
+
+.pill-border-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 2px;
+  pointer-events: none !important;
+}
+
+.pill-border-bar {
+  fill: none;
+  stroke: url(#pillProgressGrad);
+  stroke-width: 2px;
+  stroke-linecap: round;
+  pointer-events: none !important;
+  filter: none;
+  transition: stroke-dashoffset 0.18s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s ease;
+  will-change: stroke-dashoffset, opacity;
+}
+
+body.mode-pill .top-bar,
+body.mode-collapsed .top-bar {
+  display: none !important; /* Collapsed Pill is super compact */
+}
+
+body.mode-pill .overlay-main,
+body.mode-collapsed .overlay-main {
+  height: 100%;
+  padding: 4px 10px;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+body.mode-pill .track-header,
+body.mode-collapsed .track-header {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  margin-bottom: 0;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+body.mode-pill .art-container,
+body.mode-collapsed .art-container {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.22s;
+}
+
+body.mode-pill .art-wrapper,
+body.mode-collapsed .art-wrapper {
+  border-radius: 50%;
+}
+
+body.mode-pill .meta-container,
+body.mode-collapsed .meta-container {
+  display: none !important;
+}
+
+body.mode-pill .lyrics-scroll-area,
+body.mode-collapsed .lyrics-scroll-area {
+  display: none !important;
+}
+
+body.mode-pill .progress-container,
+body.mode-collapsed .progress-container {
+  display: none !important;
+}
+
+body.mode-pill .pill-lyric-container,
+body.mode-collapsed .pill-lyric-container {
+  height: 100%;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+  gap: 8px;
+  cursor: grab;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              padding-right 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.2s;
+}
+
+body.mode-pill .overlay-container:hover .pill-lyric-container,
+body.mode-collapsed .overlay-container:hover .pill-lyric-container {
+  padding-right: 148px;
+}
+
+body.mode-pill.no-lyrics-collapsed .overlay-container:hover .pill-lyric-container,
+body.mode-collapsed.no-lyrics-collapsed .overlay-container:hover .pill-lyric-container {
+  padding-right: 215px;
+}
+
+/* ==========================================================================
+   When Collapsed More Menu is Opened Up: Hide Lyrics & Album Icon Completely!
+   ========================================================================== */
+body.mode-pill .overlay-container:has(.pill-more-container:hover) .art-container,
+body.mode-pill .overlay-container:has(.pill-more-container.open) .art-container,
+body.mode-pill .overlay-container.pill-more-open .art-container,
+body.mode-collapsed .overlay-container:has(.pill-more-container:hover) .art-container,
+body.mode-collapsed .overlay-container:has(.pill-more-container.open) .art-container,
+body.mode-collapsed .overlay-container.pill-more-open .art-container {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  transform: scale(0.6) translateX(-15px) !important;
+}
+
+body.mode-pill .overlay-container:has(.pill-more-container:hover) .pill-lyric-container,
+body.mode-pill .overlay-container:has(.pill-more-container.open) .pill-lyric-container,
+body.mode-pill .overlay-container.pill-more-open .pill-lyric-container,
+body.mode-collapsed .overlay-container:has(.pill-more-container:hover) .pill-lyric-container,
+body.mode-collapsed .overlay-container:has(.pill-more-container.open) .pill-lyric-container,
+body.mode-collapsed .overlay-container.pill-more-open .pill-lyric-container {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  transform: scale(0.8) !important;
+}
+
+body.mode-pill .pill-lyric-text,
+body.mode-collapsed .pill-lyric-text {
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+body.mode-pill .pill-drag-btn,
+body.mode-collapsed .pill-drag-btn {
+  display: none !important;
+}
+
+body.mode-pill .media-controls,
+body.mode-collapsed .media-controls {
+  position: absolute;
+  right: 10px;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  opacity: 0;
+  pointer-events: none;
+  max-width: none !important;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+body.mode-pill .overlay-container:hover .media-controls,
+body.mode-pill .overlay-container.is-hovered .media-controls,
+body.mode-collapsed .overlay-container:hover .media-controls,
+body.mode-collapsed .overlay-container.is-hovered .media-controls {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+body.mode-pill .media-controls .media-btn,
+body.mode-collapsed .media-controls .media-btn {
+  flex-shrink: 0;
+}
+
+/* Mode: Only Show Lyrics (Pure Floating Synced Lyrics View) */
+body.mode-lyrics .overlay-container {
+  border-radius: 20px;
+  padding: 6px 14px 10px 14px;
+}
+
+body.mode-lyrics .overlay-main {
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+body.mode-lyrics .track-header {
+  display: none !important;
+}
+
+body.mode-lyrics .progress-container {
+  display: none !important;
+}
+
+body.mode-lyrics .pill-lyric-container {
+  display: none !important;
+}
+
+body.mode-lyrics .lyrics-scroll-area {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start;
+  width: 100% !important;
+  flex: 1;
+  height: 100%;
+  margin: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+
+body.mode-lyrics .lyrics-list {
+  width: 100% !important;
+  min-width: 100% !important;
+  box-sizing: border-box;
+  padding: 16px 10px 24px 10px;
+  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Mode: Normal / Card */
+body.mode-card .pill-lyric-container,
+body.mode-normal .pill-lyric-container {
+  display: none !important;
+}
+
+/* Mode: Expanded */
+body.mode-expanded .pill-lyric-container {
+  display: none !important;
+}
+
+body.mode-expanded .lyrics-scroll-area {
+  margin-top: 10px;
+}
+
+/* ==========================================================================
+   Settings Drawer (Frosted Glass Flyout)
+   ========================================================================== */
+.settings-drawer {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-glass);
+  backdrop-filter: blur(36px);
+  -webkit-backdrop-filter: blur(36px);
+  z-index: 10;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  animation: slideDrawer 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDrawer {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.drawer-header h3 {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setting-item label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.setting-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setting-label-row span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* Minimalist Accent Palette */
+.accent-palette {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  padding: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.color-swatch.active {
+  transform: scale(1.15);
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.custom-color-wrapper {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px dashed var(--border-focus);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.custom-color-wrapper:hover {
+  border-color: var(--accent);
+  transform: scale(1.1);
+}
+
+.custom-color-wrapper input[type="color"] {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 32px;
+  height: 32px;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+}
+
+.custom-color-icon {
+  font-size: 13px;
+  color: var(--text-secondary);
+  pointer-events: none;
+  line-height: 1;
+}
+
+/* Range input styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--border-glass);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+.offset-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sub-btn {
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sub-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.sub-btn.highlight {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+}
+
+.search-box {
+  display: flex;
+  gap: 6px;
+}
+
+.search-box input {
+  flex: 1;
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.search-box input:focus {
+  border-color: var(--accent);
+}
+
+.setting-hint {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.setting-hint code {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Window Resize Mode & Corner Handle (Toggled via Resize Button)
+   ========================================================================== */
+.overlay-container.resize-mode-active {
+  box-shadow: 0 0 0 1px var(--accent), 0 0 16px var(--accent-glow-subtle);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.resize-handle {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 26px;
+  height: 26px;
+  cursor: nwse-resize;
+  z-index: 100;
+  display: none;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 4px;
+  opacity: 0.75;
+  color: var(--accent);
+  transition: opacity 0.2s ease, transform 0.15s ease, color 0.2s ease;
+  touch-action: none;
+  user-select: none;
+}
+
+.overlay-container.resize-mode-active .resize-handle {
+  display: flex;
+}
+
+.resize-handle:hover {
+  opacity: 1;
+  transform: scale(1.18);
+  color: var(--accent-light, var(--accent));
+}
+
+.resize-handle:active {
+  transform: scale(0.92);
+}
+
+.resize-grip-icon {
+  width: 13px;
+  height: 13px;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+}
+
+body.is-resizing,
+body.is-resizing * {
+  cursor: nwse-resize !important;
+  user-select: none !important;
+}
+
+/* ==========================================================================
+   Informative & Interactive Empty Lyrics State (Compact & Sleek)
+   ========================================================================== */
+.no-lyrics-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 999px;
+  animation: fadeInLyric 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  width: fit-content;
+  max-width: 85%;
+  margin: 0 auto;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  font-size: 10px;
+}
+
+.no-lyrics-searching {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.searching-spin-icon {
+  width: 11px;
+  height: 11px;
+  animation: spinSearch 0.9s linear infinite;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+@keyframes spinSearch {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.no-lyrics-status {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.no-lyrics-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.no-lyrics-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.2s ease;
+}
+
+.no-lyrics-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: var(--border-focus);
+  color: #ffffff;
+}
+
+.no-lyrics-btn.search-btn {
+  background: var(--accent);
+  color: var(--accent-contrast, #ffffff);
+  border-color: transparent;
+}
+
+.no-lyrics-btn.search-btn:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.no-lyrics-btn svg {
+  width: 9px;
+  height: 9px;
+}
+
+/* Adaptations when no lyrics are available (Card Mode) */
+body.mode-card.no-lyrics-collapsed .overlay-main,
+body.mode-normal.no-lyrics-collapsed .overlay-main {
+  padding: 14px 18px !important;
+  justify-content: space-between;
+  min-height: 0;
+  gap: 10px;
+}
+
+body.mode-card.no-lyrics-collapsed .lyrics-scroll-area,
+body.mode-normal.no-lyrics-collapsed .lyrics-scroll-area {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 1 !important;
+  margin: 4px 0 !important;
+  overflow: hidden !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+  height: auto !important;
+}
+
+body.no-lyrics-collapsed .lyrics-list {
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100%;
+}
+
+/* In pill / collapsed mode: NEVER display lyrics-scroll-area or empty card! Strictly keep pill layout */
+body.mode-pill .lyrics-scroll-area,
+body.mode-collapsed .lyrics-scroll-area,
+body.mode-pill.no-lyrics-collapsed .lyrics-scroll-area,
+body.mode-collapsed.no-lyrics-collapsed .lyrics-scroll-area {
+  display: none !important;
+}
+
+body.mode-pill.no-lyrics-collapsed .overlay-main,
+body.mode-collapsed.no-lyrics-collapsed .overlay-main {
+  height: 100% !important;
+  padding: 4px 10px !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  position: relative !important;
+  justify-content: flex-start !important;
+}
+
+/* In pill / collapsed mode: Hide pill action buttons (retry/search) only when 3-dots more tools drawer is opened */
+body.mode-pill .overlay-container.pill-more-open .pill-action-btn,
+body.mode-pill .overlay-container:has(.pill-more-container:hover) .pill-action-btn,
+body.mode-pill .overlay-container:has(.pill-more-container.open) .pill-action-btn,
+body.mode-collapsed .overlay-container.pill-more-open .pill-action-btn,
+body.mode-collapsed .overlay-container:has(.pill-more-container:hover) .pill-action-btn,
+body.mode-collapsed .overlay-container:has(.pill-more-container.open) .pill-action-btn {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* In lyrics mode: always keep clean lyrics-only aesthetics */
+body.mode-lyrics .track-header,
+body.mode-lyrics.no-lyrics-collapsed .track-header {
+  display: none !important;
+}
+
+body.mode-lyrics .media-controls,
+body.mode-lyrics.no-lyrics-collapsed .media-controls {
+  display: none !important;
+}
+
+body.mode-lyrics.no-lyrics-collapsed .overlay-main {
+  padding: 10px 14px !important;
+  justify-content: center;
+  gap: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+body.mode-lyrics.no-lyrics-collapsed .lyrics-scroll-area {
+  margin: 0 !important;
+  width: 100% !important;
+  flex: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
