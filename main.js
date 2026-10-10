@@ -46,7 +46,7 @@ function loadSettings() {
     bounds: null,
     alwaysOnTop: true,
     startOnBoot: false,
-    theme: 'light' // 'light' | 'dark' | 'system'
+    theme: 'system' // 'system' | 'dark' | 'light'
   };
 }
 
@@ -70,7 +70,7 @@ function createTrayIcon() {
 
 function createWindow() {
   const settings = loadSettings();
-  applyTheme(settings.theme || 'light');
+  applyTheme(settings.theme || 'system');
   if (typeof settings.startOnBoot === 'boolean') {
     app.setLoginItemSettings({
       openAtLogin: settings.startOnBoot,
@@ -746,7 +746,7 @@ ipcMain.on('set-startup', (_event, enabled) => {
 
 ipcMain.handle('get-theme', () => {
   const s = loadSettings();
-  const setting = s.theme || 'light';
+  const setting = s.theme || 'system';
   const effective = (setting === 'dark' || setting === 'light')
     ? setting
     : (nativeTheme.shouldUseDarkColors ? 'dark' : 'light');

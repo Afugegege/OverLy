@@ -19,8 +19,8 @@ const state = {
   // App preferences
   mode: 'card', // 'pill' | 'card' | 'expanded'
   lastNonCardMode: 'collapsed',
-  theme: 'light', // 'light' | 'dark' | 'system'
-  effectiveTheme: 'light',
+  theme: 'system', // 'system' | 'dark' | 'light'
+  effectiveTheme: (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark',
   accentColor: '#FF3040',
   opacity: 0.85,
   fontSize: 18,
@@ -221,7 +221,7 @@ function applyTheme(themeData) {
     setting === 'light' ? 'light' : setting === 'dark' ? 'dark' : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
   );
 
-  state.theme = setting || 'light';
+  state.theme = setting || 'system';
   state.effectiveTheme = effective;
 
   document.body.classList.toggle('theme-light', effective === 'light');
