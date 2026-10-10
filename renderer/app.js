@@ -105,6 +105,7 @@ const pillBorderRect = document.getElementById('pillBorderRect');
 let isDraggingProgress = false;
 let lastSeekTime = 0;
 let pendingLyricSeekTimer = null;
+let dragJustEndedTime = 0;
 
 // Optimistic play/pause state & debounce
 let optimisticStatus = null;
@@ -558,6 +559,9 @@ function setupEventListeners() {
   }
 
   function handleMinimizedPlayAndExpand(e) {
+    if (Date.now() - dragJustEndedTime < 220) {
+      return;
+    }
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -810,6 +814,7 @@ function setupWindowDrag(element) {
 
     const onPointerUp = (ev) => {
       if (isMoving) {
+        dragJustEndedTime = Date.now();
         try {
           element.releasePointerCapture(ev.pointerId);
         } catch {}
