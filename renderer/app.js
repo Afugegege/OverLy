@@ -97,6 +97,7 @@ const pillBorderRect = document.getElementById('pillBorderRect');
 // Dragging & seeking state
 let isDraggingProgress = false;
 let lastSeekTime = 0;
+let pendingLyricSeekTimer = null;
 
 // Corner Resize Handle
 const resizeHandle = document.getElementById('resizeHandle');
@@ -449,8 +450,21 @@ function setupEventListeners() {
     }
   });
 
+  // Cancel any lyric seek on double click everywhere
+  window.addEventListener('dblclick', () => {
+    if (pendingLyricSeekTimer) {
+      clearTimeout(pendingLyricSeekTimer);
+      pendingLyricSeekTimer = null;
+    }
+  }, true);
+
   // Double-click anywhere outside interactive controls to toggle layout window
   overlayContainer?.addEventListener('dblclick', (e) => {
+    if (pendingLyricSeekTimer) {
+      clearTimeout(pendingLyricSeekTimer);
+      pendingLyricSeekTimer = null;
+    }
+
     // If double-clicked on interactive buttons, inputs, seek bar, or menu controls, ignore
     const interactive = e.target.closest(
       'button, input, select, textarea, .media-btn, .icon-btn, .pill-action-btn, ' +
@@ -1221,14 +1235,30 @@ function renderLyricsList() {
       el.className = 'lyric-line';
       el.textContent = line.text;
       el.dataset.index = idx;
-      el.addEventListener('click', () => {
-        if (typeof line.time === 'number' && state.duration > 0 && window.overlyAPI?.seekTo) {
-          window.overlyAPI.seekTo(line.time);
-          state.position = line.time;
-          state.lastPositionTime = Date.now();
-          lastSeekTime = Date.now();
+      el.addEventListener('click', (e) => {
+        // If clicking as part of a double-click gesture (e.detail > 1), don't trigger lyric seek
+        if (e.detail > 1) {
+          if (pendingLyricSeekTimer) {
+            clearTimeout(pendingLyricSeekTimer);
+            pendingLyricSeekTimer = null;
+          }
+          return;
         }
-        setActiveLyric(idx, true);
+
+        if (pendingLyricSeekTimer) {
+          clearTimeout(pendingLyricSeekTimer);
+        }
+
+        pendingLyricSeekTimer = setTimeout(() => {
+          if (typeof line.time === 'number' && state.duration > 0 && window.overlyAPI?.seekTo) {
+            window.overlyAPI.seekTo(line.time);
+            state.position = line.time;
+            state.lastPositionTime = Date.now();
+            lastSeekTime = Date.now();
+          }
+          setActiveLyric(idx, true);
+          pendingLyricSeekTimer = null;
+        }, 240);
       });
       lyricsList.appendChild(el);
     });
