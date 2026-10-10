@@ -269,8 +269,15 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .sub-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: var(--border-focus);
+  background: var(--accent-glow-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sub-btn:active {
+  background: var(--accent);
+  color: var(--accent-contrast, #ffffff);
+  border-color: var(--accent);
 }
 
 .sub-btn.highlight {
@@ -280,7 +287,13 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .sub-btn.highlight:hover {
-  opacity: 0.9;
+  filter: brightness(1.1);
+  box-shadow: 0 2px 10px var(--accent-glow);
+}
+
+.sub-btn.highlight:active {
+  filter: brightness(1.05);
+  transform: scale(0.96);
 }
 
 /* Search Box */
@@ -360,15 +373,22 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .layout-mode-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--accent-glow-subtle);
+  border-color: var(--accent);
   transform: translateY(-1px);
 }
 
-.layout-mode-btn.active {
-  background: rgba(255, 255, 255, 0.12);
+.layout-mode-btn:active {
+  background: var(--accent);
   border-color: var(--accent);
-  box-shadow: 0 0 12px var(--accent-glow);
+  color: var(--accent-contrast, #ffffff);
+}
+
+.layout-mode-btn.active {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent-contrast, #ffffff) !important;
+  box-shadow: 0 4px 14px var(--accent-glow) !important;
 }
 
 .layout-mode-btn .mode-name {
@@ -378,12 +398,17 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .layout-mode-btn.active .mode-name {
-  color: var(--accent);
+  color: var(--accent-contrast, #ffffff) !important;
 }
 
 .layout-mode-btn .mode-sub {
   font-size: 10px;
   color: var(--text-muted);
+}
+
+.layout-mode-btn.active .mode-sub {
+  color: var(--accent-contrast, #ffffff) !important;
+  opacity: 0.88;
 }
 
 /* Theme Mode Selector */
@@ -512,13 +537,28 @@ body.theme-light .layout-mode-btn {
 }
 
 body.theme-light .layout-mode-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.22);
+  background: var(--accent-glow-subtle);
+  border-color: var(--accent);
+}
+
+body.theme-light .layout-mode-btn:active {
+  background: var(--accent);
+  color: var(--accent-contrast, #ffffff);
 }
 
 body.theme-light .layout-mode-btn.active {
-  background: rgba(0, 0, 0, 0.08);
-  border-color: var(--accent);
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 4px 14px var(--accent-glow) !important;
+}
+
+body.theme-light .layout-mode-btn.active .mode-name {
+  color: var(--accent-contrast, #ffffff) !important;
+}
+
+body.theme-light .layout-mode-btn.active .mode-sub {
+  color: var(--accent-contrast, #ffffff) !important;
+  opacity: 0.88;
 }
 
 body.theme-light .theme-mode-btn {
@@ -528,9 +568,9 @@ body.theme-light .theme-mode-btn {
 }
 
 body.theme-light .theme-mode-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.22);
-  color: #000000;
+  background: var(--accent-glow-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 body.theme-light .sub-btn {
@@ -540,9 +580,15 @@ body.theme-light .sub-btn {
 }
 
 body.theme-light .sub-btn:hover {
-  background: rgba(0, 0, 0, 0.10);
-  border-color: rgba(0, 0, 0, 0.24);
-  color: #000000;
+  background: var(--accent-glow-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+body.theme-light .sub-btn:active {
+  background: var(--accent);
+  color: var(--accent-contrast, #ffffff);
+  border-color: var(--accent);
 }
 
 body.theme-light .btn-close-window {
@@ -581,4 +627,76 @@ body.theme-light .shortcut-section {
 body.theme-light .shortcut-row code {
   background: rgba(0, 0, 0, 0.08);
   color: var(--accent-text, var(--accent));
+}
+
+/* App Management / Uninstall */
+.uninstall-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.uninstall-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.uninstall-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.btn-uninstall {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 68, 68, 0.12);
+  border: 1px solid rgba(255, 68, 68, 0.35);
+  color: #ff5555;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.btn-uninstall:hover {
+  background: rgba(255, 68, 68, 0.22);
+  border-color: #ff5555;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 68, 68, 0.25);
+}
+
+.btn-uninstall:active {
+  background: #ff4444;
+  color: #ffffff;
+  transform: scale(0.96);
+}
+
+.uninstall-icon {
+  width: 13px;
+  height: 13px;
+}
+
+body.theme-light .btn-uninstall {
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+}
+
+body.theme-light .btn-uninstall:hover {
+  background: rgba(220, 38, 38, 0.16);
+  border-color: #dc2626;
+}
+
+body.theme-light .btn-uninstall:active {
+  background: #dc2626;
+  color: #ffffff;
 }

@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu, nativeImage, screen, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu, nativeImage, screen, nativeTheme, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const smtcService = require('./smtc-service');
 const lyricsService = require('./lyrics-service');
 
@@ -45,7 +46,7 @@ function loadSettings() {
     bounds: null,
     alwaysOnTop: true,
     startOnBoot: false,
-    theme: 'system' // 'system' | 'dark' | 'light'
+    theme: 'light' // 'light' | 'dark' | 'system'
   };
 }
 
@@ -69,7 +70,7 @@ function createTrayIcon() {
 
 function createWindow() {
   const settings = loadSettings();
-  applyTheme(settings.theme || 'system');
+  applyTheme(settings.theme || 'light');
   if (typeof settings.startOnBoot === 'boolean') {
     app.setLoginItemSettings({
       openAtLogin: settings.startOnBoot,
@@ -266,6 +267,10 @@ function updateTray() {
       }
     },
     { type: 'separator' },
+    {
+      label: 'Uninstall overLy...',
+      click: () => handleUninstall()
+    },
     {
       label: 'Exit overLy',
       click: () => {
@@ -741,8 +746,10 @@ ipcMain.on('set-startup', (_event, enabled) => {
 
 ipcMain.handle('get-theme', () => {
   const s = loadSettings();
-  const setting = s.theme || 'system';
-  const effective = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+  const setting = s.theme || 'light';
+  const effective = (setting === 'dark' || setting === 'light')
+    ? setting
+    : (nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
   return { setting, effective };
 });
 
@@ -751,12 +758,14 @@ ipcMain.on('set-theme', (_event, theme) => {
   const s = loadSettings();
   s.theme = theme;
   saveSettings(s);
-  const effective = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+  const effective = (theme === 'dark' || theme === 'light')
+    ? theme
+    : (nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('theme-changed', { setting: theme, effective });
   }
   if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.webContents.send('theme-changed', { setting: theme, effective });
+    mainWindow.webContents.send('theme-changed', { setting: theme, effective });
   }
 });
 
@@ -854,6 +863,57 @@ ipcMain.on('window-minimize', () => {
 
 ipcMain.on('app-close', () => {
   app.quit();
+});
+
+function handleUninstall() {
+  const exeDir = path.dirname(app.getPath('exe'));
+  const candidateUninstallerNames = [
+    'Uninstall overLy.exe',
+    'Uninstall.exe',
+    'uninstall.exe'
+  ];
+
+  let uninstallerPath = null;
+  for (const name of candidateUninstallerNames) {
+    const candidate = path.join(exeDir, name);
+    if (fs.existsSync(candidate)) {
+      uninstallerPath = candidate;
+      break;
+    }
+  }
+
+  if (uninstallerPath) {
+    try {
+      spawn(uninstallerPath, [], { detached: true, stdio: 'ignore' }).unref();
+      setTimeout(() => {
+        app.quit();
+      }, 300);
+      return;
+    } catch (e) {
+      console.error('Failed to launch uninstaller:', e);
+    }
+  }
+
+  // Fallback for development/portable mode or if direct exe is missing
+  dialog.showMessageBox({
+    type: 'question',
+    title: 'Uninstall overLy',
+    message: 'To uninstall overLy from Windows:',
+    detail: 'Would you like to open Windows Installed Apps or the application folder to run the uninstaller?',
+    buttons: ['Open Windows Installed Apps', 'Open App Folder', 'Cancel'],
+    defaultId: 0,
+    cancelId: 2
+  }).then(({ response }) => {
+    if (response === 0) {
+      shell.openExternal('ms-settings:appsfeatures');
+    } else if (response === 1) {
+      shell.showItemInFolder(app.getPath('exe'));
+    }
+  });
+}
+
+ipcMain.on('uninstall-app', () => {
+  handleUninstall();
 });
 
 app.on('will-quit', () => {

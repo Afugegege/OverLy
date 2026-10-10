@@ -78,6 +78,7 @@ while ($true) {
                 if ($pendingCmd -eq "play_pause") {
                     $op = $session.TryTogglePlayPauseAsync()
                     $handled = [bool](Await $op ([bool]))
+                    Start-Sleep -Milliseconds 120
                 } elseif ($pendingCmd -eq "next") {
                     $op = $session.TrySkipNextAsync()
                     $handled = [bool](Await $op ([bool]))

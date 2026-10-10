@@ -1,6 +1,76 @@
 const { spawn } = require('child_process');
 const { EventEmitter } = require('events');
 const path = require('path');
+const fs = require('fs');
+let electronApp = null;
+try {
+  electronApp = require('electron').app;
+} catch (e) {}
+
+function resolveDaemonScriptPath() {
+  const possiblePaths = [];
+
+  // 1. Packaged: extraResources path in app resources folder
+  if (process.resourcesPath) {
+    possiblePaths.push(path.join(process.resourcesPath, 'smtc_daemon.ps1'));
+  }
+
+  // 2. Packaged: asarUnpack path
+  const unpackedAsarPath = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), 'smtc_daemon.ps1');
+  possiblePaths.push(unpackedAsarPath);
+
+  // 3. Development / source tree path (when not running from inside app.asar)
+  const devPath = path.join(__dirname, 'smtc_daemon.ps1');
+  if (!__dirname.includes('app.asar')) {
+    possiblePaths.push(devPath);
+  }
+
+  // Check which one exists on physical disk (outside asar)
+  for (const candidate of possiblePaths) {
+    try {
+      if (fs.existsSync(candidate) && !candidate.includes('app.asar')) {
+        return candidate;
+      }
+    } catch (e) {}
+  }
+
+  // 4. Fallback self-extraction:
+  // If somehow the script is only inside app.asar, extract it out of asar to userData folder
+  // so external powershell.exe can execute it.
+  try {
+    const targetDir = (electronApp && typeof electronApp.getPath === 'function')
+      ? electronApp.getPath('userData')
+      : path.join(process.env.APPDATA || process.env.TEMP, 'overLy');
+
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const fallbackPath = path.join(targetDir, 'smtc_daemon.ps1');
+    const sourceAsarPath = path.join(__dirname, 'smtc_daemon.ps1');
+
+    if (fs.existsSync(sourceAsarPath)) {
+      const scriptContent = fs.readFileSync(sourceAsarPath, 'utf8');
+      let needsWrite = true;
+      if (fs.existsSync(fallbackPath)) {
+        try {
+          const existingContent = fs.readFileSync(fallbackPath, 'utf8');
+          if (existingContent === scriptContent) {
+            needsWrite = false;
+          }
+        } catch (e) {}
+      }
+      if (needsWrite) {
+        fs.writeFileSync(fallbackPath, scriptContent, 'utf8');
+      }
+      return fallbackPath;
+    }
+  } catch (err) {
+    console.error('[SMTC SERVICE] Failed extracting daemon script fallback:', err);
+  }
+
+  return path.join(__dirname, 'smtc_daemon.ps1');
+}
 
 class SmtcService extends EventEmitter {
   constructor() {
@@ -13,7 +83,8 @@ class SmtcService extends EventEmitter {
 
   start() {
     this.isStopping = false;
-    const scriptPath = path.join(__dirname, 'smtc_daemon.ps1');
+    const scriptPath = resolveDaemonScriptPath();
+    console.log('[SMTC SERVICE] Using script path:', scriptPath);
 
     try {
       this.process = spawn(

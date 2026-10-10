@@ -283,6 +283,18 @@ function setupEventListeners() {
   inputSearchTrack.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleManualSearch();
   });
+
+  // App Uninstall
+  const btnUninstallApp = document.getElementById('btnUninstallApp');
+  if (btnUninstallApp) {
+    btnUninstallApp.addEventListener('click', () => {
+      if (confirm('Are you sure you want to uninstall overLy from your computer?')) {
+        if (window.overlyAPI?.uninstallApp) {
+          window.overlyAPI.uninstallApp();
+        }
+      }
+    });
+  }
 }
 
 async function handleManualSearch() {

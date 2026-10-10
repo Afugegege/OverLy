@@ -39,6 +39,16 @@
     "directories": {
       "output": "dist"
     },
+    "asar": true,
+    "asarUnpack": [
+      "smtc_daemon.ps1"
+    ],
+    "extraResources": [
+      {
+        "from": "smtc_daemon.ps1",
+        "to": "smtc_daemon.ps1"
+      }
+    ],
     "win": {
       "target": [
         {
@@ -60,16 +70,19 @@
           ]
         }
       ],
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.ico",
       "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "overLy"
+      "shortcutName": "overLy",
+      "uninstallDisplayName": "overLy - Floating Lyrics",
+      "runAfterFinish": true,
+      "include": "installer.nsh"
     }
   }
 }

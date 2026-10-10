@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="theme-light">
   <div class="settings-window">
     <!-- Draggable Custom Title Bar -->
     <header class="settings-titlebar" id="settingsTitlebar">
@@ -61,7 +61,7 @@
           <label>Theme</label>
         </div>
         <div class="theme-mode-grid">
-          <button class="theme-mode-btn active" data-theme="system" title="Follow Windows System Theme">
+          <button class="theme-mode-btn" data-theme="system" title="Follow Windows System Theme">
             <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
               <line x1="8" y1="21" x2="16" y2="21"/>
@@ -75,7 +75,7 @@
             </svg>
             <span>Dark</span>
           </button>
-          <button class="theme-mode-btn" data-theme="light" title="Always Light Mode">
+          <button class="theme-mode-btn active" data-theme="light" title="Always Light Mode">
             <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="5"/>
               <line x1="12" y1="1" x2="12" y2="3"/>
@@ -193,6 +193,27 @@
         <div class="shortcut-row">
           <span>Reset Window Size</span>
           <code>Double-click Handle / R</code>
+        </div>
+      </section>
+
+      <!-- App Management / Uninstall -->
+      <section class="settings-section app-management-section">
+        <div class="section-header">
+          <label>App Management</label>
+        </div>
+        <div class="uninstall-row">
+          <div class="uninstall-info">
+            <span class="uninstall-title">Uninstall overLy</span>
+            <p class="section-hint">Remove overLy from your computer and delete app files.</p>
+          </div>
+          <button id="btnUninstallApp" class="btn-uninstall" title="Uninstall overLy from Windows">
+            <svg class="uninstall-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+            <span>Uninstall</span>
+          </button>
         </div>
       </section>
 

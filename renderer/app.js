@@ -19,8 +19,8 @@ const state = {
   // App preferences
   mode: 'card', // 'pill' | 'card' | 'expanded'
   lastNonCardMode: 'collapsed',
-  theme: 'system', // 'system' | 'dark' | 'light'
-  effectiveTheme: 'dark',
+  theme: 'light', // 'light' | 'dark' | 'system'
+  effectiveTheme: 'light',
   accentColor: '#FF3040',
   opacity: 0.85,
   fontSize: 18,
@@ -98,6 +98,11 @@ const pillBorderRect = document.getElementById('pillBorderRect');
 let isDraggingProgress = false;
 let lastSeekTime = 0;
 let pendingLyricSeekTimer = null;
+
+// Optimistic play/pause state & debounce
+let optimisticStatus = null;
+let optimisticStatusTime = 0;
+const OPTIMISTIC_STATUS_TIMEOUT = 1200;
 
 // Corner Resize Handle
 const resizeHandle = document.getElementById('resizeHandle');
@@ -216,7 +221,7 @@ function applyTheme(themeData) {
     setting === 'light' ? 'light' : setting === 'dark' ? 'dark' : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
   );
 
-  state.theme = setting || 'system';
+  state.theme = setting || 'light';
   state.effectiveTheme = effective;
 
   document.body.classList.toggle('theme-light', effective === 'light');
@@ -403,9 +408,25 @@ function setupEventListeners() {
   // Media playback actions
   btnPlayPause.addEventListener('click', (e) => {
     e.stopPropagation();
-    // Optimistic toggle for instant UI responsiveness
-    const willBePlaying = state.status !== 'Playing';
-    state.status = willBePlaying ? 'Playing' : 'Paused';
+    const now = Date.now();
+    // Debounce rapid clicking within 220ms
+    if (now - optimisticStatusTime < 220) return;
+
+    const currentEffective = optimisticStatus || state.status;
+    const willBePlaying = currentEffective !== 'Playing';
+    const targetStatus = willBePlaying ? 'Playing' : 'Paused';
+
+    optimisticStatus = targetStatus;
+    optimisticStatusTime = now;
+
+    // Snapshot position smoothly when pausing or unpausing
+    if (state.status === 'Playing' && !willBePlaying) {
+      const elapsed = (now - state.lastPositionTime) / 1000;
+      state.position = Math.min(state.duration, state.position + elapsed);
+    }
+    state.lastPositionTime = now;
+    state.status = targetStatus;
+
     iconPlay.classList.toggle('hidden', willBePlaying);
     iconPause.classList.toggle('hidden', !willBePlaying);
     playingIndicator.classList.toggle('active', willBePlaying);
@@ -1101,11 +1122,29 @@ function handleMediaUpdate(data) {
   state.title = data.title || '';
   state.artist = data.artist || '';
   state.album = data.album || '';
-  state.status = data.status || 'Stopped';
   state.duration = data.duration || 0;
   state.isFetchingLyrics = Boolean(data.isFetchingLyrics);
 
+  const incomingStatus = data.status || 'Stopped';
   const now = Date.now();
+
+  // If user recently clicked play/pause, keep optimistic status until player catches up or timeout expires
+  if (optimisticStatus) {
+    if (incomingStatus === optimisticStatus) {
+      // Confirmed by player
+      optimisticStatus = null;
+      state.status = incomingStatus;
+    } else if (now - optimisticStatusTime < OPTIMISTIC_STATUS_TIMEOUT) {
+      // Player is still reporting stale previous state during IPC roundtrip
+      state.status = optimisticStatus;
+    } else {
+      // Timeout reached: revert to actual player status
+      optimisticStatus = null;
+      state.status = incomingStatus;
+    }
+  } else {
+    state.status = incomingStatus;
+  }
   if (isDifferentTrack) {
     state.position = data.position || 0;
     state.lastPositionTime = now;
