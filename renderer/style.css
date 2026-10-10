@@ -1281,54 +1281,53 @@ body.mode-lyrics .lyrics-list {
 
 /* Mode: Minimized (Round Circle Ball with Album Cover) */
 body.mode-minimized {
-  padding: 6px !important;
+  padding: 5px !important;
   justify-content: center !important;
   align-items: center !important;
 }
 
 body.mode-minimized .overlay-container {
-  width: 72px !important;
-  height: 72px !important;
-  min-width: 72px !important;
-  min-height: 72px !important;
-  max-width: 72px !important;
-  max-height: 72px !important;
+  width: 54px !important;
+  height: 54px !important;
+  min-width: 54px !important;
+  min-height: 54px !important;
+  max-width: 54px !important;
+  max-height: 54px !important;
   border-radius: 50% !important;
   padding: 0 !important;
-  border: 2px solid var(--border-glass) !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 18px var(--accent-glow) !important;
+  border: 1.5px solid var(--border-glass) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 14px var(--accent-glow) !important;
   overflow: hidden !important;
   display: block !important;
   cursor: grab;
   position: relative !important;
   isolation: isolate;
   transform: translateZ(0);
-  animation: ballPopIn 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: shrinkToBall 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes ballPopIn {
+@keyframes shrinkToBall {
   0% {
-    transform: scale(0.72);
-    opacity: 0.4;
-  }
-  65% {
-    transform: scale(1.08);
-    opacity: 1;
+    transform: scale(1.35);
+    border-radius: 20px;
+    opacity: 0.82;
   }
   100% {
     transform: scale(1);
+    border-radius: 50%;
     opacity: 1;
   }
 }
 
 body:not(.mode-minimized) .overlay-container {
-  animation: layoutMorphIn 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: expandFromBall 0.30s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes layoutMorphIn {
+@keyframes expandFromBall {
   0% {
-    transform: scale(0.96);
-    opacity: 0.8;
+    transform: scale(0.86);
+    border-radius: 50%;
+    opacity: 0.75;
   }
   100% {
     transform: scale(1);
@@ -1419,12 +1418,12 @@ body.mode-minimized #albumPlaceholder.hidden {
 }
 
 body.mode-minimized .album-placeholder svg {
-  width: 34px !important;
-  height: 34px !important;
+  width: 26px !important;
+  height: 26px !important;
   color: var(--accent-contrast, #ffffff) !important;
   fill: currentColor !important;
   opacity: 0.95;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
 }
 
 /* ==========================================================================
@@ -1469,13 +1468,13 @@ body.mode-minimized .overlay-container.is-hovered .minimized-play-overlay {
 }
 
 .mini-play-btn {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--accent) !important;
   color: var(--accent-contrast, #ffffff) !important;
   border: 1.5px solid rgba(255, 255, 255, 0.45) !important;
-  box-shadow: 0 4px 16px var(--accent-glow), 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: 0 4px 14px var(--accent-glow), 0 2px 6px rgba(0, 0, 0, 0.4) !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1489,7 +1488,7 @@ body.mode-minimized .overlay-container.is-hovered .minimized-play-overlay {
 .mini-play-btn:hover {
   transform: scale(1.15);
   filter: brightness(1.14);
-  box-shadow: 0 6px 22px var(--accent-glow), 0 0 10px var(--accent-glow) !important;
+  box-shadow: 0 6px 18px var(--accent-glow), 0 0 8px var(--accent-glow) !important;
 }
 
 .mini-play-btn:active {
@@ -1498,8 +1497,8 @@ body.mode-minimized .overlay-container.is-hovered .minimized-play-overlay {
 }
 
 .mini-play-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
   fill: currentColor;
   margin-left: 2px;
 }

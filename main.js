@@ -38,7 +38,8 @@ const defaultSettings = {
   alwaysOnTop: true,
   startOnBoot: false,
   theme: 'system', // 'system' | 'dark' | 'light'
-  autoMinimize: false
+  autoMinimize: false,
+  autoMinimizeDelay: 10
 };
 
 function loadSettings() {
@@ -94,8 +95,8 @@ function createWindow() {
     normal: { width: 460, height: 274 },
     collapsed: { width: 440, height: 104 },
     pill: { width: 440, height: 104 },
-    minimized: { width: 84, height: 84 },
-    mini: { width: 84, height: 84 },
+    minimized: { width: 64, height: 64 },
+    mini: { width: 64, height: 64 },
     lyrics: { width: 460, height: 164 },
     expanded: { width: 460, height: 504 }
   };
@@ -605,6 +606,71 @@ ipcMain.handle('get-window-pos', () => {
   return { x: 0, y: 0 };
 });
 
+let boundsAnimationTimer = null;
+
+function animateWindowBounds(targetBounds, duration = 180, onComplete) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (boundsAnimationTimer) {
+    clearInterval(boundsAnimationTimer);
+    boundsAnimationTimer = null;
+  }
+
+  const startBounds = mainWindow.getBounds();
+  if (
+    Math.abs(startBounds.x - targetBounds.x) < 2 &&
+    Math.abs(startBounds.y - targetBounds.y) < 2 &&
+    Math.abs(startBounds.width - targetBounds.width) < 2 &&
+    Math.abs(startBounds.height - targetBounds.height) < 2
+  ) {
+    mainWindow.setBounds(targetBounds);
+    if (onComplete) onComplete();
+    return;
+  }
+
+  const minW = Math.min(startBounds.width, targetBounds.width, 48);
+  const minH = Math.min(startBounds.height, targetBounds.height, 48);
+  const maxW = Math.max(startBounds.width, targetBounds.width, 2560);
+  const maxH = Math.max(startBounds.height, targetBounds.height, 1440);
+  mainWindow.setMinimumSize(minW, minH);
+  mainWindow.setMaximumSize(maxW, maxH);
+
+  const startTime = Date.now();
+  const fps = 60;
+  const frameInterval = Math.round(1000 / fps);
+
+  boundsAnimationTimer = setInterval(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      clearInterval(boundsAnimationTimer);
+      boundsAnimationTimer = null;
+      return;
+    }
+
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(1, elapsed / duration);
+    // Smooth ease-out cubic
+    const ease = 1 - Math.pow(1 - progress, 3);
+
+    const curX = Math.round(startBounds.x + (targetBounds.x - startBounds.x) * ease);
+    const curY = Math.round(startBounds.y + (targetBounds.y - startBounds.y) * ease);
+    const curW = Math.round(startBounds.width + (targetBounds.width - startBounds.width) * ease);
+    const curH = Math.round(startBounds.height + (targetBounds.height - startBounds.height) * ease);
+
+    mainWindow.setBounds({
+      x: curX,
+      y: curY,
+      width: curW,
+      height: curH
+    });
+
+    if (progress >= 1) {
+      clearInterval(boundsAnimationTimer);
+      boundsAnimationTimer = null;
+      mainWindow.setBounds(targetBounds);
+      if (onComplete) onComplete();
+    }
+  }, frameInterval);
+}
+
 ipcMain.on('set-window-size', (_event, arg1, arg2) => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
 
@@ -651,36 +717,47 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
     s.layoutPositions[normMode] = { x: targetX, y: targetY };
     saveSettings(s);
   } else {
-    // 1. If this layout mode already has a saved position, return to it!
-    if (s.layoutPositions[normMode] && typeof s.layoutPositions[normMode].x === 'number') {
-      targetX = s.layoutPositions[normMode].x;
-      targetY = s.layoutPositions[normMode].y;
-    } else {
-      // 2. Otherwise: smart-anchor based on proximity to screen edges
-      const isNearBottom = (currentBounds.y + currentBounds.height >= wa.y + wa.height - 40);
-      const isNearRight = (currentBounds.x + currentBounds.width >= wa.x + wa.width - 40);
+    const isRightHalf = (currentBounds.x + currentBounds.width / 2) >= (wa.x + wa.width / 2);
+    const isBottomHalf = (currentBounds.y + currentBounds.height / 2) >= (wa.y + wa.height / 2);
 
-      if (normMode === 'minimized') {
-        targetX = isNearRight
+    if (normMode === 'minimized') {
+      // Always shrink smoothly directly into the corner of the current window!
+      targetX = isRightHalf
+        ? (currentBounds.x + currentBounds.width - currentWindowWidth)
+        : currentBounds.x;
+      targetY = isBottomHalf
+        ? (currentBounds.y + currentBounds.height - currentWindowHeight)
+        : currentBounds.y;
+
+      s.layoutPositions[normMode] = { x: targetX, y: targetY };
+      saveSettings(s);
+    } else {
+      const wasMini = (currentBounds.width <= 84 && currentBounds.height <= 84);
+      if (wasMini) {
+        // Expand directly out from the corner where the ball was located!
+        targetX = isRightHalf
           ? (currentBounds.x + currentBounds.width - currentWindowWidth)
-          : Math.round(currentBounds.x + (currentBounds.width - currentWindowWidth) / 2);
-        targetY = isNearBottom
+          : currentBounds.x;
+        targetY = isBottomHalf
           ? (currentBounds.y + currentBounds.height - currentWindowHeight)
-          : Math.round(currentBounds.y + (currentBounds.height - currentWindowHeight) / 2);
+          : currentBounds.y;
+      } else if (s.layoutPositions[normMode] && typeof s.layoutPositions[normMode].x === 'number') {
+        targetX = s.layoutPositions[normMode].x;
+        targetY = s.layoutPositions[normMode].y;
       } else {
-        targetX = isNearRight
+        targetX = isRightHalf
           ? (currentBounds.x + currentBounds.width - currentWindowWidth)
-          : Math.round(currentBounds.x - (currentWindowWidth - currentBounds.width) / 2);
-        targetY = isNearBottom
+          : currentBounds.x;
+        targetY = isBottomHalf
           ? (currentBounds.y + currentBounds.height - currentWindowHeight)
-          : Math.round(currentBounds.y - (currentWindowHeight - currentBounds.height) / 2);
+          : currentBounds.y;
       }
 
       s.layoutPositions[normMode] = { x: targetX, y: targetY };
       saveSettings(s);
     }
 
-    // 3. Always clamp strictly within workArea so the window is NEVER off screen
+    // Always clamp strictly within workArea so the window is NEVER off screen
     if (targetX + currentWindowWidth > wa.x + wa.width) {
       targetX = wa.x + wa.width - currentWindowWidth;
     }
@@ -695,14 +772,16 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
     }
   }
 
-  mainWindow.setMinimumSize(currentWindowWidth, currentWindowHeight);
-  mainWindow.setMaximumSize(currentWindowWidth, currentWindowHeight);
-
-  mainWindow.setBounds({
+  animateWindowBounds({
     x: Math.round(targetX),
     y: Math.round(targetY),
     width: currentWindowWidth,
     height: currentWindowHeight
+  }, 190, () => {
+    if (mainWindow && !mainWindow.isDestroyed() && !isUserResizing) {
+      mainWindow.setMinimumSize(currentWindowWidth, currentWindowHeight);
+      mainWindow.setMaximumSize(currentWindowWidth, currentWindowHeight);
+    }
   });
 
   if (isAlwaysOnTop) {

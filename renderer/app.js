@@ -29,6 +29,7 @@ const state = {
   isPinned: true,
   isResizeMode: false,
   autoMinimize: false,
+  autoMinimizeDelay: 10,
   isAutoMinimized: false,
   preAutoMinMode: null,
 
@@ -115,7 +116,6 @@ const OPTIMISTIC_STATUS_TIMEOUT = 1200;
 // Auto-minimize idle state & timer
 let autoMinimizeTimer = null;
 let isMouseOverOverlay = false;
-const AUTO_MINIMIZE_DELAY_MS = 10000;
 
 function startAutoMinimizeTimer() {
   cancelAutoMinimizeTimer();
@@ -124,9 +124,10 @@ function startAutoMinimizeTimer() {
   const isPlaying = (state.hasMedia && state.status === 'Playing');
   if (isPlaying) return;
 
+  const delaySeconds = Math.max(2, (Number(state.autoMinimizeDelay) || 10));
   autoMinimizeTimer = setTimeout(() => {
     triggerAutoMinimize();
-  }, AUTO_MINIMIZE_DELAY_MS);
+  }, delaySeconds * 1000);
 }
 
 function cancelAutoMinimizeTimer() {
@@ -197,6 +198,9 @@ async function init() {
         if (typeof saved.autoMinimize === 'boolean') {
           state.autoMinimize = saved.autoMinimize;
         }
+        if (typeof saved.autoMinimizeDelay === 'number') {
+          state.autoMinimizeDelay = saved.autoMinimizeDelay;
+        }
       } else {
         setMode(state.mode, false);
         setAccentColor(state.accentColor);
@@ -247,6 +251,12 @@ async function init() {
             if (!isPlaying && !isMouseOverOverlay && state.mode !== 'minimized') {
               startAutoMinimizeTimer();
             }
+          }
+        }
+        if (key === 'autoMinimizeDelay') {
+          state.autoMinimizeDelay = Number(value) || 10;
+          if (state.autoMinimize && !state.isAutoMinimized) {
+            startAutoMinimizeTimer();
           }
         }
       });
@@ -971,7 +981,7 @@ function setupCornerResize() {
 
 function getTargetWindowDimensions(mode = state.mode) {
   if (mode === 'minimized' || mode === 'mini') {
-    return { width: 84, height: 84 };
+    return { width: 64, height: 64 };
   } else if (mode === 'collapsed' || mode === 'pill') {
     return { width: 440, height: 104 };
   } else if (mode === 'lyrics') {

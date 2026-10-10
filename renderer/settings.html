@@ -169,12 +169,29 @@
         <div class="startup-row">
           <div class="startup-info">
             <label for="checkAutoMinimize">Auto Minimize on Pause</label>
-            <p class="section-hint" style="margin: 3px 0 0 0;">Auto collapse to mini widget when music is paused, and open back on hover or resume.</p>
+            <p class="section-hint" style="margin: 3px 0 0 0;">Auto shrink to a round album ball when music is paused or idle.</p>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="checkAutoMinimize">
             <span class="toggle-slider"></span>
           </label>
+        </div>
+
+        <div class="delay-row" id="autoMinimizeDelayRow" style="display: none;">
+          <div class="delay-info">
+            <label for="selectAutoMinimizeDelay" class="delay-label">Shrink Delay Time</label>
+            <p class="section-hint" style="margin: 2px 0 0 0;">Time after music pauses before shrinking.</p>
+          </div>
+          <select id="selectAutoMinimizeDelay" class="custom-select">
+            <option value="3">3 seconds (Fast)</option>
+            <option value="5">5 seconds</option>
+            <option value="10">10 seconds (Default)</option>
+            <option value="15">15 seconds</option>
+            <option value="30">30 seconds</option>
+            <option value="60">1 minute</option>
+            <option value="120">2 minutes</option>
+            <option value="300">5 minutes</option>
+          </select>
         </div>
       </section>
 

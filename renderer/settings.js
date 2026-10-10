@@ -133,7 +133,19 @@ async function initSettings() {
       }
       if (typeof saved.autoMinimize === 'boolean') {
         const checkAutoMinimize = document.getElementById('checkAutoMinimize');
-        if (checkAutoMinimize) checkAutoMinimize.checked = saved.autoMinimize;
+        const autoMinimizeDelayRow = document.getElementById('autoMinimizeDelayRow');
+        if (checkAutoMinimize) {
+          checkAutoMinimize.checked = saved.autoMinimize;
+          if (autoMinimizeDelayRow) {
+            autoMinimizeDelayRow.style.display = saved.autoMinimize ? 'flex' : 'none';
+          }
+        }
+      }
+      if (typeof saved.autoMinimizeDelay === 'number') {
+        const selectAutoMinimizeDelay = document.getElementById('selectAutoMinimizeDelay');
+        if (selectAutoMinimizeDelay) {
+          selectAutoMinimizeDelay.value = String(saved.autoMinimizeDelay);
+        }
       }
     }
 
@@ -151,7 +163,19 @@ async function initSettings() {
       window.overlyAPI.onSettingUpdated(({ key, value }) => {
         if (key === 'autoMinimize') {
           const checkAutoMinimize = document.getElementById('checkAutoMinimize');
-          if (checkAutoMinimize) checkAutoMinimize.checked = Boolean(value);
+          const autoMinimizeDelayRow = document.getElementById('autoMinimizeDelayRow');
+          if (checkAutoMinimize) {
+            checkAutoMinimize.checked = Boolean(value);
+            if (autoMinimizeDelayRow) {
+              autoMinimizeDelayRow.style.display = Boolean(value) ? 'flex' : 'none';
+            }
+          }
+        }
+        if (key === 'autoMinimizeDelay') {
+          const selectAutoMinimizeDelay = document.getElementById('selectAutoMinimizeDelay');
+          if (selectAutoMinimizeDelay) {
+            selectAutoMinimizeDelay.value = String(value);
+          }
         }
       });
     }
@@ -211,12 +235,28 @@ function setupEventListeners() {
     });
   }
 
-  // Auto minimize checkbox
+  // Auto minimize checkbox & delay selector
   const checkAutoMinimize = document.getElementById('checkAutoMinimize');
+  const autoMinimizeDelayRow = document.getElementById('autoMinimizeDelayRow');
+  const selectAutoMinimizeDelay = document.getElementById('selectAutoMinimizeDelay');
+
   if (checkAutoMinimize) {
     checkAutoMinimize.addEventListener('change', (e) => {
+      const isChecked = e.target.checked;
+      if (autoMinimizeDelayRow) {
+        autoMinimizeDelayRow.style.display = isChecked ? 'flex' : 'none';
+      }
       if (window.overlyAPI && window.overlyAPI.updateSetting) {
-        window.overlyAPI.updateSetting('autoMinimize', e.target.checked);
+        window.overlyAPI.updateSetting('autoMinimize', isChecked);
+      }
+    });
+  }
+
+  if (selectAutoMinimizeDelay) {
+    selectAutoMinimizeDelay.addEventListener('change', (e) => {
+      const delay = parseInt(e.target.value, 10) || 10;
+      if (window.overlyAPI && window.overlyAPI.updateSetting) {
+        window.overlyAPI.updateSetting('autoMinimizeDelay', delay);
       }
     });
   }
