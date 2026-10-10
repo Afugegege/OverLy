@@ -71,6 +71,13 @@ function createTrayIcon() {
   return nativeImage.createFromBuffer(Buffer.from(iconBase64, 'base64'));
 }
 
+function normalizeMode(m) {
+  if (m === 'pill') return 'collapsed';
+  if (m === 'normal') return 'card';
+  if (m === 'mini') return 'minimized';
+  return m || 'card';
+}
+
 function createWindow() {
   const settings = loadSettings();
   applyTheme(settings.theme || 'system');
@@ -87,6 +94,8 @@ function createWindow() {
     normal: { width: 460, height: 274 },
     collapsed: { width: 440, height: 104 },
     pill: { width: 440, height: 104 },
+    minimized: { width: 208, height: 62 },
+    mini: { width: 208, height: 62 },
     lyrics: { width: 460, height: 164 },
     expanded: { width: 460, height: 504 }
   };
@@ -102,7 +111,7 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const wa = primaryDisplay.workArea;
 
-  const normMode = (currentMode === 'pill') ? 'collapsed' : (currentMode === 'normal' ? 'card' : currentMode);
+  const normMode = normalizeMode(currentMode);
   if (settings.layoutPositions && settings.layoutPositions[normMode] && typeof settings.layoutPositions[normMode].x === 'number') {
     x = settings.layoutPositions[normMode].x;
     y = settings.layoutPositions[normMode].y;
@@ -554,8 +563,7 @@ ipcMain.on('window-move', (_event, { deltaX, deltaY }) => {
     });
 
     const s = loadSettings();
-    const currentMode = s.mode || 'card';
-    const normMode = (currentMode === 'pill') ? 'collapsed' : (currentMode === 'normal' ? 'card' : currentMode);
+    const normMode = normalizeMode(s.mode);
     if (!s.layoutPositions) s.layoutPositions = {};
     s.layoutPositions[normMode] = { x: newX, y: newY };
     saveSettings(s);
@@ -581,8 +589,7 @@ ipcMain.on('window-move-to', (_event, { x, y }) => {
     });
 
     const s = loadSettings();
-    const currentMode = s.mode || 'card';
-    const normMode = (currentMode === 'pill') ? 'collapsed' : (currentMode === 'normal' ? 'card' : currentMode);
+    const normMode = normalizeMode(s.mode);
     if (!s.layoutPositions) s.layoutPositions = {};
     s.layoutPositions[normMode] = { x: newX, y: newY };
     saveSettings(s);
@@ -618,9 +625,7 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
   if (!targetMode) {
     targetMode = s.mode || 'card';
   }
-  let normMode = targetMode;
-  if (normMode === 'pill') normMode = 'collapsed';
-  if (normMode === 'normal') normMode = 'card';
+  const normMode = normalizeMode(targetMode);
 
   if (!s.layoutPositions) s.layoutPositions = {};
 
@@ -634,11 +639,14 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
     // Manual corner resize: keep current top-left, clamp within screen
     targetX = currentBounds.x;
     targetY = currentBounds.y;
+    const isMini = (normMode === 'minimized');
+    const minW = isMini ? 160 : (normMode === 'collapsed' ? 300 : 340);
+    const minH = isMini ? 44 : (normMode === 'collapsed' ? 64 : 140);
     if (targetX + currentWindowWidth > wa.x + wa.width) {
-      currentWindowWidth = Math.max(300, wa.x + wa.width - targetX);
+      currentWindowWidth = Math.max(minW, wa.x + wa.width - targetX);
     }
     if (targetY + currentWindowHeight > wa.y + wa.height) {
-      currentWindowHeight = Math.max(64, wa.y + wa.height - targetY);
+      currentWindowHeight = Math.max(minH, wa.y + wa.height - targetY);
     }
     s.layoutPositions[normMode] = { x: targetX, y: targetY };
     saveSettings(s);
@@ -700,7 +708,8 @@ ipcMain.on('set-resizable', (_event, resizable) => {
     mainWindow.setResizable(isUserResizing);
     if (isUserResizing) {
       const isCompact = (currentWindowHeight <= 120);
-      mainWindow.setMinimumSize(isCompact ? 300 : 340, isCompact ? 64 : 140);
+      const isMini = (currentWindowHeight <= 70);
+      mainWindow.setMinimumSize(isMini ? 160 : (isCompact ? 300 : 340), isMini ? 44 : (isCompact ? 64 : 140));
       mainWindow.setMaximumSize(2560, 1440);
     } else {
       mainWindow.setMinimumSize(currentWindowWidth, currentWindowHeight);

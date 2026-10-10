@@ -102,7 +102,7 @@ function applyThemeUI(themeData) {
 }
 
 function updateActiveModeBtn(mode) {
-  const normalized = (mode === 'pill' ? 'collapsed' : (mode === 'normal' ? 'card' : mode));
+  const normalized = (mode === 'pill' ? 'collapsed' : (mode === 'normal' ? 'card' : (mode === 'mini' ? 'minimized' : mode)));
   document.querySelectorAll('.layout-mode-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.mode === normalized);
   });

@@ -358,6 +358,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
   gap: 8px;
 }
 
+.layout-mode-grid .layout-mode-btn:last-child {
+  grid-column: span 2;
+}
+
 .layout-mode-btn {
   background: var(--bg-card);
   border: 1px solid var(--border-color);

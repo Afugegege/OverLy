@@ -241,10 +241,17 @@
         </div>
       </div>
 
-      <!-- Pill View Single Lyric Line (Used in Pill Mode) -->
+      <!-- Pill View Single Lyric Line (Used in Pill & Minimized Modes) -->
       <div id="pillLyricContainer" class="pill-lyric-container">
         <p id="pillLyricText" class="pill-lyric-text">Listening for playback</p>
       </div>
+
+      <!-- Minimized Mode Quick Expand / Restore Button -->
+      <button id="btnMinimizedExpand" class="media-btn minimized-expand-btn" title="Expand Layout (M)" aria-label="Expand Layout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+        </svg>
+      </button>
 
       <!-- Synced Lyrics Scroll Area (Used in Card & Expanded Modes) -->
       <div id="lyricsScrollArea" class="lyrics-scroll-area">

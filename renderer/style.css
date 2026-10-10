@@ -1279,6 +1279,164 @@ body.mode-lyrics .lyrics-list {
   align-items: center;
 }
 
+/* Mode: Minimized (Ultra-Compact Mini Mode, smaller than pill layout) */
+body.mode-minimized {
+  padding: 10px 8px 8px 8px;
+  justify-content: flex-end;
+}
+
+body.mode-minimized .overlay-container {
+  border-radius: 999px !important;
+  padding: 0 8px 0 6px;
+  border: 1px solid var(--border-glass) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 10px var(--accent-glow-subtle);
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  cursor: grab;
+}
+
+body.mode-minimized .top-bar,
+body.mode-minimized .meta-container,
+body.mode-minimized .lyrics-scroll-area,
+body.mode-minimized .progress-container,
+body.mode-minimized .pill-border-progress,
+body.mode-minimized .pill-more-container,
+body.mode-minimized .media-controls,
+body.mode-minimized .pill-searching-indicator,
+body.mode-minimized .pill-action-btn {
+  display: none !important;
+}
+
+body.mode-minimized .overlay-main {
+  height: 100%;
+  width: 100%;
+  padding: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  position: relative;
+}
+
+body.mode-minimized .track-header {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  margin-bottom: 0;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+body.mode-minimized .art-container {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-radius: 50%;
+}
+
+body.mode-minimized .art-wrapper {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+body.mode-minimized .album-placeholder svg {
+  width: 14px;
+  height: 14px;
+}
+
+body.mode-minimized .playing-indicator {
+  width: 7px;
+  height: 7px;
+  right: -1px;
+  bottom: -1px;
+}
+
+body.mode-minimized .pill-lyric-container {
+  height: 100%;
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 1;
+  min-width: 0;
+  padding: 0 2px;
+  cursor: grab;
+}
+
+body.mode-minimized .pill-lyric-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  text-align: left;
+  letter-spacing: -0.01em;
+}
+
+body.mode-minimized .minimized-expand-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  border-radius: 50%;
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0.65;
+}
+
+body.mode-minimized .overlay-container:hover .minimized-expand-btn {
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--border-focus);
+  background: var(--accent-glow-subtle);
+}
+
+body.mode-minimized .minimized-expand-btn:hover {
+  background: var(--accent) !important;
+  color: var(--accent-contrast, #ffffff) !important;
+  border-color: var(--accent) !important;
+  transform: scale(1.12);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+body.mode-minimized .minimized-expand-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+body:not(.mode-minimized) .minimized-expand-btn {
+  display: none !important;
+}
+
+body.theme-light.mode-minimized .overlay-container {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 8px var(--accent-glow-subtle);
+}
+
 /* Mode: Normal / Card */
 body.mode-card .pill-lyric-container,
 body.mode-normal .pill-lyric-container {

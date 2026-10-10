@@ -80,6 +80,7 @@ const iconPause = document.getElementById('iconPause');
 // Lyrics & Timeline
 const pillLyricContainer = document.getElementById('pillLyricContainer');
 const pillLyricText = document.getElementById('pillLyricText');
+const btnMinimizedExpand = document.getElementById('btnMinimizedExpand');
 const pillLyricsBadge = document.getElementById('pillLyricsBadge');
 const pillSearchingIndicator = document.getElementById('pillSearchingIndicator');
 const btnPillRetry = document.getElementById('btnPillRetry');
@@ -115,7 +116,7 @@ const AUTO_MINIMIZE_DELAY_MS = 10000;
 function startAutoMinimizeTimer() {
   cancelAutoMinimizeTimer();
   if (!state.autoMinimize) return;
-  if (state.mode === 'collapsed' || state.isAutoMinimized || isMouseOverOverlay) return;
+  if (state.mode === 'minimized' || state.isAutoMinimized || isMouseOverOverlay) return;
   const isPlaying = (state.hasMedia && state.status === 'Playing');
   if (isPlaying) return;
 
@@ -134,13 +135,13 @@ function cancelAutoMinimizeTimer() {
 function triggerAutoMinimize() {
   cancelAutoMinimizeTimer();
   if (!state.autoMinimize) return;
-  if (state.mode === 'collapsed' || state.isAutoMinimized || isMouseOverOverlay) return;
+  if (state.mode === 'minimized' || state.isAutoMinimized || isMouseOverOverlay) return;
   const isPlaying = (state.hasMedia && state.status === 'Playing');
   if (isPlaying) return;
 
   state.preAutoMinMode = state.mode;
   state.isAutoMinimized = true;
-  setMode('collapsed', true, true);
+  setMode('minimized', true, true);
 }
 
 function restoreFromAutoMinimize() {
@@ -239,7 +240,7 @@ async function init() {
             }
           } else {
             const isPlaying = (state.hasMedia && state.status === 'Playing');
-            if (!isPlaying && !isMouseOverOverlay && state.mode !== 'collapsed') {
+            if (!isPlaying && !isMouseOverOverlay && state.mode !== 'minimized') {
               startAutoMinimizeTimer();
             }
           }
@@ -262,7 +263,7 @@ async function init() {
       });
 
       // If auto-minimize is active and player is paused or idle at startup, arm the timer
-      if (state.autoMinimize && !isMouseOverOverlay && state.mode !== 'collapsed' && (!state.hasMedia || state.status !== 'Playing')) {
+      if (state.autoMinimize && !isMouseOverOverlay && state.mode !== 'minimized' && (!state.hasMedia || state.status !== 'Playing')) {
         startAutoMinimizeTimer();
       }
     }
@@ -316,7 +317,8 @@ function setupEventListeners() {
   const interactiveBtns = [
     btnModeToggle, btnLockToggle, btnPinToggle, btnResizeToggle, btnSettingsToggle,
     btnPillMore, btnPillPin, btnPillResize, btnPillLock, btnPillSettings, btnPillMinimize, btnPillClose,
-    btnMinimize, btnClose, btnPlayPause, btnPrev, btnNext, btnPillExpand, btnPillRetry, btnPillSearch
+    btnMinimize, btnClose, btnPlayPause, btnPrev, btnNext, btnPillExpand, btnPillRetry, btnPillSearch,
+    btnMinimizedExpand
   ];
   interactiveBtns.forEach((btn) => {
     if (btn) {
@@ -327,7 +329,7 @@ function setupEventListeners() {
   // Mode toggle
   btnModeToggle.addEventListener('click', (e) => {
     e.stopPropagation();
-    const modes = ['card', 'collapsed', 'lyrics', 'expanded'];
+    const modes = ['card', 'collapsed', 'minimized', 'lyrics', 'expanded'];
     const nextIdx = (modes.indexOf(state.mode) + 1) % modes.length;
     setMode(modes[nextIdx], true);
   });
@@ -478,7 +480,7 @@ function setupEventListeners() {
       isMouseOverOverlay = false;
       pillMoreContainer?.classList.remove('open');
       overlayContainer.classList.remove('pill-more-open');
-      if (state.autoMinimize && !state.isAutoMinimized && state.mode !== 'collapsed') {
+      if (state.autoMinimize && !state.isAutoMinimized && state.mode !== 'minimized') {
         const isPlaying = (state.hasMedia && state.status === 'Playing');
         if (!isPlaying) {
           startAutoMinimizeTimer();
@@ -546,9 +548,18 @@ function setupEventListeners() {
       e.stopPropagation();
       pillMoreContainer?.classList.remove('open');
       overlayContainer?.classList.remove('pill-more-open');
-      const modes = ['card', 'collapsed', 'lyrics', 'expanded'];
+      const modes = ['card', 'collapsed', 'minimized', 'lyrics', 'expanded'];
       const nextIdx = (modes.indexOf(state.mode) + 1) % modes.length;
       setMode(modes[nextIdx], true);
+    });
+  }
+
+  // Minimized mode quick expand/restore button
+  if (btnMinimizedExpand) {
+    btnMinimizedExpand.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const target = state.preAutoMinMode || 'card';
+      setMode(target, true);
     });
   }
 
@@ -603,8 +614,8 @@ function setupEventListeners() {
     e.preventDefault();
     e.stopPropagation();
 
-    const modes = ['card', 'collapsed', 'lyrics', 'expanded'];
-    const currentMode = (state.mode === 'pill') ? 'collapsed' : (state.mode === 'normal') ? 'card' : state.mode;
+    const modes = ['card', 'collapsed', 'minimized', 'lyrics', 'expanded'];
+    const currentMode = (state.mode === 'pill') ? 'collapsed' : (state.mode === 'normal') ? 'card' : (state.mode === 'mini' ? 'minimized' : state.mode);
     const nextIdx = (modes.indexOf(currentMode) + 1) % modes.length;
     setMode(modes[nextIdx], true);
   });
@@ -614,7 +625,7 @@ function setupEventListeners() {
     if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
     if (e.key === 'm' || e.key === 'M' || (e.ctrlKey && e.key.toLowerCase() === 'm')) {
       e.preventDefault();
-      const modes = ['card', 'collapsed', 'lyrics', 'expanded'];
+      const modes = ['card', 'collapsed', 'minimized', 'lyrics', 'expanded'];
       const nextIdx = (modes.indexOf(state.mode) + 1) % modes.length;
       setMode(modes[nextIdx], true);
     } else if (e.key === 'p' || e.key === 'P' || (e.ctrlKey && e.key.toLowerCase() === 'p')) {
@@ -922,7 +933,9 @@ function setupCornerResize() {
 // ==========================================================================
 
 function getTargetWindowDimensions(mode = state.mode) {
-  if (mode === 'collapsed' || mode === 'pill') {
+  if (mode === 'minimized' || mode === 'mini') {
+    return { width: 208, height: 62 };
+  } else if (mode === 'collapsed' || mode === 'pill') {
     return { width: 440, height: 104 };
   } else if (mode === 'lyrics') {
     return { width: 460, height: 164 };
@@ -948,13 +961,14 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
   // Normalize aliases
   if (mode === 'pill') mode = 'collapsed';
   if (mode === 'normal') mode = 'card';
+  if (mode === 'mini') mode = 'minimized';
 
   if (!isInternalAutoAction) {
     if (state.isAutoMinimized) {
       state.isAutoMinimized = false;
       state.preAutoMinMode = null;
     }
-    if (mode === 'collapsed') {
+    if (mode === 'minimized') {
       cancelAutoMinimizeTimer();
     } else if (state.autoMinimize && !isMouseOverOverlay && (!state.hasMedia || state.status !== 'Playing')) {
       startAutoMinimizeTimer();
@@ -965,7 +979,7 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
   if (mode !== 'card') {
     state.lastNonCardMode = mode;
   }
-  body.classList.remove('mode-pill', 'mode-collapsed', 'mode-card', 'mode-normal', 'mode-lyrics', 'mode-expanded');
+  body.classList.remove('mode-pill', 'mode-collapsed', 'mode-minimized', 'mode-card', 'mode-normal', 'mode-lyrics', 'mode-expanded');
   body.classList.add(`mode-${mode}`);
   if (mode === 'collapsed') body.classList.add('mode-pill');
   if (mode === 'card') body.classList.add('mode-normal');
@@ -974,6 +988,10 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
   pillMoreContainer?.classList.remove('open');
 
   updateModeButtonUI(mode);
+
+  if (mode === 'minimized') {
+    updateMinimizedDisplay();
+  }
 
   if (updateSize && window.overlyAPI) {
     const target = getTargetWindowDimensions(mode);
@@ -1020,7 +1038,11 @@ function updateModeButtonUI(mode) {
     },
     collapsed: {
       svg: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="7" cy="12" r="2" fill="currentColor"/><line x1="12" y1="12" x2="17" y2="12"/></svg>`,
-      title: 'Layout: Collapsed Pill (Click for Lyrics Only)'
+      title: 'Layout: Collapsed Pill (Click for Minimized)'
+    },
+    minimized: {
+      svg: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="9" width="16" height="6" rx="3"/><circle cx="8" cy="12" r="1.5" fill="currentColor"/></svg>`,
+      title: 'Layout: Minimized (Click for Lyrics Only)'
     },
     lyrics: {
       svg: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
@@ -1315,11 +1337,26 @@ function handleMediaUpdate(data) {
       restoreFromAutoMinimize();
     }
   } else {
-    if (state.autoMinimize && !isMouseOverOverlay && !state.isAutoMinimized && state.mode !== 'collapsed') {
+    if (state.autoMinimize && !isMouseOverOverlay && !state.isAutoMinimized && state.mode !== 'minimized') {
       if (!autoMinimizeTimer) {
         startAutoMinimizeTimer();
       }
     }
+  }
+
+  if (state.mode === 'minimized') {
+    updateMinimizedDisplay();
+  }
+}
+
+function updateMinimizedDisplay() {
+  if (state.mode !== 'minimized') return;
+  if (!state.hasMedia || !state.title) {
+    updatePillLyric('overLy • Idle');
+  } else if (state.status !== 'Playing') {
+    updatePillLyric(state.title ? `Paused • ${state.title}` : 'overLy • Paused');
+  } else {
+    updatePillLyric(state.title);
   }
 }
 
@@ -1342,18 +1379,28 @@ function updatePillLyricsBadge() {
 }
 
 function renderTrackInfo() {
+  if (state.mode === 'minimized') {
+    updateMinimizedDisplay();
+  }
+
   if (!state.hasMedia || !state.title) {
     trackTitle.textContent = 'Waiting for music...';
     trackArtist.textContent = 'Spotify • Apple Music • Any Player';
     albumArt.classList.remove('visible');
     albumPlaceholder.classList.remove('hidden');
     updatePillLyricsBadge();
-    updatePillLyric('Listening for playback');
+    if (state.mode !== 'minimized') {
+      updatePillLyric('Listening for playback');
+    }
     return;
   }
 
   trackTitle.textContent = state.title;
   trackArtist.textContent = state.artist || 'Unknown Artist';
+
+  if (state.mode === 'minimized') {
+    updateMinimizedDisplay();
+  }
 
   if (state.coverUrl) {
     albumArt.src = state.coverUrl;
