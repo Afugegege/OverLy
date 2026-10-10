@@ -28,6 +28,9 @@ const state = {
   isLocked: false,
   isPinned: true,
   isResizeMode: false,
+  autoMinimize: false,
+  isAutoMinimized: false,
+  preAutoMinMode: null,
 
   activeLyricIndex: -1,
   isFetchingLyrics: false
@@ -104,6 +107,51 @@ let optimisticStatus = null;
 let optimisticStatusTime = 0;
 const OPTIMISTIC_STATUS_TIMEOUT = 1200;
 
+// Auto-minimize idle state & timer
+let autoMinimizeTimer = null;
+let isMouseOverOverlay = false;
+const AUTO_MINIMIZE_DELAY_MS = 10000;
+
+function startAutoMinimizeTimer() {
+  cancelAutoMinimizeTimer();
+  if (!state.autoMinimize) return;
+  if (state.mode === 'collapsed' || state.isAutoMinimized || isMouseOverOverlay) return;
+  const isPlaying = (state.hasMedia && state.status === 'Playing');
+  if (isPlaying) return;
+
+  autoMinimizeTimer = setTimeout(() => {
+    triggerAutoMinimize();
+  }, AUTO_MINIMIZE_DELAY_MS);
+}
+
+function cancelAutoMinimizeTimer() {
+  if (autoMinimizeTimer) {
+    clearTimeout(autoMinimizeTimer);
+    autoMinimizeTimer = null;
+  }
+}
+
+function triggerAutoMinimize() {
+  cancelAutoMinimizeTimer();
+  if (!state.autoMinimize) return;
+  if (state.mode === 'collapsed' || state.isAutoMinimized || isMouseOverOverlay) return;
+  const isPlaying = (state.hasMedia && state.status === 'Playing');
+  if (isPlaying) return;
+
+  state.preAutoMinMode = state.mode;
+  state.isAutoMinimized = true;
+  setMode('collapsed', true, true);
+}
+
+function restoreFromAutoMinimize() {
+  cancelAutoMinimizeTimer();
+  if (!state.isAutoMinimized) return;
+  const targetMode = state.preAutoMinMode || 'card';
+  state.isAutoMinimized = false;
+  state.preAutoMinMode = null;
+  setMode(targetMode, true, true);
+}
+
 // Corner Resize Handle
 const resizeHandle = document.getElementById('resizeHandle');
 
@@ -140,6 +188,9 @@ async function init() {
         if (typeof saved.offset === 'number') setOffset(saved.offset);
         if (typeof saved.alwaysOnTop === 'boolean') {
           setPinState(saved.alwaysOnTop);
+        }
+        if (typeof saved.autoMinimize === 'boolean') {
+          state.autoMinimize = saved.autoMinimize;
         }
       } else {
         setMode(state.mode, false);
@@ -179,6 +230,20 @@ async function init() {
         if (key === 'alwaysOnTop') {
           setPinState(value);
         }
+        if (key === 'autoMinimize') {
+          state.autoMinimize = Boolean(value);
+          if (!state.autoMinimize) {
+            cancelAutoMinimizeTimer();
+            if (state.isAutoMinimized) {
+              restoreFromAutoMinimize();
+            }
+          } else {
+            const isPlaying = (state.hasMedia && state.status === 'Playing');
+            if (!isPlaying && !isMouseOverOverlay && state.mode !== 'collapsed') {
+              startAutoMinimizeTimer();
+            }
+          }
+        }
       });
 
       // Subscribe to manually applied lyrics from Settings window search
@@ -195,6 +260,11 @@ async function init() {
           renderLyricsList();
         }
       });
+
+      // If auto-minimize is active and player is paused or idle at startup, arm the timer
+      if (state.autoMinimize && !isMouseOverOverlay && state.mode !== 'collapsed' && (!state.hasMedia || state.status !== 'Playing')) {
+        startAutoMinimizeTimer();
+      }
     }
   } catch (err) {
     console.error('App init error:', err);
@@ -204,13 +274,14 @@ async function init() {
 function persistSettings() {
   if (window.overlyAPI?.saveSettings) {
     window.overlyAPI.saveSettings({
-      mode: state.mode,
+      mode: state.isAutoMinimized ? (state.preAutoMinMode || 'card') : state.mode,
       theme: state.theme,
       accentColor: state.accentColor,
       opacity: state.opacity,
       fontSize: state.fontSize,
       offset: state.offset,
-      alwaysOnTop: state.isPinned
+      alwaysOnTop: state.isPinned,
+      autoMinimize: state.autoMinimize
     });
   }
 }
@@ -388,9 +459,31 @@ function setupEventListeners() {
   });
 
   if (overlayContainer) {
+    overlayContainer.addEventListener('mouseenter', () => {
+      isMouseOverOverlay = true;
+      cancelAutoMinimizeTimer();
+      if (state.isAutoMinimized) {
+        restoreFromAutoMinimize();
+      }
+    });
+
+    overlayContainer.addEventListener('mousemove', () => {
+      isMouseOverOverlay = true;
+      if (state.isAutoMinimized) {
+        restoreFromAutoMinimize();
+      }
+    });
+
     overlayContainer.addEventListener('mouseleave', () => {
+      isMouseOverOverlay = false;
       pillMoreContainer?.classList.remove('open');
       overlayContainer.classList.remove('pill-more-open');
+      if (state.autoMinimize && !state.isAutoMinimized && state.mode !== 'collapsed') {
+        const isPlaying = (state.hasMedia && state.status === 'Playing');
+        if (!isPlaying) {
+          startAutoMinimizeTimer();
+        }
+      }
     });
   }
 
@@ -418,6 +511,13 @@ function setupEventListeners() {
 
     optimisticStatus = targetStatus;
     optimisticStatusTime = now;
+
+    if (willBePlaying) {
+      cancelAutoMinimizeTimer();
+      if (state.isAutoMinimized) {
+        restoreFromAutoMinimize();
+      }
+    }
 
     // Snapshot position smoothly when pausing or unpausing
     if (state.status === 'Playing' && !willBePlaying) {
@@ -844,10 +944,22 @@ function updateWindowDimensionsForLyrics() {
   }
 }
 
-function setMode(mode, updateSize = true) {
+function setMode(mode, updateSize = true, isInternalAutoAction = false) {
   // Normalize aliases
   if (mode === 'pill') mode = 'collapsed';
   if (mode === 'normal') mode = 'card';
+
+  if (!isInternalAutoAction) {
+    if (state.isAutoMinimized) {
+      state.isAutoMinimized = false;
+      state.preAutoMinMode = null;
+    }
+    if (mode === 'collapsed') {
+      cancelAutoMinimizeTimer();
+    } else if (state.autoMinimize && !isMouseOverOverlay && (!state.hasMedia || state.status !== 'Playing')) {
+      startAutoMinimizeTimer();
+    }
+  }
 
   state.mode = mode;
   if (mode !== 'card') {
@@ -1195,6 +1307,20 @@ function handleMediaUpdate(data) {
   iconPlay.classList.toggle('hidden', isPlaying);
   iconPause.classList.toggle('hidden', !isPlaying);
   playingIndicator.classList.toggle('active', isPlaying);
+
+  // Auto-minimize handling based on playback status
+  if (isPlaying) {
+    cancelAutoMinimizeTimer();
+    if (state.isAutoMinimized) {
+      restoreFromAutoMinimize();
+    }
+  } else {
+    if (state.autoMinimize && !isMouseOverOverlay && !state.isAutoMinimized && state.mode !== 'collapsed') {
+      if (!autoMinimizeTimer) {
+        startAutoMinimizeTimer();
+      }
+    }
+  }
 }
 
 function updatePillLyricsBadge() {

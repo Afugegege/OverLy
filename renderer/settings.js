@@ -131,6 +131,10 @@ async function initSettings() {
       if (saved.theme) {
         applyThemeUI(saved.theme);
       }
+      if (typeof saved.autoMinimize === 'boolean') {
+        const checkAutoMinimize = document.getElementById('checkAutoMinimize');
+        if (checkAutoMinimize) checkAutoMinimize.checked = saved.autoMinimize;
+      }
     }
 
     if (window.overlyAPI.getTheme) {
@@ -140,6 +144,15 @@ async function initSettings() {
     if (window.overlyAPI.onThemeChanged) {
       window.overlyAPI.onThemeChanged((themeData) => {
         applyThemeUI(themeData);
+      });
+    }
+
+    if (window.overlyAPI.onSettingUpdated) {
+      window.overlyAPI.onSettingUpdated(({ key, value }) => {
+        if (key === 'autoMinimize') {
+          const checkAutoMinimize = document.getElementById('checkAutoMinimize');
+          if (checkAutoMinimize) checkAutoMinimize.checked = Boolean(value);
+        }
       });
     }
 
@@ -194,6 +207,16 @@ function setupEventListeners() {
     checkStartup.addEventListener('change', (e) => {
       if (window.overlyAPI && window.overlyAPI.setStartup) {
         window.overlyAPI.setStartup(e.target.checked);
+      }
+    });
+  }
+
+  // Auto minimize checkbox
+  const checkAutoMinimize = document.getElementById('checkAutoMinimize');
+  if (checkAutoMinimize) {
+    checkAutoMinimize.addEventListener('change', (e) => {
+      if (window.overlyAPI && window.overlyAPI.updateSetting) {
+        window.overlyAPI.updateSetting('autoMinimize', e.target.checked);
       }
     });
   }

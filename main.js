@@ -28,26 +28,29 @@ function applyTheme(theme) {
   }
 }
 
+const defaultSettings = {
+  mode: 'card', // 'pill' | 'card' | 'expanded'
+  accentColor: '#FF3040',
+  opacity: 0.85,
+  fontSize: 18,
+  offset: 0,
+  bounds: null,
+  alwaysOnTop: true,
+  startOnBoot: false,
+  theme: 'system', // 'system' | 'dark' | 'light'
+  autoMinimize: false
+};
+
 function loadSettings() {
   try {
     if (fs.existsSync(settingsPath)) {
       const raw = fs.readFileSync(settingsPath, 'utf8').replace(/^\uFEFF/, '');
-      return JSON.parse(raw);
+      return { ...defaultSettings, ...JSON.parse(raw) };
     }
   } catch (e) {
     console.error('Failed to load settings:', e);
   }
-  return {
-    mode: 'card', // 'pill' | 'card' | 'expanded'
-    accentColor: '#FF3040',
-    opacity: 0.85,
-    fontSize: 18,
-    offset: 0,
-    bounds: null,
-    alwaysOnTop: true,
-    startOnBoot: false,
-    theme: 'system' // 'system' | 'dark' | 'light'
-  };
+  return { ...defaultSettings };
 }
 
 function saveSettings(settings) {
@@ -725,6 +728,9 @@ ipcMain.on('update-setting', (_event, { key, value }) => {
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('setting-updated', { key, value });
+  }
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send('setting-updated', { key, value });
   }
 });
 
