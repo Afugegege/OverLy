@@ -26,30 +26,34 @@ let currentThemeSetting = 'system';
 let currentOffset = 0.0;
 let committedMode = 'card';
 
+function updateActiveVisStyle(activeStyle) {
+  if (!activeStyle) return;
+  const visStyleCards = document.querySelectorAll('.vis-style-card');
+  visStyleCards.forEach((card) => {
+    card.classList.toggle('active', card.dataset.style === activeStyle);
+  });
+}
+
 function applyAlbumArtThemeTokens(hexColor) {
   if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return;
   const rgb = hexToRgb(hexColor);
 
-  const bgR = Math.max(9, Math.min(32, Math.round(rgb.r * 0.16 + 10 * 0.84)));
-  const bgG = Math.max(11, Math.min(34, Math.round(rgb.g * 0.16 + 12 * 0.84)));
-  const bgB = Math.max(16, Math.min(42, Math.round(rgb.b * 0.16 + 18 * 0.84)));
+  const bgR = Math.max(9, Math.min(26, Math.round(rgb.r * 0.12 + 10 * 0.88)));
+  const bgG = Math.max(11, Math.min(28, Math.round(rgb.g * 0.12 + 12 * 0.88)));
+  const bgB = Math.max(16, Math.min(36, Math.round(rgb.b * 0.12 + 18 * 0.88)));
 
-  const cardR = Math.round(bgR + 12);
-  const cardG = Math.round(bgG + 14);
-  const cardB = Math.round(bgB + 20);
-
-  const textR = Math.round(255 * 0.94 + rgb.r * 0.06);
-  const textG = Math.round(255 * 0.94 + rgb.g * 0.06);
-  const textB = Math.round(255 * 0.94 + rgb.b * 0.06);
+  const cardR = Math.round(bgR + 10);
+  const cardG = Math.round(bgG + 12);
+  const cardB = Math.round(bgB + 16);
 
   document.documentElement.style.setProperty('--bg-window', `rgb(${bgR}, ${bgG}, ${bgB})`);
   document.documentElement.style.setProperty('--bg-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
-  document.documentElement.style.setProperty('--bg-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.12)`);
-  document.documentElement.style.setProperty('--border-color', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.22)`);
-  document.documentElement.style.setProperty('--text-primary', `rgb(${textR}, ${textG}, ${textB})`);
-  document.documentElement.style.setProperty('--text-secondary', `rgba(${textR}, ${textG}, ${textB}, 0.72)`);
-  document.documentElement.style.setProperty('--text-muted', `rgba(${textR}, ${textG}, ${textB}, 0.46)`);
-  document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)`);
+  document.documentElement.style.setProperty('--bg-subtle', `rgba(255, 255, 255, 0.08)`);
+  document.documentElement.style.setProperty('--border-color', `rgba(255, 255, 255, 0.14)`);
+  document.documentElement.style.setProperty('--text-primary', '#ffffff');
+  document.documentElement.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.86)');
+  document.documentElement.style.setProperty('--text-muted', 'rgba(255, 255, 255, 0.62)');
+  document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.20)`);
 }
 
 function hexToRgb(hex) {
@@ -72,9 +76,20 @@ function hexToRgb(hex) {
 }
 
 function applyCssTokensForColor(color) {
-  const rgb = hexToRgb(color);
-  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  let rgb = hexToRgb(color);
+  let luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
   const isLight = document.body.classList.contains('theme-light');
+
+  // Guard against muddy or near-black extracted accent colors on dark backgrounds
+  if (!isLight && luminance < 0.42) {
+    const boost = Math.max(1.7, 0.55 / Math.max(0.08, luminance));
+    const r = Math.min(255, Math.round(rgb.r * boost + 75));
+    const g = Math.min(255, Math.round(rgb.g * boost + 75));
+    const b = Math.min(255, Math.round(rgb.b * boost + 75));
+    rgb = { r, g, b };
+    color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  }
 
   let contrast = '#ffffff';
   let accentText = color;
@@ -541,8 +556,9 @@ function setupEventListeners() {
   // Instrumental Visualizer style selection
   const visStyleCards = document.querySelectorAll('.vis-style-card');
   visStyleCards.forEach((card) => {
-    card.addEventListener('click', () => {
-      const style = card.dataset.style;
+    card.addEventListener('click', (e) => {
+      const btn = e.target.closest('.vis-style-card') || card;
+      const style = btn.dataset.style;
       if (style) {
         updateActiveVisStyle(style);
         if (window.overlyAPI?.updateSetting) {
@@ -551,13 +567,6 @@ function setupEventListeners() {
       }
     });
   });
-
-  function updateActiveVisStyle(activeStyle) {
-    if (!activeStyle) return;
-    visStyleCards.forEach((card) => {
-      card.classList.toggle('active', card.dataset.style === activeStyle);
-    });
-  }
 
   // Color swatches (exclude custom swatch button from standard handler)
   colorSwatches.forEach((swatch) => {

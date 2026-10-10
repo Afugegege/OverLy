@@ -918,9 +918,19 @@ function analyzeBitmapColors(buffer) {
     };
   }
 
+  // Guarantee vibrant, visible accent color (prevent dark/muddy accents from dark cover art)
+  let pr = primary.r, pg = primary.g, pb = primary.b;
+  const lum = (0.299 * pr + 0.587 * pg + 0.114 * pb) / 255;
+  if (lum < 0.42) {
+    const boost = Math.max(1.7, 0.55 / Math.max(0.08, lum));
+    pr = Math.min(255, Math.round(pr * boost + 75));
+    pg = Math.min(255, Math.round(pg * boost + 75));
+    pb = Math.min(255, Math.round(pb * boost + 75));
+  }
+
   const toHex = (n) => n.toString(16).padStart(2, '0');
   return {
-    primary: `#${toHex(primary.r)}${toHex(primary.g)}${toHex(primary.b)}`,
+    primary: `#${toHex(pr)}${toHex(pg)}${toHex(pb)}`,
     secondary: `#${toHex(secondary.r)}${toHex(secondary.g)}${toHex(secondary.b)}`
   };
 }

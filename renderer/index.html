@@ -252,9 +252,20 @@
         </div>
       </div>
 
-      <!-- Pill View Single Lyric Line (Used in Pill Mode) -->
+      <!-- Pill View Single Lyric Line or Instrumental Visualizer (Used in Pill Mode) -->
       <div id="pillLyricContainer" class="pill-lyric-container">
         <p id="pillLyricText" class="pill-lyric-text">Listening for playback</p>
+        <div id="pillVisualizer" class="pill-visualizer-wrap" style="display: none;">
+          <div class="vis-bars-stage pill-vis-bars vis-style-spectrum" id="pillVisBarsStage">
+            <span class="vis-bar"></span><span class="vis-bar"></span><span class="vis-bar"></span>
+            <span class="vis-bar"></span><span class="vis-bar"></span><span class="vis-bar"></span>
+            <span class="vis-bar"></span><span class="vis-bar"></span><span class="vis-bar"></span>
+            <span class="vis-bar"></span><span class="vis-bar"></span><span class="vis-bar"></span>
+            <span class="vis-bar"></span><span class="vis-bar"></span><span class="vis-bar"></span>
+            <span class="vis-bar"></span><span class="vis-bar"></span><span class="vis-bar"></span>
+          </div>
+          <span class="pill-vis-label" id="pillVisLabel">纯音乐</span>
+        </div>
       </div>
 
       <!-- Synced Lyrics Scroll Area (Used in Card & Expanded Modes) -->

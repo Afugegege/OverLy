@@ -357,9 +357,9 @@ function applyAlbumArtThemeTokens(hexColor) {
   document.documentElement.style.setProperty('--bg-glass', `rgba(${bgR}, ${bgG}, ${bgB}, ${norm})`);
   document.documentElement.style.setProperty('--bg-glass-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
   document.documentElement.style.setProperty('--border-glass', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.24)`);
-  document.documentElement.style.setProperty('--text-primary', `rgb(${textR}, ${textG}, ${textB})`);
-  document.documentElement.style.setProperty('--text-secondary', `rgba(${textR}, ${textG}, ${textB}, 0.72)`);
-  document.documentElement.style.setProperty('--text-muted', `rgba(${textR}, ${textG}, ${textB}, 0.46)`);
+  document.documentElement.style.setProperty('--text-primary', '#ffffff');
+  document.documentElement.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.86)');
+  document.documentElement.style.setProperty('--text-muted', 'rgba(255, 255, 255, 0.62)');
   document.documentElement.style.setProperty('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);
   document.documentElement.style.setProperty('--aura-color2', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.14)`);
 }
@@ -1167,6 +1167,8 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
     updateMinimizedDisplay();
   }
 
+  updatePillInstrumentalView();
+
   if (updateSize && window.overlyAPI) {
     const target = getTargetWindowDimensions(mode);
     window.overlyAPI.setWindowSize?.(target.width, target.height, mode);
@@ -1264,11 +1266,20 @@ function hexToRgb(hex) {
 }
 
 function applyAccentTokens(color, customSecondary = null) {
-  const rgb = hexToRgb(color);
-
-  // Perceived luminance formula (ITU-R BT.709 / W3C)
-  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  let rgb = hexToRgb(color);
+  let luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
   const isLight = document.body.classList.contains('theme-light');
+
+  // Guard against muddy or near-black extracted accent colors on dark backgrounds
+  if (!isLight && luminance < 0.42 && color !== getNeutralAccentColor()) {
+    const boost = Math.max(1.7, 0.55 / Math.max(0.08, luminance));
+    const r = Math.min(255, Math.round(rgb.r * boost + 75));
+    const g = Math.min(255, Math.round(rgb.g * boost + 75));
+    const b = Math.min(255, Math.round(rgb.b * boost + 75));
+    rgb = { r, g, b };
+    color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  }
 
   let contrastColor = '#ffffff';
   let accentText = color;
@@ -1759,72 +1770,166 @@ function renderTrackInfo() {
 
 function isInstrumentalOrNoLyrics() {
   if (!state.hasMedia) return false;
-  if (state.hasSynced && state.lyrics && state.lyrics.length > 1) {
-    return false;
+
+  // 1. If 0 lyrics at all
+  const hasNoSynced = !state.hasSynced || !state.lyrics || state.lyrics.length === 0;
+  const hasNoPlain = !state.plainLyrics || !state.plainLyrics.trim();
+  if (hasNoSynced && hasNoPlain) return true;
+
+  // 2. Collect all non-empty text lines
+  const allTexts = [];
+  if (state.lyrics && state.lyrics.length > 0) {
+    state.lyrics.forEach(l => {
+      if (l && l.text) {
+        const t = l.text.trim();
+        if (t) allTexts.push(t);
+      }
+    });
+  } else if (state.plainLyrics) {
+    state.plainLyrics.split(/\r?\n/).forEach(l => {
+      const t = l.trim();
+      if (t) allTexts.push(t);
+    });
   }
-  if (state.plainLyrics) {
+
+  // 0 or 1 line is always instrumental / pure music
+  if (allTexts.length <= 1) return true;
+
+  // 3. Known instrumental keywords & pure music markers across languages
+  const combined = allTexts.join(' ').toLowerCase();
+  const isInstrumentalPhrase =
+    combined.includes('纯音乐') ||
+    combined.includes('请欣赏') ||
+    combined.includes('instrumental') ||
+    combined.includes('pure music') ||
+    combined.includes('no lyrics') ||
+    combined.includes('没有歌词') ||
+    combined.includes('无歌词') ||
+    combined.includes('(music)') ||
+    combined.includes('♪') ||
+    combined.includes('作词 : 无') ||
+    combined.includes('作词：无') ||
+    combined.includes('作词:无');
+
+  if (isInstrumentalPhrase && allTexts.length <= 6) {
+    return true;
+  }
+
+  return false;
+}
+
+function getInstrumentalTag() {
+  let text = '';
+  if (state.lyrics && state.lyrics.length > 0) {
+    for (const l of state.lyrics) {
+      if (l.text && (l.text.includes('纯音乐') || l.text.toLowerCase().includes('instrumental') || l.text.includes('音乐'))) {
+        text = l.text;
+        break;
+      }
+    }
+    if (!text && state.lyrics[0]) text = state.lyrics[0].text;
+  } else if (state.plainLyrics) {
     const lines = state.plainLyrics.split(/\r?\n/).filter(l => l.trim().length > 0);
-    if (lines.length > 1) return false;
+    for (const l of lines) {
+      if (l.includes('纯音乐') || l.toLowerCase().includes('instrumental') || l.includes('音乐')) {
+        text = l;
+        break;
+      }
+    }
+    if (!text && lines[0]) text = lines[0];
   }
-  return true;
+
+  if (state.isFetchingLyrics) return 'Searching...';
+  if (!text) return 'No lyrics';
+  if (text.includes('纯音乐')) return '纯音乐';
+  if (text.toLowerCase().includes('instrumental')) return 'Instrumental';
+  return text.length > 16 ? text.slice(0, 14) + '...' : text;
+}
+
+function updatePillInstrumentalView() {
+  const isInst = isInstrumentalOrNoLyrics();
+  const pillVisWrap = document.getElementById('pillVisualizer');
+  const pillText = document.getElementById('pillLyricText');
+  if (!pillVisWrap || !pillText) return;
+
+  if (isInst) {
+    pillText.style.display = 'none';
+    pillVisWrap.style.display = 'flex';
+    const tagEl = document.getElementById('pillVisLabel');
+    if (tagEl) {
+      tagEl.textContent = getInstrumentalTag();
+    }
+    const stage = document.getElementById('pillVisBarsStage');
+    if (stage) {
+      stage.className = `vis-bars-stage pill-vis-bars vis-style-${state.visualizerStyle || 'spectrum'}`;
+    }
+  } else {
+    pillText.style.display = '';
+    pillVisWrap.style.display = 'none';
+  }
 }
 
 function updateInstrumentalVisualizerStyle() {
-  const stage = document.getElementById('visBarsStage');
-  if (stage) {
-    stage.className = `vis-bars-stage vis-style-${state.visualizerStyle || 'spectrum'}`;
+  const cardStage = document.getElementById('visBarsStage');
+  if (cardStage) {
+    cardStage.className = `vis-bars-stage vis-style-${state.visualizerStyle || 'spectrum'}`;
+  }
+  const pillStage = document.getElementById('pillVisBarsStage');
+  if (pillStage) {
+    pillStage.className = `vis-bars-stage pill-vis-bars vis-style-${state.visualizerStyle || 'spectrum'}`;
   }
 }
 
 function updateInstrumentalVisualizer() {
-  const stage = document.getElementById('visBarsStage');
-  if (!stage) return;
-
-  const bars = stage.children;
-  const numBars = bars.length;
-  if (!numBars) return;
+  const stages = [
+    { el: document.getElementById('visBarsStage'), maxH: 48 },
+    { el: document.getElementById('pillVisBarsStage'), maxH: 22 }
+  ];
 
   const isPlaying = (state.hasMedia && state.status === 'Playing');
   const t = performance.now() / 1000;
   const style = state.visualizerStyle || 'spectrum';
 
-  for (let i = 0; i < numBars; i++) {
-    const bar = bars[i];
-    let h = 4;
+  stages.forEach(({ el, maxH }) => {
+    if (!el || el.offsetParent === null) return;
+    const bars = el.children;
+    const numBars = bars.length;
+    if (!numBars) return;
 
-    if (isPlaying) {
-      if (style === 'wave') {
-        // Smooth undulating sinusoidal wave traveling horizontally
-        const w1 = Math.sin(t * 4.6 + i * 0.38);
-        const w2 = Math.cos(t * 2.2 - i * 0.22) * 0.35;
-        const norm = (w1 + w2 + 1.35) / 2.7;
-        h = 6 + Math.max(0, Math.min(1, norm)) * 46;
-      } else if (style === 'pulse') {
-        // Symmetric center heartbeat pulse: center bars highest, expanding vertically
-        const centerDist = Math.abs(i - (numBars - 1) / 2) / ((numBars - 1) / 2);
-        const centerWeight = Math.max(0.12, Math.cos(centerDist * (Math.PI / 2) * 0.92));
-        const beat = Math.pow(Math.sin(t * 4.8), 2) * 0.5 + Math.sin(t * 2.4 + centerDist * 2) * 0.3 + 0.3;
-        h = 6 + centerWeight * Math.max(0.15, beat) * 50;
-      } else if (style === 'minimal') {
-        // Clean minimal bars with subtle vertical motion
-        const m = (Math.sin(t * 3.2 + i * 0.45) + 1) / 2;
-        h = 5 + m * 24;
+    for (let i = 0; i < numBars; i++) {
+      const bar = bars[i];
+      let h = 3;
+
+      if (isPlaying) {
+        if (style === 'wave') {
+          const w1 = Math.sin(t * 4.6 + i * 0.38);
+          const w2 = Math.cos(t * 2.2 - i * 0.22) * 0.35;
+          const norm = (w1 + w2 + 1.35) / 2.7;
+          h = 4 + Math.max(0, Math.min(1, norm)) * maxH;
+        } else if (style === 'pulse') {
+          const centerDist = Math.abs(i - (numBars - 1) / 2) / ((numBars - 1) / 2);
+          const centerWeight = Math.max(0.12, Math.cos(centerDist * (Math.PI / 2) * 0.92));
+          const beat = Math.pow(Math.sin(t * 4.8), 2) * 0.5 + Math.sin(t * 2.4 + centerDist * 2) * 0.3 + 0.3;
+          h = 4 + centerWeight * Math.max(0.15, beat) * (maxH + 4);
+        } else if (style === 'minimal') {
+          const m = (Math.sin(t * 3.2 + i * 0.45) + 1) / 2;
+          h = 4 + m * (maxH * 0.55);
+        } else {
+          // spectrum
+          const freqTilt = 1 - (i / numBars) * 0.42;
+          const n1 = Math.sin(t * 7.2 + i * 1.4);
+          const n2 = Math.cos(t * 11.5 + i * 0.85) * 0.4;
+          const n3 = Math.sin(t * 3.8 + i * 2.6) * 0.3;
+          const combo = (n1 + n2 + n3 + 1.7) / 3.4;
+          h = 4 + Math.max(0, Math.min(1, combo)) * maxH * freqTilt;
+        }
       } else {
-        // 'spectrum' frequency equalizer with harmonic peaks
-        const freqTilt = 1 - (i / numBars) * 0.42;
-        const n1 = Math.sin(t * 7.2 + i * 1.4);
-        const n2 = Math.cos(t * 11.5 + i * 0.85) * 0.4;
-        const n3 = Math.sin(t * 3.8 + i * 2.6) * 0.3;
-        const combo = (n1 + n2 + n3 + 1.7) / 3.4;
-        h = 6 + Math.max(0, Math.min(1, combo)) * 46 * freqTilt;
+        h = 3;
       }
-    } else {
-      // Idle resting height
-      h = 4;
-    }
 
-    bar.style.height = `${Math.round(h)}px`;
-  }
+      bar.style.height = `${Math.round(h)}px`;
+    }
+  });
 }
 
 function renderLyricsList() {
@@ -1834,6 +1939,7 @@ function renderLyricsList() {
     body.classList.remove('no-lyrics-collapsed');
     updateWindowDimensionsForLyrics();
     updatePillLyricsBadge();
+    updatePillInstrumentalView();
     const el = document.createElement('div');
     el.className = 'lyric-line placeholder-line';
     el.textContent = 'Listening for playback...';
@@ -1841,22 +1947,12 @@ function renderLyricsList() {
     return;
   }
 
-  // Pure instrumental or no lyrics condition:
-  // (Either 0 lyrics found or only 1 line, e.g. "Instrumental" / "Music")
+  // Pure instrumental or no lyrics condition
   if (isInstrumentalOrNoLyrics()) {
     body.classList.add('no-lyrics-collapsed');
     updateWindowDimensionsForLyrics();
     updatePillLyricsBadge();
-
-    const singleLine = (state.lyrics && state.lyrics[0] && state.lyrics[0].text)
-      || (state.plainLyrics && state.plainLyrics.trim())
-      || '';
-
-    if (singleLine) {
-      updatePillLyric(singleLine);
-    } else if (state.hasMedia && state.title) {
-      updatePillLyric(state.isFetchingLyrics ? 'Searching lyrics...' : 'No lyrics');
-    }
+    updatePillInstrumentalView();
 
     // Render Audio Visualizer with vertical bars expanding up & down from center
     const visContainer = document.createElement('div');
@@ -1880,15 +1976,10 @@ function renderLyricsList() {
     const footer = document.createElement('div');
     footer.className = 'vis-footer-bar';
 
-    let statusLabel = 'No lyrics';
-    if (state.isFetchingLyrics) {
-      statusLabel = 'Searching...';
-    } else if (singleLine) {
-      statusLabel = singleLine.length > 24 ? singleLine.slice(0, 22) + '...' : singleLine;
-    }
+    const statusLabel = getInstrumentalTag();
 
     footer.innerHTML = `
-      <span class="vis-status-tag" id="visStatusTag" title="${singleLine || 'No lyrics found'}">${statusLabel}</span>
+      <span class="vis-status-tag" id="visStatusTag">${statusLabel}</span>
       <button class="vis-mini-btn vis-mini-retry" id="btnVisRetry" title="Retry fetching lyrics">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
@@ -1933,6 +2024,7 @@ function renderLyricsList() {
   body.classList.remove('no-lyrics-collapsed');
   updateWindowDimensionsForLyrics();
   updatePillLyricsBadge();
+  updatePillInstrumentalView();
 
   if (state.hasSynced && state.lyrics.length > 1) {
     state.lyrics.forEach((line, idx) => {
@@ -2112,6 +2204,10 @@ function formatTime(sec) {
 }
 
 function updatePillLyric(text) {
+  if (isInstrumentalOrNoLyrics()) {
+    updatePillInstrumentalView();
+    return;
+  }
   if (!pillLyricText) return;
   const newText = text || '';
   if (pillLyricText.textContent === newText) return;
