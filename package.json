@@ -2,7 +2,7 @@
   "name": "overly",
   "productName": "overLy",
   "version": "1.0.0",
-  "description": "Modern Minimalist Floating Overlay Lyrics for Windows",
+  "description": "Lightweight floating synced lyrics overlay for Windows",
   "main": "main.js",
   "author": "Afugegege",
   "license": "MIT",

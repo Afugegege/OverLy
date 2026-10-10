@@ -95,16 +95,25 @@ function createWindow() {
   currentWindowHeight = defaultHeight;
 
   let x, y;
-  if (settings.bounds && typeof settings.bounds.x === 'number') {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const wa = primaryDisplay.workArea;
+
+  const normMode = (currentMode === 'pill') ? 'collapsed' : (currentMode === 'normal' ? 'card' : currentMode);
+  if (settings.layoutPositions && settings.layoutPositions[normMode] && typeof settings.layoutPositions[normMode].x === 'number') {
+    x = settings.layoutPositions[normMode].x;
+    y = settings.layoutPositions[normMode].y;
+  } else if (settings.bounds && typeof settings.bounds.x === 'number') {
     x = settings.bounds.x;
     y = settings.bounds.y;
   } else {
     // Default to bottom-center of primary display
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const { width, height } = primaryDisplay.workAreaSize;
-    x = Math.round((width - defaultWidth) / 2);
-    y = Math.round(height - defaultHeight - 50);
+    x = Math.round(wa.x + (wa.width - defaultWidth) / 2);
+    y = Math.round(wa.y + wa.height - defaultHeight - 50);
   }
+
+  // Ensure initial position is clamped safely on screen
+  x = Math.max(wa.x, Math.min(wa.x + wa.width - defaultWidth, x));
+  y = Math.max(wa.y, Math.min(wa.y + wa.height - defaultHeight, y));
 
   mainWindow = new BrowserWindow({
     x,
@@ -432,19 +441,44 @@ function openSettingsWindow(searchQuery) {
     return;
   }
 
-  let x = 120, y = 120;
+  const display = (mainWindow && !mainWindow.isDestroyed())
+    ? screen.getDisplayMatching(mainWindow.getBounds())
+    : screen.getPrimaryDisplay();
+  const wa = display.workArea;
+  const sw = 380;
+  const sh = 540;
+
+  let x = wa.x + Math.round((wa.width - sw) / 2);
+  let y = wa.y + Math.round((wa.height - sh) / 2);
+
   if (mainWindow && !mainWindow.isDestroyed()) {
     const [mx, my] = mainWindow.getPosition();
-    const [mw, _mh] = mainWindow.getSize();
-    x = mx + mw + 16;
-    y = my;
+    const [mw, mh] = mainWindow.getSize();
+
+    // Prefer opening to the right of the overlay
+    if (mx + mw + 16 + sw <= wa.x + wa.width) {
+      x = mx + mw + 16;
+      y = my;
+    }
+    // Else prefer opening to the left of the overlay
+    else if (mx - 16 - sw >= wa.x) {
+      x = mx - 16 - sw;
+      y = my;
+    }
+    // Else clamp horizontally near the overlay
+    else {
+      x = Math.max(wa.x + 12, Math.min(wa.x + wa.width - sw - 12, mx));
+    }
+
+    // Always clamp y so Settings is 100% on screen
+    y = Math.max(wa.y + 12, Math.min(wa.y + wa.height - sh - 12, y));
   }
 
   settingsWindow = new BrowserWindow({
     x,
     y,
-    width: 380,
-    height: 540,
+    width: sw,
+    height: sh,
     minWidth: 340,
     minHeight: 480,
     title: 'overLy Settings',
@@ -494,23 +528,56 @@ ipcMain.on('set-always-on-top', (_event, pinned) => {
 ipcMain.on('window-move', (_event, { deltaX, deltaY }) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     const [x, y] = mainWindow.getPosition();
+    let newX = Math.round(x + deltaX);
+    let newY = Math.round(y + deltaY);
+
+    const display = screen.getDisplayMatching(mainWindow.getBounds());
+    const wa = display.workArea;
+
+    // Keep window securely on-screen during drag
+    newX = Math.max(wa.x - currentWindowWidth + 60, Math.min(wa.x + wa.width - 60, newX));
+    newY = Math.max(wa.y, Math.min(wa.y + wa.height - 40, newY));
+
     mainWindow.setBounds({
-      x: Math.round(x + deltaX),
-      y: Math.round(y + deltaY),
+      x: newX,
+      y: newY,
       width: currentWindowWidth,
       height: currentWindowHeight
     });
+
+    const s = loadSettings();
+    const currentMode = s.mode || 'card';
+    const normMode = (currentMode === 'pill') ? 'collapsed' : (currentMode === 'normal' ? 'card' : currentMode);
+    if (!s.layoutPositions) s.layoutPositions = {};
+    s.layoutPositions[normMode] = { x: newX, y: newY };
+    saveSettings(s);
   }
 });
 
 ipcMain.on('window-move-to', (_event, { x, y }) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
+    let newX = Math.round(x);
+    let newY = Math.round(y);
+
+    const display = screen.getDisplayMatching(mainWindow.getBounds());
+    const wa = display.workArea;
+
+    newX = Math.max(wa.x, Math.min(wa.x + wa.width - currentWindowWidth, newX));
+    newY = Math.max(wa.y, Math.min(wa.y + wa.height - currentWindowHeight, newY));
+
     mainWindow.setBounds({
-      x: Math.round(x),
-      y: Math.round(y),
+      x: newX,
+      y: newY,
       width: currentWindowWidth,
       height: currentWindowHeight
     });
+
+    const s = loadSettings();
+    const currentMode = s.mode || 'card';
+    const normMode = (currentMode === 'pill') ? 'collapsed' : (currentMode === 'normal' ? 'card' : currentMode);
+    if (!s.layoutPositions) s.layoutPositions = {};
+    s.layoutPositions[normMode] = { x: newX, y: newY };
+    saveSettings(s);
   }
 });
 
@@ -523,24 +590,99 @@ ipcMain.handle('get-window-pos', () => {
   return { x: 0, y: 0 };
 });
 
-ipcMain.on('set-window-size', (_event, width, height) => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    currentWindowWidth = Math.round(width);
-    currentWindowHeight = Math.round(height);
-    const [x, y] = mainWindow.getPosition();
-    if (!isUserResizing) {
-      mainWindow.setMinimumSize(currentWindowWidth, currentWindowHeight);
-      mainWindow.setMaximumSize(currentWindowWidth, currentWindowHeight);
+ipcMain.on('set-window-size', (_event, arg1, arg2) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  let width, height, targetMode;
+  if (typeof arg1 === 'object' && arg1 !== null) {
+    width = arg1.width;
+    height = arg1.height;
+    targetMode = arg1.mode;
+  } else {
+    width = arg1;
+    height = arg2;
+  }
+
+  currentWindowWidth = Math.round(width);
+  currentWindowHeight = Math.round(height);
+
+  const s = loadSettings();
+  if (!targetMode) {
+    targetMode = s.mode || 'card';
+  }
+  let normMode = targetMode;
+  if (normMode === 'pill') normMode = 'collapsed';
+  if (normMode === 'normal') normMode = 'card';
+
+  if (!s.layoutPositions) s.layoutPositions = {};
+
+  const currentBounds = mainWindow.getBounds();
+  const display = screen.getDisplayMatching(currentBounds);
+  const wa = display.workArea;
+
+  let targetX, targetY;
+
+  if (isUserResizing) {
+    // Manual corner resize: keep current top-left, clamp within screen
+    targetX = currentBounds.x;
+    targetY = currentBounds.y;
+    if (targetX + currentWindowWidth > wa.x + wa.width) {
+      currentWindowWidth = Math.max(300, wa.x + wa.width - targetX);
     }
-    mainWindow.setBounds({
-      x,
-      y,
-      width: currentWindowWidth,
-      height: currentWindowHeight
-    });
-    if (isAlwaysOnTop) {
-      mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    if (targetY + currentWindowHeight > wa.y + wa.height) {
+      currentWindowHeight = Math.max(64, wa.y + wa.height - targetY);
     }
+    s.layoutPositions[normMode] = { x: targetX, y: targetY };
+    saveSettings(s);
+  } else {
+    // 1. If this layout mode already has a saved position, return to it!
+    if (s.layoutPositions[normMode] && typeof s.layoutPositions[normMode].x === 'number') {
+      targetX = s.layoutPositions[normMode].x;
+      targetY = s.layoutPositions[normMode].y;
+    } else {
+      // 2. Otherwise: smart-anchor based on proximity to screen edges
+      const isNearBottom = (currentBounds.y + currentBounds.height >= wa.y + wa.height - 40);
+      const isNearRight = (currentBounds.x + currentBounds.width >= wa.x + wa.width - 40);
+
+      targetX = isNearRight
+        ? (currentBounds.x + currentBounds.width - currentWindowWidth)
+        : currentBounds.x;
+
+      targetY = isNearBottom
+        ? (currentBounds.y + currentBounds.height - currentWindowHeight)
+        : currentBounds.y;
+
+      s.layoutPositions[normMode] = { x: targetX, y: targetY };
+      saveSettings(s);
+    }
+
+    // 3. Always clamp strictly within workArea so the window is NEVER off screen
+    if (targetX + currentWindowWidth > wa.x + wa.width) {
+      targetX = wa.x + wa.width - currentWindowWidth;
+    }
+    if (targetX < wa.x) {
+      targetX = wa.x;
+    }
+    if (targetY + currentWindowHeight > wa.y + wa.height) {
+      targetY = wa.y + wa.height - currentWindowHeight;
+    }
+    if (targetY < wa.y) {
+      targetY = wa.y;
+    }
+  }
+
+  mainWindow.setMinimumSize(currentWindowWidth, currentWindowHeight);
+  mainWindow.setMaximumSize(currentWindowWidth, currentWindowHeight);
+
+  mainWindow.setBounds({
+    x: Math.round(targetX),
+    y: Math.round(targetY),
+    width: currentWindowWidth,
+    height: currentWindowHeight
+  });
+
+  if (isAlwaysOnTop) {
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
   }
 });
 

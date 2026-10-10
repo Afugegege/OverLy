@@ -16,9 +16,13 @@ contextBridge.exposeInMainWorld('overlyAPI', {
   prevTrack: () => ipcRenderer.send('media-prev'),
   seekTo: (seconds) => ipcRenderer.send('media-seek', seconds),
   setClickThrough: (locked) => ipcRenderer.send('set-click-through', locked),
-  setAlwaysOnTop: (pinned) => ipcRenderer.send('set-always-on-top', pinned),
-  setWindowSize: (width, height) => ipcRenderer.send('set-window-size', width, height),
-  setResizable: (resizable) => ipcRenderer.send('set-resizable', resizable),
+  setWindowSize: (width, height, mode) => {
+    if (typeof width === 'object' && width !== null) {
+      ipcRenderer.send('set-window-size', width);
+    } else {
+      ipcRenderer.send('set-window-size', { width, height, mode });
+    }
+  },
   manualSearchLyrics: (title, artist) => ipcRenderer.invoke('manual-search-lyrics', { title, artist }),
   retryLyrics: () => ipcRenderer.invoke('retry-lyrics'),
   saveSettings: (settings) => ipcRenderer.send('save-settings', settings),

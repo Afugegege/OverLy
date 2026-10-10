@@ -683,7 +683,7 @@ function toggleResizeMode(forceState) {
 function resetToDefaultSize() {
   const target = getTargetWindowDimensions(state.mode);
   if (window.overlyAPI?.setWindowSize) {
-    window.overlyAPI.setWindowSize(target.width, target.height);
+    window.overlyAPI.setWindowSize(target.width, target.height, state.mode);
   }
   if (state.mode === 'collapsed' || state.mode === 'pill') {
     setTimeout(updatePillBorderDimensions, 60);
@@ -793,7 +793,7 @@ function getTargetWindowDimensions(mode = state.mode) {
 function updateWindowDimensionsForLyrics() {
   if (!window.overlyAPI) return;
   const target = getTargetWindowDimensions(state.mode);
-  window.overlyAPI.setWindowSize(target.width, target.height);
+  window.overlyAPI.setWindowSize(target.width, target.height, state.mode);
   if (state.isPinned) {
     window.overlyAPI.setAlwaysOnTop(true);
   }
@@ -823,7 +823,7 @@ function setMode(mode, updateSize = true) {
 
   if (updateSize && window.overlyAPI) {
     const target = getTargetWindowDimensions(mode);
-    window.overlyAPI.setWindowSize(target.width, target.height);
+    window.overlyAPI.setWindowSize(target.width, target.height, mode);
     // Re-assert topmost state on mode size transition
     if (state.isPinned) {
       window.overlyAPI.setAlwaysOnTop(true);
