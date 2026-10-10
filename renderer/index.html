@@ -254,7 +254,15 @@
 
       <!-- Pill View Single Lyric Line or Instrumental Visualizer (Used in Pill Mode) -->
       <div id="pillLyricContainer" class="pill-lyric-container">
-        <p id="pillLyricText" class="pill-lyric-text">Listening for playback</p>
+        <!-- Normal Lyric Row with optional mini equalizer -->
+        <div id="pillLyricWrap" class="pill-lyric-wrap">
+          <div class="vis-bars-stage pill-mini-equalizer vis-style-spectrum hidden" id="pillLyricEqualizer" aria-hidden="true">
+            <span class="vis-bar"></span><span class="vis-bar"></span><span class="vis-bar"></span><span class="vis-bar"></span>
+          </div>
+          <p id="pillLyricText" class="pill-lyric-text">Listening for playback</p>
+        </div>
+
+        <!-- Full Audio Visualizer (Used for instrumental & no lyrics) -->
         <div id="pillVisualizer" class="pill-visualizer-wrap" style="display: none;">
           <div class="vis-bars-stage pill-vis-bars vis-style-spectrum" id="pillVisBarsStage">
             <span class="vis-bar"></span><span class="vis-bar"></span><span class="vis-bar"></span>
@@ -265,6 +273,19 @@
             <span class="vis-bar"></span><span class="vis-bar"></span><span class="vis-bar"></span>
           </div>
           <span class="pill-vis-label" id="pillVisLabel">纯音乐</span>
+          <button id="btnPillVisRetry" class="vis-mini-btn" title="Retry fetching lyrics">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+            </svg>
+            <span>Retry</span>
+          </button>
+          <button id="btnPillVisSearch" class="vis-mini-btn vis-mini-search" title="Search for lyrics online">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span>Search</span>
+          </button>
         </div>
       </div>
 

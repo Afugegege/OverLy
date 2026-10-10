@@ -335,6 +335,78 @@ function persistSettings() {
   }
 }
 
+function hexToHsl(hex) {
+  const rgb = hexToRgb(hex);
+  const r = rgb.r / 255, g = rgb.g / 255, b = rgb.b / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h, s, l };
+}
+
+function hslToHex(h, s, l) {
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  const toHex = x => Math.round(Math.max(0, Math.min(1, x)) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function getHighContrastVisualizerColor(baseHex, isLight) {
+  if (!baseHex) return isLight ? '#4f46e5' : '#818cf8';
+  const { h, s, l } = hexToHsl(baseHex);
+
+  if (!isLight) {
+    // Dark mode / Auto theme (dark background L ~ 0.08)
+    // Guarantee radiant high luminance (L: 0.68 to 0.86) so bars never blend into dark backgrounds
+    let targetL = l;
+    if (l < 0.55) {
+      targetL = 0.68 + (l * 0.22);
+    } else if (l > 0.90) {
+      targetL = 0.86;
+    }
+    const targetS = s < 0.15 ? 0.38 : Math.max(0.45, s);
+    const targetH = s < 0.15 ? 0.58 : h;
+    return hslToHex(targetH, targetS, targetL);
+  } else {
+    // Light mode (light background L ~ 0.95)
+    // Guarantee high contrast deep luminance (L: 0.22 to 0.40)
+    let targetL = l;
+    if (l > 0.45) {
+      targetL = 0.26 + ((1 - l) * 0.16);
+    } else if (l < 0.15) {
+      targetL = 0.22;
+    }
+    const targetS = Math.max(0.50, s);
+    return hslToHex(h, targetS, targetL);
+  }
+}
+
 function applyAlbumArtThemeTokens(hexColor) {
   if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return;
   const rgb = hexToRgb(hexColor);
@@ -349,19 +421,25 @@ function applyAlbumArtThemeTokens(hexColor) {
   const cardG = Math.round(bgG + 14);
   const cardB = Math.round(bgB + 20);
 
-  // Guarantee high-contrast text that stays completely visible and readable (WCAG AA > 5:1)
-  const textR = Math.round(255 * 0.94 + rgb.r * 0.06);
-  const textG = Math.round(255 * 0.94 + rgb.g * 0.06);
-  const textB = Math.round(255 * 0.94 + rgb.b * 0.06);
+  // Guarantee high-contrast visualizer bars that radiate clearly on dark backgrounds
+  const visColor = getHighContrastVisualizerColor(hexColor, false);
+  const visRgb = hexToRgb(visColor);
 
   document.documentElement.style.setProperty('--bg-glass', `rgba(${bgR}, ${bgG}, ${bgB}, ${norm})`);
   document.documentElement.style.setProperty('--bg-glass-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
-  document.documentElement.style.setProperty('--border-glass', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.24)`);
+  document.documentElement.style.setProperty('--border-glass', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);
   document.documentElement.style.setProperty('--text-primary', '#ffffff');
-  document.documentElement.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.86)');
-  document.documentElement.style.setProperty('--text-muted', 'rgba(255, 255, 255, 0.62)');
+  document.documentElement.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.92)');
+  document.documentElement.style.setProperty('--text-muted', 'rgba(255, 255, 255, 0.70)');
   document.documentElement.style.setProperty('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);
   document.documentElement.style.setProperty('--aura-color2', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.14)`);
+
+  document.documentElement.style.setProperty('--vis-bar-color', visColor);
+  document.documentElement.style.setProperty('--vis-bar-glow', `rgba(${visRgb.r}, ${visRgb.g}, ${visRgb.b}, 0.60)`);
+  document.documentElement.style.setProperty('--vis-bar-highlight', '#ffffff');
+  document.documentElement.style.setProperty('--vis-status-bg', 'rgba(255, 255, 255, 0.14)');
+  document.documentElement.style.setProperty('--vis-btn-bg', 'rgba(255, 255, 255, 0.16)');
+  document.documentElement.style.setProperty('--vis-btn-border', 'rgba(255, 255, 255, 0.25)');
 }
 
 function applyTheme(themeData) {
@@ -650,25 +728,29 @@ function setupEventListeners() {
     e.stopPropagation();
     if (window.overlyAPI) window.overlyAPI.nextTrack();
   });
+  function cycleNextLayout() {
+    if (minimizedPlayTimer) {
+      clearTimeout(minimizedPlayTimer);
+      minimizedPlayTimer = null;
+    }
+    const modes = ['card', 'collapsed', 'minimized', 'lyrics', 'expanded'];
+    const currentMode = (state.mode === 'pill') ? 'collapsed' : (state.mode === 'normal') ? 'card' : (state.mode === 'mini' ? 'minimized' : state.mode);
+    const nextIdx = (modes.indexOf(currentMode) + 1) % modes.length;
+    setMode(modes[nextIdx], true);
+  }
+
   if (btnPillExpand) {
     btnPillExpand.addEventListener('click', (e) => {
       e.stopPropagation();
       pillMoreContainer?.classList.remove('open');
       overlayContainer?.classList.remove('pill-more-open');
-      const modes = ['card', 'collapsed', 'minimized', 'lyrics', 'expanded'];
-      const nextIdx = (modes.indexOf(state.mode) + 1) % modes.length;
-      setMode(modes[nextIdx], true);
+      cycleNextLayout();
     });
   }
 
-  function handleMinimizedPlay(e) {
-    if (Date.now() - dragJustEndedTime < 220) {
-      return;
-    }
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+  let minimizedPlayTimer = null;
+
+  function executeMinimizedPlay() {
     const now = Date.now();
     if (now - optimisticStatusTime < 220) return;
 
@@ -694,13 +776,40 @@ function setupEventListeners() {
 
     if (window.overlyAPI) window.overlyAPI.togglePlayPause();
 
-    // If minimized automatically by idle/pause timer, clicking play when paused restores it!
-    // But if the user entered minimized mode manually, NEVER expand! Strictly stay in minimized mode!
     if (state.isAutoMinimized && state.preAutoMinMode) {
       if (willBePlaying) {
         restoreFromAutoMinimize();
       }
     }
+  }
+
+  function handleMinimizedPlay(e) {
+    if (Date.now() - dragJustEndedTime < 220) {
+      return;
+    }
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      // If e.detail > 1, this click is part of a double-click: immediately abort single-click play/pause!
+      if (e.detail > 1) {
+        if (minimizedPlayTimer) {
+          clearTimeout(minimizedPlayTimer);
+          minimizedPlayTimer = null;
+        }
+        return;
+      }
+    }
+
+    if (minimizedPlayTimer) {
+      clearTimeout(minimizedPlayTimer);
+      minimizedPlayTimer = null;
+    }
+
+    // Debounce single-click by 220ms so double click NEVER triggers play/pause
+    minimizedPlayTimer = setTimeout(() => {
+      minimizedPlayTimer = null;
+      executeMinimizedPlay();
+    }, 220);
   }
 
   if (btnMinimizedPlay) {
@@ -718,23 +827,45 @@ function setupEventListeners() {
     });
   }
 
-  // Pill view lyrics retry button
-  if (btnPillRetry) {
-    btnPillRetry.addEventListener('click', async (e) => {
+  // Allow double-clicking anywhere directly on minimized orb to cycle layout without play/pause
+  const handleOrbDblClick = (e) => {
+    if (state.mode === 'minimized') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (minimizedPlayTimer) {
+        clearTimeout(minimizedPlayTimer);
+        minimizedPlayTimer = null;
+      }
+      cycleNextLayout();
+    }
+  };
+  btnMinimizedPlay?.addEventListener('dblclick', handleOrbDblClick);
+  minimizedPlayOverlay?.addEventListener('dblclick', handleOrbDblClick);
+  artContainer?.addEventListener('dblclick', handleOrbDblClick);
+
+  // Pill view lyrics retry buttons
+  const wireRetry = (btn) => {
+    if (!btn) return;
+    btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       await triggerRetryLyrics();
     });
-  }
+  };
+  wireRetry(btnPillRetry);
+  wireRetry(document.getElementById('btnPillVisRetry'));
 
-  // Pill view lyrics search button
-  if (btnPillSearch) {
-    btnPillSearch.addEventListener('click', (e) => {
+  // Pill view lyrics search buttons
+  const wireSearch = (btn) => {
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (window.overlyAPI?.openSettings) {
         window.overlyAPI.openSettings(state.title, state.artist);
       }
     });
-  }
+  };
+  wireSearch(btnPillSearch);
+  wireSearch(document.getElementById('btnPillVisSearch'));
 
   // Open standalone Settings window
   btnSettingsToggle.addEventListener('click', (e) => {
@@ -750,6 +881,10 @@ function setupEventListeners() {
       clearTimeout(pendingLyricSeekTimer);
       pendingLyricSeekTimer = null;
     }
+    if (minimizedPlayTimer) {
+      clearTimeout(minimizedPlayTimer);
+      minimizedPlayTimer = null;
+    }
   }, true);
 
   // Double-click anywhere outside interactive controls to toggle layout window
@@ -757,6 +892,18 @@ function setupEventListeners() {
     if (pendingLyricSeekTimer) {
       clearTimeout(pendingLyricSeekTimer);
       pendingLyricSeekTimer = null;
+    }
+    if (minimizedPlayTimer) {
+      clearTimeout(minimizedPlayTimer);
+      minimizedPlayTimer = null;
+    }
+
+    // In minimized mode, double-clicking anywhere on the widget cycles layout
+    if (state.mode === 'minimized') {
+      e.preventDefault();
+      e.stopPropagation();
+      cycleNextLayout();
+      return;
     }
 
     // If double-clicked on interactive buttons, inputs, seek bar, or menu controls, ignore
@@ -768,11 +915,7 @@ function setupEventListeners() {
 
     e.preventDefault();
     e.stopPropagation();
-
-    const modes = ['card', 'collapsed', 'minimized', 'lyrics', 'expanded'];
-    const currentMode = (state.mode === 'pill') ? 'collapsed' : (state.mode === 'normal') ? 'card' : (state.mode === 'mini' ? 'minimized' : state.mode);
-    const nextIdx = (modes.indexOf(currentMode) + 1) % modes.length;
-    setMode(modes[nextIdx], true);
+    cycleNextLayout();
   });
 
   // Global keyboard shortcuts: 'M' (cycle mode), 'P' (toggle pin), 'R' (toggle resize)
@@ -1351,6 +1494,15 @@ function applyAccentTokens(color, customSecondary = null) {
   document.documentElement.style.setProperty('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.22)`);
   document.documentElement.style.setProperty('--aura-color2', `rgba(${secRgb.r}, ${secRgb.g}, ${secRgb.b}, 0.12)`);
 
+  const visColor = getHighContrastVisualizerColor(color, isLight);
+  const visRgb = hexToRgb(visColor);
+  document.documentElement.style.setProperty('--vis-bar-color', visColor);
+  document.documentElement.style.setProperty('--vis-bar-glow', `rgba(${visRgb.r}, ${visRgb.g}, ${visRgb.b}, 0.55)`);
+  document.documentElement.style.setProperty('--vis-bar-highlight', isLight ? 'rgba(0, 0, 0, 0.45)' : '#ffffff');
+  document.documentElement.style.setProperty('--vis-status-bg', isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.14)');
+  document.documentElement.style.setProperty('--vis-btn-bg', isLight ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.15)');
+  document.documentElement.style.setProperty('--vis-btn-border', isLight ? 'rgba(0, 0, 0, 0.16)' : 'rgba(255, 255, 255, 0.24)');
+
   const gradStop1 = document.getElementById('pillGradStop1');
   if (gradStop1) {
     const grad1 = (luminance < 0.25 && !isLight) ? '#ffffff' : (luminance > 0.70 && isLight ? '#0f1118' : color);
@@ -1409,9 +1561,19 @@ function extractColorsFromCanvas(img) {
     buckets.sort((a, b) => b.score - a.score);
     const primary = buckets[0];
     let secondary = buckets.find(c => Math.abs(c.r - primary.r) + Math.abs(c.g - primary.g) + Math.abs(c.b - primary.b) > 70);
+
+    let pr = primary.r, pg = primary.g, pb = primary.b;
+    const lum = (0.299 * pr + 0.587 * pg + 0.114 * pb) / 255;
+    if (lum < 0.42) {
+      const boost = Math.max(1.7, 0.55 / Math.max(0.08, lum));
+      pr = Math.min(255, Math.round(pr * boost + 75));
+      pg = Math.min(255, Math.round(pg * boost + 75));
+      pb = Math.min(255, Math.round(pb * boost + 75));
+    }
+
     const toHex = n => n.toString(16).padStart(2, '0');
     return {
-      primary: `#${toHex(primary.r)}${toHex(primary.g)}${toHex(primary.b)}`,
+      primary: `#${toHex(pr)}${toHex(pg)}${toHex(pb)}`,
       secondary: secondary ? `#${toHex(secondary.r)}${toHex(secondary.g)}${toHex(secondary.b)}` : null
     };
   } catch (_) {
@@ -1681,6 +1843,8 @@ function handleMediaUpdate(data) {
   if (state.mode === 'minimized') {
     updateMinimizedDisplay();
   }
+
+  updatePillInstrumentalView();
 }
 
 function updateMinimizedDisplay() {
@@ -1738,6 +1902,8 @@ function renderTrackInfo() {
   if (state.mode === 'minimized') {
     updateMinimizedDisplay();
   }
+
+  updatePillInstrumentalView();
 
   if (state.coverUrl) {
     if (state.accentColor === 'auto') {
@@ -1849,10 +2015,13 @@ function getInstrumentalTag() {
 function updatePillInstrumentalView() {
   const isInst = isInstrumentalOrNoLyrics();
   const pillVisWrap = document.getElementById('pillVisualizer');
+  const pillLyricWrap = document.getElementById('pillLyricWrap');
   const pillText = document.getElementById('pillLyricText');
+  const pillEqualizer = document.getElementById('pillLyricEqualizer');
   if (!pillVisWrap || !pillText) return;
 
   if (isInst) {
+    if (pillLyricWrap) pillLyricWrap.style.display = 'none';
     pillText.style.display = 'none';
     pillVisWrap.style.display = 'flex';
     const tagEl = document.getElementById('pillVisLabel');
@@ -1864,8 +2033,14 @@ function updatePillInstrumentalView() {
       stage.className = `vis-bars-stage pill-vis-bars vis-style-${state.visualizerStyle || 'spectrum'}`;
     }
   } else {
+    if (pillLyricWrap) pillLyricWrap.style.display = 'flex';
     pillText.style.display = '';
     pillVisWrap.style.display = 'none';
+    if (pillEqualizer) {
+      const isPlaying = (state.hasMedia && state.status === 'Playing');
+      pillEqualizer.classList.toggle('hidden', !isPlaying);
+      pillEqualizer.className = `vis-bars-stage pill-mini-equalizer vis-style-${state.visualizerStyle || 'spectrum'}${isPlaying ? '' : ' hidden'}`;
+    }
   }
 }
 
@@ -1878,12 +2053,18 @@ function updateInstrumentalVisualizerStyle() {
   if (pillStage) {
     pillStage.className = `vis-bars-stage pill-vis-bars vis-style-${state.visualizerStyle || 'spectrum'}`;
   }
+  const pillEqualizer = document.getElementById('pillLyricEqualizer');
+  if (pillEqualizer) {
+    const isPlaying = (state.hasMedia && state.status === 'Playing');
+    pillEqualizer.className = `vis-bars-stage pill-mini-equalizer vis-style-${state.visualizerStyle || 'spectrum'}${isPlaying ? '' : ' hidden'}`;
+  }
 }
 
 function updateInstrumentalVisualizer() {
   const stages = [
     { el: document.getElementById('visBarsStage'), maxH: 48 },
-    { el: document.getElementById('pillVisBarsStage'), maxH: 22 }
+    { el: document.getElementById('pillVisBarsStage'), maxH: 24 },
+    { el: document.getElementById('pillLyricEqualizer'), maxH: 14 }
   ];
 
   const isPlaying = (state.hasMedia && state.status === 'Playing');

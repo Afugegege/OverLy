@@ -1382,7 +1382,8 @@ body.theme-light kbd {
 }
 
 .vis-style-card.active .vis-preview-bars span {
-  background: var(--accent);
+  background: var(--vis-bar-color, var(--accent));
+  box-shadow: 0 0 6px var(--vis-bar-glow, var(--accent-glow));
 }
 
 .vis-card-title {

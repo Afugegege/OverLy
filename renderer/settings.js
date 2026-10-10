@@ -119,6 +119,8 @@ function applyCssTokensForColor(color) {
   document.documentElement.style.setProperty('--accent-light', lighterColor);
   document.documentElement.style.setProperty('--accent-glow', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${glowAlpha})`);
   document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${subtleGlowAlpha})`);
+  document.documentElement.style.setProperty('--vis-bar-color', color);
+  document.documentElement.style.setProperty('--vis-bar-glow', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${glowAlpha})`);
 
   updateAllSliderProgress();
 }
