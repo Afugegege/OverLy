@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu, nativeImage, screen, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const smtcService = require('./smtc-service');
@@ -19,6 +19,14 @@ let isUserResizing = false;
 
 const settingsPath = path.join(app.getPath('userData'), 'overly-settings.json');
 
+function applyTheme(theme) {
+  if (theme === 'dark' || theme === 'light') {
+    nativeTheme.themeSource = theme;
+  } else {
+    nativeTheme.themeSource = 'system';
+  }
+}
+
 function loadSettings() {
   try {
     if (fs.existsSync(settingsPath)) {
@@ -35,7 +43,9 @@ function loadSettings() {
     fontSize: 18,
     offset: 0,
     bounds: null,
-    alwaysOnTop: true
+    alwaysOnTop: true,
+    startOnBoot: false,
+    theme: 'system' // 'system' | 'dark' | 'light'
   };
 }
 
@@ -59,6 +69,13 @@ function createTrayIcon() {
 
 function createWindow() {
   const settings = loadSettings();
+  applyTheme(settings.theme || 'system');
+  if (typeof settings.startOnBoot === 'boolean') {
+    app.setLoginItemSettings({
+      openAtLogin: settings.startOnBoot,
+      path: app.getPath('exe')
+    });
+  }
   isAlwaysOnTop = settings.alwaysOnTop ?? true;
 
   const modeSizes = {
@@ -188,6 +205,23 @@ function updateTray() {
           mainWindow.setAlwaysOnTop(isAlwaysOnTop, isAlwaysOnTop ? 'floating' : 'normal');
         }
         updateTray();
+      }
+    },
+    {
+      label: 'Start with Windows',
+      type: 'checkbox',
+      checked: app.getLoginItemSettings().openAtLogin,
+      click: (item) => {
+        app.setLoginItemSettings({
+          openAtLogin: item.checked,
+          path: app.getPath('exe')
+        });
+        const s = loadSettings();
+        s.startOnBoot = item.checked;
+        saveSettings(s);
+        if (settingsWindow && !settingsWindow.isDestroyed()) {
+          settingsWindow.webContents.send('startup-changed', item.checked);
+        }
       }
     },
     {
@@ -539,8 +573,60 @@ ipcMain.on('update-setting', (_event, { key, value }) => {
   const current = loadSettings();
   current[key] = value;
   saveSettings(current);
+  if (key === 'theme') {
+    applyTheme(value);
+  }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('setting-updated', { key, value });
+  }
+});
+
+ipcMain.handle('get-startup', () => {
+  return app.getLoginItemSettings().openAtLogin;
+});
+
+ipcMain.on('set-startup', (_event, enabled) => {
+  const isEnabled = Boolean(enabled);
+  app.setLoginItemSettings({
+    openAtLogin: isEnabled,
+    path: app.getPath('exe')
+  });
+  const s = loadSettings();
+  s.startOnBoot = isEnabled;
+  saveSettings(s);
+  updateTray();
+});
+
+ipcMain.handle('get-theme', () => {
+  const s = loadSettings();
+  const setting = s.theme || 'system';
+  const effective = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+  return { setting, effective };
+});
+
+ipcMain.on('set-theme', (_event, theme) => {
+  applyTheme(theme);
+  const s = loadSettings();
+  s.theme = theme;
+  saveSettings(s);
+  const effective = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('theme-changed', { setting: theme, effective });
+  }
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send('theme-changed', { setting: theme, effective });
+  }
+});
+
+nativeTheme.on('updated', () => {
+  const isDark = nativeTheme.shouldUseDarkColors;
+  const currentSetting = loadSettings().theme || 'system';
+  const effective = isDark ? 'dark' : 'light';
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('theme-changed', { setting: currentSetting, effective });
+  }
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send('theme-changed', { setting: currentSetting, effective });
   }
 });
 

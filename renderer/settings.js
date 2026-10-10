@@ -44,7 +44,24 @@ function updateThemeTokens(color) {
   currentAccent = color;
   const rgb = hexToRgb(color);
   const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-  const contrast = luminance > 0.65 ? '#11131a' : '#ffffff';
+  const isLight = document.body.classList.contains('theme-light');
+
+  // Intelligent contrast & accent-text calculation for White and Black accents
+  let contrast = '#ffffff';
+  let accentText = color;
+
+  if (luminance > 0.7) {
+    // Very light or pure white accent
+    contrast = '#11131a';
+    accentText = isLight ? '#121316' : '#ffffff';
+  } else if (luminance < 0.25) {
+    // Very dark or jet black accent
+    contrast = '#ffffff';
+    accentText = isLight ? '#121316' : '#ffffff';
+  } else {
+    contrast = luminance > 0.6 ? '#11131a' : '#ffffff';
+    accentText = color;
+  }
 
   const lighterR = Math.min(255, Math.round(rgb.r + (255 - rgb.r) * 0.35));
   const lighterG = Math.min(255, Math.round(rgb.g + (255 - rgb.g) * 0.35));
@@ -56,6 +73,7 @@ function updateThemeTokens(color) {
 
   document.documentElement.style.setProperty('--accent', color);
   document.documentElement.style.setProperty('--accent-contrast', contrast);
+  document.documentElement.style.setProperty('--accent-text', accentText);
   document.documentElement.style.setProperty('--accent-light', lighterColor);
   document.documentElement.style.setProperty('--accent-glow', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${glowAlpha})`);
   document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${subtleGlowAlpha})`);
@@ -65,6 +83,22 @@ function updateThemeTokens(color) {
     swatch.classList.toggle('active', swatch.dataset.color.toLowerCase() === color.toLowerCase());
   });
   if (inputCustomColor) inputCustomColor.value = color;
+}
+
+function applyThemeUI(themeData) {
+  const setting = typeof themeData === 'object' ? themeData.setting : themeData;
+  const effective = (typeof themeData === 'object' && themeData.effective) ? themeData.effective : (
+    setting === 'light' ? 'light' : setting === 'dark' ? 'dark' : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+  );
+
+  document.body.classList.toggle('theme-light', effective === 'light');
+  document.body.classList.toggle('theme-dark', effective !== 'light');
+
+  document.querySelectorAll('.theme-mode-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.theme === setting);
+  });
+
+  updateThemeTokens(currentAccent);
 }
 
 function updateActiveModeBtn(mode) {
@@ -94,6 +128,31 @@ async function initSettings() {
         sliderOffset.value = saved.offset;
         offsetVal.textContent = (saved.offset > 0 ? `+${saved.offset.toFixed(1)}s` : `${saved.offset.toFixed(1)}s`);
       }
+      if (saved.theme) {
+        applyThemeUI(saved.theme);
+      }
+    }
+
+    if (window.overlyAPI.getTheme) {
+      const themeData = await window.overlyAPI.getTheme();
+      if (themeData) applyThemeUI(themeData);
+    }
+    if (window.overlyAPI.onThemeChanged) {
+      window.overlyAPI.onThemeChanged((themeData) => {
+        applyThemeUI(themeData);
+      });
+    }
+
+    if (window.overlyAPI.getStartup) {
+      const isStartup = await window.overlyAPI.getStartup();
+      const checkStartup = document.getElementById('checkStartup');
+      if (checkStartup) checkStartup.checked = Boolean(isStartup);
+    }
+    if (window.overlyAPI.onStartupChanged) {
+      window.overlyAPI.onStartupChanged((enabled) => {
+        const checkStartup = document.getElementById('checkStartup');
+        if (checkStartup) checkStartup.checked = Boolean(enabled);
+      });
     }
 
     // Pre-fill search query if opened with one
@@ -116,6 +175,28 @@ function setupEventListeners() {
   btnCloseSettingsWindow.addEventListener('click', () => {
     if (window.overlyAPI) window.overlyAPI.closeSettingsWindow();
   });
+
+  // Theme mode buttons
+  const themeModeBtns = document.querySelectorAll('.theme-mode-btn');
+  themeModeBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const theme = btn.dataset.theme;
+      applyThemeUI(theme);
+      if (window.overlyAPI && window.overlyAPI.setTheme) {
+        window.overlyAPI.setTheme(theme);
+      }
+    });
+  });
+
+  // Startup checkbox
+  const checkStartup = document.getElementById('checkStartup');
+  if (checkStartup) {
+    checkStartup.addEventListener('change', (e) => {
+      if (window.overlyAPI && window.overlyAPI.setStartup) {
+        window.overlyAPI.setStartup(e.target.checked);
+      }
+    });
+  }
 
   // Layout mode buttons
   const layoutModeBtns = document.querySelectorAll('.layout-mode-btn');

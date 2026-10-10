@@ -8,6 +8,11 @@
   /* Dynamic Minimalist Ins Glass Tokens */
   --accent: #FF3040;
   --accent-contrast: #ffffff;
+  --accent-text: #ffffff;
+  --accent-play-bg: var(--accent);
+  --accent-play-text: var(--accent-contrast);
+  --accent-play-border: 1px solid rgba(255, 255, 255, 0.2);
+  --accent-play-shadow: 0 4px 14px var(--accent-glow);
   --accent-light: #ff8ea5;
   --accent-glow: rgba(255, 48, 64, 0.35);
   --accent-glow-subtle: rgba(255, 48, 64, 0.12);
@@ -26,6 +31,17 @@
   --lyric-font-size: 18px;
   --pill-radius: 9999px;
   --card-radius: 24px;
+}
+
+body.theme-light {
+  --bg-glass: rgba(248, 250, 254, var(--glass-opacity));
+  --bg-glass-card: rgba(0, 0, 0, 0.05);
+  --border-glass: rgba(0, 0, 0, 0.10);
+  --border-focus: rgba(0, 0, 0, 0.28);
+  --text-primary: #12141a;
+  --text-secondary: rgba(18, 20, 26, 0.70);
+  --text-muted: rgba(18, 20, 26, 0.42);
+  --shadow-overlay: 0 16px 40px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 * {
@@ -287,8 +303,9 @@ body.is-dragging .top-bar {
 }
 
 .icon-btn.active {
-  color: var(--accent);
+  color: var(--accent-text, var(--accent));
   background: var(--bg-glass-card);
+  border: 1px solid var(--border-focus);
 }
 
 .icon-btn.close-btn:hover {
@@ -371,7 +388,7 @@ body.is-dragging .top-bar {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent-text, var(--accent));
   border: 2px solid var(--bg-glass);
   box-shadow: 0 0 8px var(--accent-glow);
   display: none;
@@ -479,18 +496,19 @@ body.is-dragging .top-bar {
 .media-btn.play-btn {
   width: 32px;
   height: 32px;
-  background: var(--accent);
-  color: var(--accent-contrast, #ffffff);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 14px var(--accent-glow);
+  background: var(--accent-play-bg, var(--accent));
+  color: var(--accent-play-text, var(--accent-contrast, #ffffff));
+  border: var(--accent-play-border, 1px solid rgba(255, 255, 255, 0.2));
+  box-shadow: var(--accent-play-shadow, 0 4px 14px var(--accent-glow));
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
               background 0.2s ease,
-              box-shadow 0.25s ease;
+              box-shadow 0.25s ease,
+              border-color 0.2s ease;
 }
 
 .media-btn.play-btn svg {
-  fill: var(--accent-contrast, #ffffff);
-  color: var(--accent-contrast, #ffffff);
+  fill: var(--accent-play-text, var(--accent-contrast, #ffffff));
+  color: var(--accent-play-text, var(--accent-contrast, #ffffff));
 }
 
 .media-btn.play-btn:hover {
@@ -604,8 +622,9 @@ body.mode-collapsed .pill-more-container {
 }
 
 .media-btn.pill-sub-btn.active {
-  color: var(--accent);
+  color: var(--accent-text, var(--accent));
   background: var(--bg-glass-card);
+  border: 1px solid var(--border-focus);
   box-shadow: 0 0 8px var(--accent-glow-subtle);
 }
 
@@ -623,7 +642,7 @@ body.mode-collapsed .pill-more-container {
 }
 
 .media-btn.active {
-  color: var(--accent);
+  color: var(--accent-text, var(--accent));
   background: var(--bg-glass-card);
   border-color: var(--border-focus);
   box-shadow: 0 0 10px var(--accent-glow);
@@ -692,7 +711,7 @@ body.mode-collapsed .pill-more-container {
   font-weight: 600;
   transform: scale(1.05) translateY(0px);
   filter: blur(0);
-  color: var(--text-primary);
+  color: var(--accent-text, var(--text-primary));
   text-shadow: 0 0 20px var(--accent-glow), 0 0 40px var(--accent-glow-subtle, var(--accent-glow));
 }
 
@@ -762,7 +781,7 @@ body.mode-collapsed .pill-more-container {
   justify-content: center;
   width: 14px;
   height: 14px;
-  color: var(--accent);
+  color: var(--accent-text, var(--accent));
   flex-shrink: 0;
 }
 
@@ -928,7 +947,7 @@ body:not(.mode-pill):not(.mode-collapsed) .media-controls .pill-action-btn {
 .progress-fill {
   width: 0%;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-light, var(--accent)));
+  background: linear-gradient(90deg, var(--accent-text, var(--accent)), var(--accent-light, var(--accent)));
   border-radius: 999px;
   transition: width 0.15s cubic-bezier(0.25, 1, 0.5, 1);
   pointer-events: none;
@@ -1708,4 +1727,187 @@ body.mode-lyrics.no-lyrics-collapsed .lyrics-scroll-area {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+}
+
+/* ==========================================================================
+   Light Theme Adaptations
+   ========================================================================== */
+/* ==========================================================================
+   Light Theme Adaptations - High Contrast & Crisp Visibility
+   ========================================================================== */
+body.theme-light .overlay-container {
+  box-shadow: var(--shadow-overlay);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+body.theme-light .brand-pill {
+  color: #181a20;
+}
+
+body.theme-light .icon-btn {
+  color: #181a20;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+body.theme-light .icon-btn:hover {
+  background: rgba(0, 0, 0, 0.10);
+  border-color: rgba(0, 0, 0, 0.18);
+  color: #000000;
+}
+
+body.theme-light .icon-btn:active {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+body.theme-light .icon-btn.active {
+  color: var(--accent-text, var(--accent));
+  background: rgba(0, 0, 0, 0.08);
+  border-color: var(--border-focus);
+}
+
+body.theme-light .icon-btn.close-btn:hover {
+  background: rgba(255, 60, 60, 0.18);
+  color: #d32f2f;
+  border-color: rgba(255, 60, 60, 0.3);
+}
+
+body.theme-light .drag-btn {
+  color: #181a20;
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+body.theme-light .drag-btn:hover {
+  background: rgba(0, 0, 0, 0.10);
+  color: #000000;
+}
+
+body.theme-light .drag-btn:active {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+body.theme-light .lock-toast {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  color: #181a20;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+}
+
+body.theme-light .media-btn {
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  color: #181a20;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+body.theme-light .media-btn:hover {
+  background: rgba(0, 0, 0, 0.12);
+  border-color: rgba(0, 0, 0, 0.22);
+  color: #000000;
+}
+
+body.theme-light .media-btn:active {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+body.theme-light .pill-more-btn {
+  color: #181a20;
+}
+
+body.theme-light .pill-more-btn:hover,
+body.theme-light .pill-more-container:hover .pill-more-btn,
+body.theme-light .pill-more-container.open .pill-more-btn {
+  color: var(--accent-text, var(--accent));
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Collapsed Tools Drawer in Light Mode */
+body.theme-light .pill-more-actions {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14), 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+body.theme-light .media-btn.pill-sub-btn {
+  background: transparent;
+  border: none;
+  color: #181a20;
+}
+
+body.theme-light .media-btn.pill-sub-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #000000;
+}
+
+body.theme-light .media-btn.pill-sub-btn:active {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+body.theme-light .media-btn.pill-sub-btn.active {
+  color: var(--accent-text, var(--accent));
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+body.theme-light .media-btn.pill-sub-btn.close-btn:hover {
+  background: rgba(255, 60, 60, 0.18);
+  color: #d32f2f;
+}
+
+body.theme-light .pill-divider {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+body.theme-light .pill-action-btn {
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  color: #181a20;
+}
+
+body.theme-light .pill-action-btn:hover {
+  background: var(--accent);
+  color: var(--accent-contrast, #ffffff);
+}
+
+body.theme-light .no-lyrics-card {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+body.theme-light .no-lyrics-btn {
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  color: #181a20;
+}
+
+body.theme-light .no-lyrics-btn:hover {
+  background: rgba(0, 0, 0, 0.12);
+  color: #000000;
+}
+
+body.theme-light .pill-border-track {
+  stroke: rgba(0, 0, 0, 0.10);
+}
+
+body.theme-light .progress-bar-bg {
+  background: rgba(0, 0, 0, 0.10);
+}
+
+body.theme-light .progress-bar-bg:hover,
+body.theme-light .progress-bar-bg.is-dragging {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+body.theme-light .progress-thumb {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+body.theme-light .search-box input {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #181a20;
 }

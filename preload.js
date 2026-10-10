@@ -49,5 +49,19 @@ contextBridge.exposeInMainWorld('overlyAPI', {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('manual-lyrics-applied', handler);
     return () => ipcRenderer.removeListener('manual-lyrics-applied', handler);
+  },
+  setStartup: (enabled) => ipcRenderer.send('set-startup', enabled),
+  getStartup: () => ipcRenderer.invoke('get-startup'),
+  onStartupChanged: (callback) => {
+    const handler = (_event, enabled) => callback(enabled);
+    ipcRenderer.on('startup-changed', handler);
+    return () => ipcRenderer.removeListener('startup-changed', handler);
+  },
+  setTheme: (theme) => ipcRenderer.send('set-theme', theme),
+  getTheme: () => ipcRenderer.invoke('get-theme'),
+  onThemeChanged: (callback) => {
+    const handler = (_event, theme) => callback(theme);
+    ipcRenderer.on('theme-changed', handler);
+    return () => ipcRenderer.removeListener('theme-changed', handler);
   }
 });

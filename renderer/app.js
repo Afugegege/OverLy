@@ -19,6 +19,8 @@ const state = {
   // App preferences
   mode: 'card', // 'pill' | 'card' | 'expanded'
   lastNonCardMode: 'collapsed',
+  theme: 'system', // 'system' | 'dark' | 'light'
+  effectiveTheme: 'dark',
   accentColor: '#FF3040',
   opacity: 0.85,
   fontSize: 18,
@@ -111,6 +113,7 @@ async function init() {
 
       const saved = await window.overlyAPI.getSettings();
       if (saved) {
+        if (saved.theme) applyTheme(saved.theme);
         if (saved.mode) setMode(saved.mode, false);
         else setMode(state.mode, false);
         if (saved.accentColor) setAccentColor(saved.accentColor);
@@ -129,6 +132,16 @@ async function init() {
         setPinState(state.isPinned);
       }
 
+      if (window.overlyAPI.getTheme) {
+        const themeData = await window.overlyAPI.getTheme();
+        if (themeData) applyTheme(themeData);
+      }
+      if (window.overlyAPI.onThemeChanged) {
+        window.overlyAPI.onThemeChanged((themeData) => {
+          applyTheme(themeData);
+        });
+      }
+
       // Subscribe to SMTC media updates
       window.overlyAPI.onMediaUpdate((data) => {
         handleMediaUpdate(data);
@@ -142,6 +155,7 @@ async function init() {
       // Subscribe to live settings updates from separate Settings window
       window.overlyAPI.onSettingUpdated(({ key, value }) => {
         if (key === 'mode') setMode(value, true);
+        if (key === 'theme') applyTheme(value);
         if (key === 'accentColor') setAccentColor(value);
         if (key === 'opacity') setOpacity(value);
         if (key === 'fontSize') setFontSize(value);
@@ -178,12 +192,34 @@ function persistSettings() {
   if (window.overlyAPI) {
     window.overlyAPI.saveSettings({
       mode: state.mode,
+      theme: state.theme,
       accentColor: state.accentColor,
       opacity: state.opacity,
       fontSize: state.fontSize,
       offset: state.offset,
       alwaysOnTop: state.isPinned
     });
+  }
+}
+
+function applyTheme(themeData) {
+  const setting = typeof themeData === 'object' ? themeData.setting : themeData;
+  const effective = (typeof themeData === 'object' && themeData.effective) ? themeData.effective : (
+    setting === 'light' ? 'light' : setting === 'dark' ? 'dark' : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+  );
+
+  state.theme = setting || 'system';
+  state.effectiveTheme = effective;
+
+  document.body.classList.toggle('theme-light', effective === 'light');
+  document.body.classList.toggle('theme-dark', effective !== 'light');
+
+  // Re-apply opacity with new base background color
+  setOpacity(state.opacity);
+
+  // Re-calculate accent tokens for light/dark contrast
+  if (state.accentColor) {
+    setAccentColor(state.accentColor);
   }
 }
 
@@ -302,6 +338,8 @@ function setupEventListeners() {
   if (btnPillSettings) {
     btnPillSettings.addEventListener('click', (e) => {
       e.stopPropagation();
+      pillMoreContainer?.classList.remove('open');
+      overlayContainer?.classList.remove('pill-more-open');
       if (window.overlyAPI?.openSettings) {
         window.overlyAPI.openSettings(state.title, state.artist);
       }
@@ -329,6 +367,19 @@ function setupEventListeners() {
       overlayContainer?.classList.remove('pill-more-open');
     }
   });
+
+  // Also close pill more actions when window blurs or mouse leaves overlay
+  window.addEventListener('blur', () => {
+    pillMoreContainer?.classList.remove('open');
+    overlayContainer?.classList.remove('pill-more-open');
+  });
+
+  if (overlayContainer) {
+    overlayContainer.addEventListener('mouseleave', () => {
+      pillMoreContainer?.classList.remove('open');
+      overlayContainer.classList.remove('pill-more-open');
+    });
+  }
 
   // Window control
   btnMinimize.addEventListener('click', (e) => {
@@ -364,6 +415,8 @@ function setupEventListeners() {
   if (btnPillExpand) {
     btnPillExpand.addEventListener('click', (e) => {
       e.stopPropagation();
+      pillMoreContainer?.classList.remove('open');
+      overlayContainer?.classList.remove('pill-more-open');
       const modes = ['card', 'collapsed', 'lyrics', 'expanded'];
       const nextIdx = (modes.indexOf(state.mode) + 1) % modes.length;
       setMode(modes[nextIdx], true);
@@ -854,9 +907,63 @@ function setAccentColor(color) {
   const rgb = hexToRgb(color);
 
   // Perceived luminance formula (ITU-R BT.709 / W3C)
-  // Ensures buttons and text remain high-contrast on light or dark accents
   const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-  const contrastColor = luminance > 0.65 ? '#11131a' : '#ffffff';
+  const isLight = document.body.classList.contains('theme-light');
+
+  let contrastColor = '#ffffff';
+  let accentText = color;
+  let playBtnBg = color;
+  let playBtnText = '#ffffff';
+  let playBtnBorder = '1px solid rgba(255, 255, 255, 0.2)';
+  let playBtnShadow = 'none';
+
+  if (luminance > 0.70) {
+    // Pure white or very bright accent (e.g. #FFFFFF)
+    if (isLight) {
+      // In Light mode: white text is invisible against light glass, so accent text is rich dark
+      accentText = '#0f1118';
+      contrastColor = '#0f1118';
+      playBtnBg = '#ffffff';
+      playBtnText = '#0f1118';
+      playBtnBorder = '1.5px solid rgba(0, 0, 0, 0.22)';
+      playBtnShadow = '0 4px 14px rgba(0, 0, 0, 0.15)';
+    } else {
+      // In Dark mode: white is bright, vibrant, and high contrast
+      accentText = '#ffffff';
+      contrastColor = '#0e1018';
+      playBtnBg = '#ffffff';
+      playBtnText = '#0e1018';
+      playBtnBorder = '1px solid rgba(255, 255, 255, 0.35)';
+      playBtnShadow = '0 4px 14px rgba(255, 255, 255, 0.25)';
+    }
+  } else if (luminance < 0.25) {
+    // Jet black or very dark accent (e.g. #18181B or #000000)
+    if (isLight) {
+      // In Light mode: black is sharp and crisp
+      accentText = '#18181b';
+      contrastColor = '#ffffff';
+      playBtnBg = '#18181b';
+      playBtnText = '#ffffff';
+      playBtnBorder = '1px solid rgba(0, 0, 0, 0.2)';
+      playBtnShadow = '0 4px 14px rgba(0, 0, 0, 0.2)';
+    } else {
+      // In Dark mode: pure black text is invisible on dark card, so accent text is white!
+      accentText = '#ffffff';
+      contrastColor = '#ffffff';
+      playBtnBg = '#22232a';
+      playBtnText = '#ffffff';
+      playBtnBorder = '1.5px solid rgba(255, 255, 255, 0.45)';
+      playBtnShadow = '0 4px 14px rgba(255, 255, 255, 0.2)';
+    }
+  } else {
+    // Standard chromatic accents
+    contrastColor = luminance > 0.6 ? '#11131a' : '#ffffff';
+    accentText = color;
+    playBtnBg = color;
+    playBtnText = contrastColor;
+    playBtnBorder = '1px solid rgba(255, 255, 255, 0.25)';
+    playBtnShadow = `0 4px 14px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.35)`;
+  }
 
   // Harmonious lighter tint for gradients without any hardcoded pink/red
   const lighterR = Math.min(255, Math.round(rgb.r + (255 - rgb.r) * 0.35));
@@ -869,6 +976,11 @@ function setAccentColor(color) {
 
   document.documentElement.style.setProperty('--accent', color);
   document.documentElement.style.setProperty('--accent-contrast', contrastColor);
+  document.documentElement.style.setProperty('--accent-text', accentText);
+  document.documentElement.style.setProperty('--accent-play-bg', playBtnBg);
+  document.documentElement.style.setProperty('--accent-play-text', playBtnText);
+  document.documentElement.style.setProperty('--accent-play-border', playBtnBorder);
+  document.documentElement.style.setProperty('--accent-play-shadow', playBtnShadow);
   document.documentElement.style.setProperty('--accent-light', lighterColor);
   document.documentElement.style.setProperty('--accent-glow', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${glowAlpha})`);
   document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${subtleGlowAlpha})`);
@@ -876,17 +988,28 @@ function setAccentColor(color) {
   document.documentElement.style.setProperty('--aura-color2', `rgba(${lighterR}, ${lighterG}, ${lighterB}, 0.10)`);
 
   const gradStop1 = document.getElementById('pillGradStop1');
-  if (gradStop1) gradStop1.setAttribute('stop-color', color);
+  if (gradStop1) {
+    const grad1 = (luminance < 0.25 && !isLight) ? '#ffffff' : (luminance > 0.70 && isLight ? '#0f1118' : color);
+    gradStop1.setAttribute('stop-color', grad1);
+  }
   const gradStop2 = document.getElementById('pillGradStop2');
-  if (gradStop2) gradStop2.setAttribute('stop-color', lighterColor);
+  if (gradStop2) {
+    const grad2 = (luminance < 0.25 && !isLight) ? '#b0b5c5' : (luminance > 0.70 && isLight ? '#3a3f50' : lighterColor);
+    gradStop2.setAttribute('stop-color', grad2);
+  }
 }
 
 function setOpacity(val) {
   const norm = val > 1 ? val / 100 : val;
   state.opacity = norm;
 
+  const isLight = document.body.classList.contains('theme-light');
   document.documentElement.style.setProperty('--glass-opacity', norm);
-  document.documentElement.style.setProperty('--bg-glass', `rgba(14, 16, 24, ${norm})`);
+  if (isLight) {
+    document.documentElement.style.setProperty('--bg-glass', `rgba(248, 250, 254, ${norm})`);
+  } else {
+    document.documentElement.style.setProperty('--bg-glass', `rgba(14, 16, 24, ${norm})`);
+  }
 }
 
 function setFontSize(size) {
