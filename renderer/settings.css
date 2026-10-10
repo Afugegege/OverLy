@@ -1318,6 +1318,71 @@ body.theme-light kbd {
   height: 13px;
 }
 
+/* ==========================================================================
+   Instrumental Audio Visualizer Style Grid
+   ========================================================================== */
+.visualizer-style-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+}
+
+.vis-style-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 4px 8px 4px;
+  background: var(--bg-subtle);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-btn);
+  color: var(--text-secondary);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vis-style-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.vis-style-card.active {
+  background: var(--accent-glow-subtle);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+
+.vis-preview-bars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 24px;
+  width: 100%;
+}
+
+.vis-preview-bars span {
+  width: 3px;
+  background: currentColor;
+  border-radius: 999px;
+  transition: height 0.2s ease;
+}
+
+.vis-style-card.active .vis-preview-bars span {
+  background: var(--accent);
+}
+
+.vis-card-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
 .btn-uninstall:hover {
   background: #ff4444;
   border-color: #ff4444;

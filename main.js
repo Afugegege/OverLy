@@ -38,9 +38,10 @@ const defaultSettings = {
   bounds: null,
   alwaysOnTop: true,
   startOnBoot: false,
-  theme: 'system', // 'system' | 'dark' | 'light'
+  theme: 'system', // 'system' | 'dark' | 'light' | 'auto'
   autoMinimize: false,
-  autoMinimizeDelay: 10
+  autoMinimizeDelay: 10,
+  visualizerStyle: 'spectrum' // 'spectrum' | 'wave' | 'pulse' | 'minimal'
 };
 
 function loadSettings() {

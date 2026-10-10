@@ -32,6 +32,7 @@ const state = {
   autoMinimizeDelay: 10,
   isAutoMinimized: false,
   preAutoMinMode: null,
+  visualizerStyle: 'spectrum', // 'spectrum' | 'wave' | 'pulse' | 'minimal'
 
   activeLyricIndex: -1,
   isFetchingLyrics: false
@@ -201,6 +202,9 @@ async function init() {
         if (typeof saved.autoMinimizeDelay === 'number') {
           state.autoMinimizeDelay = saved.autoMinimizeDelay;
         }
+        if (saved.visualizerStyle) {
+          state.visualizerStyle = saved.visualizerStyle;
+        }
       } else {
         setMode(state.mode, false);
         setAccentColor(state.accentColor);
@@ -270,6 +274,10 @@ async function init() {
           if (state.autoMinimize && !state.isAutoMinimized) {
             startAutoMinimizeTimer();
           }
+        }
+        if (key === 'visualizerStyle') {
+          state.visualizerStyle = value || 'spectrum';
+          updateInstrumentalVisualizerStyle();
         }
       });
 
@@ -653,7 +661,7 @@ function setupEventListeners() {
     });
   }
 
-  function handleMinimizedPlayAndExpand(e) {
+  function handleMinimizedPlay(e) {
     if (Date.now() - dragJustEndedTime < 220) {
       return;
     }
@@ -661,35 +669,51 @@ function setupEventListeners() {
       e.preventDefault();
       e.stopPropagation();
     }
-    const willBePlaying = (state.status !== 'Playing');
-    if (willBePlaying) {
-      if (window.overlyAPI) window.overlyAPI.togglePlayPause();
-      optimisticStatus = 'Playing';
-      optimisticStatusTime = Date.now();
-      state.status = 'Playing';
-      iconPlay.classList.add('hidden');
-      iconPause.classList.remove('hidden');
-      iconMiniPlay?.classList.add('hidden');
-      iconMiniPause?.classList.remove('hidden');
-      playingIndicator.classList.add('active');
+    const now = Date.now();
+    if (now - optimisticStatusTime < 220) return;
+
+    const currentEffective = optimisticStatus || state.status;
+    const willBePlaying = (currentEffective !== 'Playing');
+    const targetStatus = willBePlaying ? 'Playing' : 'Paused';
+
+    optimisticStatus = targetStatus;
+    optimisticStatusTime = now;
+
+    if (state.status === 'Playing' && !willBePlaying) {
+      const elapsed = (now - state.lastPositionTime) / 1000;
+      state.position = Math.min(state.duration, state.position + elapsed);
     }
-    const target = state.preAutoMinMode || 'card';
-    state.isAutoMinimized = false;
-    state.preAutoMinMode = null;
-    setMode(target, true);
+    state.lastPositionTime = now;
+    state.status = targetStatus;
+
+    iconPlay?.classList.toggle('hidden', willBePlaying);
+    iconPause?.classList.toggle('hidden', !willBePlaying);
+    iconMiniPlay?.classList.toggle('hidden', willBePlaying);
+    iconMiniPause?.classList.toggle('hidden', !willBePlaying);
+    playingIndicator?.classList.toggle('active', willBePlaying);
+
+    if (window.overlyAPI) window.overlyAPI.togglePlayPause();
+
+    // If minimized automatically by idle/pause timer, clicking play when paused restores it!
+    // But if the user entered minimized mode manually, NEVER expand! Strictly stay in minimized mode!
+    if (state.isAutoMinimized && state.preAutoMinMode) {
+      if (willBePlaying) {
+        restoreFromAutoMinimize();
+      }
+    }
   }
 
   if (btnMinimizedPlay) {
-    btnMinimizedPlay.addEventListener('click', handleMinimizedPlayAndExpand);
+    btnMinimizedPlay.addEventListener('click', handleMinimizedPlay);
   }
   if (minimizedPlayOverlay) {
-    minimizedPlayOverlay.addEventListener('click', handleMinimizedPlayAndExpand);
+    minimizedPlayOverlay.addEventListener('click', handleMinimizedPlay);
   }
   const artContainer = document.querySelector('.art-container');
   if (artContainer) {
     artContainer.addEventListener('click', (e) => {
       if (state.mode === 'minimized') {
-        handleMinimizedPlayAndExpand(e);
+        handleMinimizedPlay(e);
       }
     });
   }
@@ -1733,10 +1757,78 @@ function renderTrackInfo() {
   }
 }
 
+function isInstrumentalOrNoLyrics() {
+  if (!state.hasMedia) return false;
+  if (state.hasSynced && state.lyrics && state.lyrics.length > 1) {
+    return false;
+  }
+  if (state.plainLyrics) {
+    const lines = state.plainLyrics.split(/\r?\n/).filter(l => l.trim().length > 0);
+    if (lines.length > 1) return false;
+  }
+  return true;
+}
+
+function updateInstrumentalVisualizerStyle() {
+  const stage = document.getElementById('visBarsStage');
+  if (stage) {
+    stage.className = `vis-bars-stage vis-style-${state.visualizerStyle || 'spectrum'}`;
+  }
+}
+
+function updateInstrumentalVisualizer() {
+  const stage = document.getElementById('visBarsStage');
+  if (!stage) return;
+
+  const bars = stage.children;
+  const numBars = bars.length;
+  if (!numBars) return;
+
+  const isPlaying = (state.hasMedia && state.status === 'Playing');
+  const t = performance.now() / 1000;
+  const style = state.visualizerStyle || 'spectrum';
+
+  for (let i = 0; i < numBars; i++) {
+    const bar = bars[i];
+    let h = 4;
+
+    if (isPlaying) {
+      if (style === 'wave') {
+        // Smooth undulating sinusoidal wave traveling horizontally
+        const w1 = Math.sin(t * 4.6 + i * 0.38);
+        const w2 = Math.cos(t * 2.2 - i * 0.22) * 0.35;
+        const norm = (w1 + w2 + 1.35) / 2.7;
+        h = 6 + Math.max(0, Math.min(1, norm)) * 46;
+      } else if (style === 'pulse') {
+        // Symmetric center heartbeat pulse: center bars highest, expanding vertically
+        const centerDist = Math.abs(i - (numBars - 1) / 2) / ((numBars - 1) / 2);
+        const centerWeight = Math.max(0.12, Math.cos(centerDist * (Math.PI / 2) * 0.92));
+        const beat = Math.pow(Math.sin(t * 4.8), 2) * 0.5 + Math.sin(t * 2.4 + centerDist * 2) * 0.3 + 0.3;
+        h = 6 + centerWeight * Math.max(0.15, beat) * 50;
+      } else if (style === 'minimal') {
+        // Clean minimal bars with subtle vertical motion
+        const m = (Math.sin(t * 3.2 + i * 0.45) + 1) / 2;
+        h = 5 + m * 24;
+      } else {
+        // 'spectrum' frequency equalizer with harmonic peaks
+        const freqTilt = 1 - (i / numBars) * 0.42;
+        const n1 = Math.sin(t * 7.2 + i * 1.4);
+        const n2 = Math.cos(t * 11.5 + i * 0.85) * 0.4;
+        const n3 = Math.sin(t * 3.8 + i * 2.6) * 0.3;
+        const combo = (n1 + n2 + n3 + 1.7) / 3.4;
+        h = 6 + Math.max(0, Math.min(1, combo)) * 46 * freqTilt;
+      }
+    } else {
+      // Idle resting height
+      h = 4;
+    }
+
+    bar.style.height = `${Math.round(h)}px`;
+  }
+}
+
 function renderLyricsList() {
   lyricsList.innerHTML = '';
-
-  const hasLyrics = Boolean(state.hasSynced && state.lyrics.length > 0) || Boolean(state.plainLyrics);
 
   if (!state.hasMedia) {
     body.classList.remove('no-lyrics-collapsed');
@@ -1749,28 +1841,106 @@ function renderLyricsList() {
     return;
   }
 
-  // When no lyrics are available: collapse window height while strictly preserving user's chosen layout mode
-  if (hasLyrics) {
-    body.classList.remove('no-lyrics-collapsed');
-    updateWindowDimensionsForLyrics();
-    updatePillLyricsBadge();
-  } else {
+  // Pure instrumental or no lyrics condition:
+  // (Either 0 lyrics found or only 1 line, e.g. "Instrumental" / "Music")
+  if (isInstrumentalOrNoLyrics()) {
     body.classList.add('no-lyrics-collapsed');
     updateWindowDimensionsForLyrics();
     updatePillLyricsBadge();
-    if (state.hasMedia && state.title && !state.plainLyrics) {
+
+    const singleLine = (state.lyrics && state.lyrics[0] && state.lyrics[0].text)
+      || (state.plainLyrics && state.plainLyrics.trim())
+      || '';
+
+    if (singleLine) {
+      updatePillLyric(singleLine);
+    } else if (state.hasMedia && state.title) {
       updatePillLyric(state.isFetchingLyrics ? 'Searching lyrics...' : 'No lyrics');
     }
+
+    // Render Audio Visualizer with vertical bars expanding up & down from center
+    const visContainer = document.createElement('div');
+    visContainer.className = 'instrumental-visualizer-container';
+    visContainer.id = 'instrumentalVisualizerStage';
+
+    const barsStage = document.createElement('div');
+    barsStage.className = `vis-bars-stage vis-style-${state.visualizerStyle || 'spectrum'}`;
+    barsStage.id = 'visBarsStage';
+
+    const NUM_BARS = 22;
+    for (let i = 0; i < NUM_BARS; i++) {
+      const bar = document.createElement('span');
+      bar.className = 'vis-bar';
+      bar.style.height = '4px';
+      barsStage.appendChild(bar);
+    }
+    visContainer.appendChild(barsStage);
+
+    // Compact subtle footer with status and tiny Retry & Search buttons
+    const footer = document.createElement('div');
+    footer.className = 'vis-footer-bar';
+
+    let statusLabel = 'No lyrics';
+    if (state.isFetchingLyrics) {
+      statusLabel = 'Searching...';
+    } else if (singleLine) {
+      statusLabel = singleLine.length > 24 ? singleLine.slice(0, 22) + '...' : singleLine;
+    }
+
+    footer.innerHTML = `
+      <span class="vis-status-tag" id="visStatusTag" title="${singleLine || 'No lyrics found'}">${statusLabel}</span>
+      <button class="vis-mini-btn vis-mini-retry" id="btnVisRetry" title="Retry fetching lyrics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+        </svg>
+        <span>Retry</span>
+      </button>
+      <button class="vis-mini-btn vis-mini-search" id="btnVisSearch" title="Search for lyrics online">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <span>Search</span>
+      </button>
+    `;
+
+    const btnRetry = footer.querySelector('#btnVisRetry');
+    if (btnRetry) {
+      btnRetry.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        btnRetry.classList.add('spinning');
+        await triggerRetryLyrics();
+        btnRetry.classList.remove('spinning');
+      });
+    }
+
+    const btnSearch = footer.querySelector('#btnVisSearch');
+    if (btnSearch) {
+      btnSearch.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.overlyAPI?.openSettings) {
+          window.overlyAPI.openSettings(state.title, state.artist);
+        }
+      });
+    }
+
+    visContainer.appendChild(footer);
+    lyricsList.appendChild(visContainer);
+    return;
   }
 
-  if (state.hasSynced && state.lyrics.length > 0) {
+  // Full lyrics available: normal lyrics rendering
+  body.classList.remove('no-lyrics-collapsed');
+  updateWindowDimensionsForLyrics();
+  updatePillLyricsBadge();
+
+  if (state.hasSynced && state.lyrics.length > 1) {
     state.lyrics.forEach((line, idx) => {
       const el = document.createElement('div');
       el.className = 'lyric-line';
       el.textContent = line.text;
       el.dataset.index = idx;
       el.addEventListener('click', (e) => {
-        // If clicking as part of a double-click gesture (e.detail > 1), don't trigger lyric seek
         if (e.detail > 1) {
           if (pendingLyricSeekTimer) {
             clearTimeout(pendingLyricSeekTimer);
@@ -1797,8 +1967,6 @@ function renderLyricsList() {
       lyricsList.appendChild(el);
     });
 
-    // After rendering, immediately snap-scroll to wherever in the song we currently are.
-    // Use requestAnimationFrame so the DOM has painted the lines before we measure offsetTop.
     requestAnimationFrame(() => {
       const adjustedPos = state.position + state.offset;
       let snapIdx = -1;
@@ -1806,11 +1974,10 @@ function renderLyricsList() {
         if (state.lyrics[i].time <= adjustedPos) snapIdx = i;
         else break;
       }
-      state.activeLyricIndex = -1; // force setActiveLyric to run
+      state.activeLyricIndex = -1;
       if (snapIdx >= 0) {
-        setActiveLyric(snapIdx, true /* instant */);
+        setActiveLyric(snapIdx, true);
       } else {
-        // Song is in intro before first lyric line: display track info instead of "No lyrics"
         updatePillLyric(`${state.title} — ${state.artist}`);
       }
     });
@@ -1825,56 +1992,6 @@ function renderLyricsList() {
     if (lines.length > 0) {
       updatePillLyric(lines[0]);
     }
-  } else {
-    // Sleek, compact empty state with Retry and Search buttons
-    const emptyCard = document.createElement('div');
-    emptyCard.className = 'no-lyrics-card';
-    if (state.isFetchingLyrics) {
-      emptyCard.innerHTML = `
-        <div class="no-lyrics-searching">
-          <svg class="searching-spin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-          </svg>
-          <span class="no-lyrics-status">Searching...</span>
-        </div>
-      `;
-    } else {
-      emptyCard.innerHTML = `
-        <span class="no-lyrics-status">No lyrics</span>
-        <div class="no-lyrics-actions">
-          <button id="btnRetryEmptyLyrics" class="no-lyrics-btn retry-btn" title="Retry fetching lyrics">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
-            </svg>
-            Retry
-          </button>
-          <button id="btnSearchEmptyLyrics" class="no-lyrics-btn search-btn" title="Search for lyrics online">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            Search
-          </button>
-        </div>
-      `;
-    }
-    const btnRetryEmpty = emptyCard.querySelector('#btnRetryEmptyLyrics');
-    if (btnRetryEmpty) {
-      btnRetryEmpty.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await triggerRetryLyrics();
-      });
-    }
-    const btnSearchEmpty = emptyCard.querySelector('#btnSearchEmptyLyrics');
-    if (btnSearchEmpty) {
-      btnSearchEmpty.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (window.overlyAPI?.openSettings) {
-          window.overlyAPI.openSettings(state.title, state.artist);
-        }
-      });
-    }
-    lyricsList.appendChild(emptyCard);
   }
 }
 
@@ -1896,6 +2013,8 @@ function playbackLoop() {
       syncLyrics(state.position);
     }
   }
+
+  updateInstrumentalVisualizer();
 
   requestAnimationFrame(playbackLoop);
 }

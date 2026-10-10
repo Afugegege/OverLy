@@ -341,6 +341,9 @@ async function initSettings() {
           selectAutoMinimizeDelay.value = String(saved.autoMinimizeDelay);
         }
       }
+      if (saved.visualizerStyle) {
+        updateActiveVisStyle(saved.visualizerStyle);
+      }
     }
 
     if (window.overlyAPI.getTheme) {
@@ -421,6 +424,9 @@ async function initSettings() {
           if (selectAutoMinimizeDelay) {
             selectAutoMinimizeDelay.value = String(value);
           }
+        }
+        if (key === 'visualizerStyle') {
+          updateActiveVisStyle(value);
         }
       });
     }
@@ -531,6 +537,27 @@ function setupEventListeners() {
       }
     });
   });
+
+  // Instrumental Visualizer style selection
+  const visStyleCards = document.querySelectorAll('.vis-style-card');
+  visStyleCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      const style = card.dataset.style;
+      if (style) {
+        updateActiveVisStyle(style);
+        if (window.overlyAPI?.updateSetting) {
+          window.overlyAPI.updateSetting('visualizerStyle', style);
+        }
+      }
+    });
+  });
+
+  function updateActiveVisStyle(activeStyle) {
+    if (!activeStyle) return;
+    visStyleCards.forEach((card) => {
+      card.classList.toggle('active', card.dataset.style === activeStyle);
+    });
+  }
 
   // Color swatches (exclude custom swatch button from standard handler)
   colorSwatches.forEach((swatch) => {
