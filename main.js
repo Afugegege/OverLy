@@ -94,8 +94,8 @@ function createWindow() {
     normal: { width: 460, height: 274 },
     collapsed: { width: 440, height: 104 },
     pill: { width: 440, height: 104 },
-    minimized: { width: 208, height: 62 },
-    mini: { width: 208, height: 62 },
+    minimized: { width: 84, height: 84 },
+    mini: { width: 84, height: 84 },
     lyrics: { width: 460, height: 164 },
     expanded: { width: 460, height: 504 }
   };
@@ -660,13 +660,21 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
       const isNearBottom = (currentBounds.y + currentBounds.height >= wa.y + wa.height - 40);
       const isNearRight = (currentBounds.x + currentBounds.width >= wa.x + wa.width - 40);
 
-      targetX = isNearRight
-        ? (currentBounds.x + currentBounds.width - currentWindowWidth)
-        : currentBounds.x;
-
-      targetY = isNearBottom
-        ? (currentBounds.y + currentBounds.height - currentWindowHeight)
-        : currentBounds.y;
+      if (normMode === 'minimized') {
+        targetX = isNearRight
+          ? (currentBounds.x + currentBounds.width - currentWindowWidth)
+          : Math.round(currentBounds.x + (currentBounds.width - currentWindowWidth) / 2);
+        targetY = isNearBottom
+          ? (currentBounds.y + currentBounds.height - currentWindowHeight)
+          : Math.round(currentBounds.y + (currentBounds.height - currentWindowHeight) / 2);
+      } else {
+        targetX = isNearRight
+          ? (currentBounds.x + currentBounds.width - currentWindowWidth)
+          : Math.round(currentBounds.x - (currentWindowWidth - currentBounds.width) / 2);
+        targetY = isNearBottom
+          ? (currentBounds.y + currentBounds.height - currentWindowHeight)
+          : Math.round(currentBounds.y - (currentWindowHeight - currentBounds.height) / 2);
+      }
 
       s.layoutPositions[normMode] = { x: targetX, y: targetY };
       saveSettings(s);

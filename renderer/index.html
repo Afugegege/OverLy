@@ -121,6 +121,17 @@
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
               </svg>
             </div>
+            <!-- Minimized Mode Circular Ball Play Button Overlay -->
+            <div id="minimizedPlayOverlay" class="minimized-play-overlay" title="Play & Expand">
+              <button id="btnMinimizedPlay" class="mini-play-btn" aria-label="Play and Expand">
+                <svg id="iconMiniPlay" class="mini-play-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                <svg id="iconMiniPause" class="mini-pause-icon hidden" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <!-- Playing status badge pulse -->
           <span id="playingIndicator" class="playing-indicator"></span>
@@ -241,17 +252,10 @@
         </div>
       </div>
 
-      <!-- Pill View Single Lyric Line (Used in Pill & Minimized Modes) -->
+      <!-- Pill View Single Lyric Line (Used in Pill Mode) -->
       <div id="pillLyricContainer" class="pill-lyric-container">
         <p id="pillLyricText" class="pill-lyric-text">Listening for playback</p>
       </div>
-
-      <!-- Minimized Mode Quick Expand / Restore Button -->
-      <button id="btnMinimizedExpand" class="media-btn minimized-expand-btn" title="Expand Layout (M)" aria-label="Expand Layout">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-        </svg>
-      </button>
 
       <!-- Synced Lyrics Scroll Area (Used in Card & Expanded Modes) -->
       <div id="lyricsScrollArea" class="lyrics-scroll-area">

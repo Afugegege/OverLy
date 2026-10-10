@@ -80,7 +80,10 @@ const iconPause = document.getElementById('iconPause');
 // Lyrics & Timeline
 const pillLyricContainer = document.getElementById('pillLyricContainer');
 const pillLyricText = document.getElementById('pillLyricText');
-const btnMinimizedExpand = document.getElementById('btnMinimizedExpand');
+const minimizedPlayOverlay = document.getElementById('minimizedPlayOverlay');
+const btnMinimizedPlay = document.getElementById('btnMinimizedPlay');
+const iconMiniPlay = document.getElementById('iconMiniPlay');
+const iconMiniPause = document.getElementById('iconMiniPause');
 const pillLyricsBadge = document.getElementById('pillLyricsBadge');
 const pillSearchingIndicator = document.getElementById('pillSearchingIndicator');
 const btnPillRetry = document.getElementById('btnPillRetry');
@@ -318,7 +321,7 @@ function setupEventListeners() {
     btnModeToggle, btnLockToggle, btnPinToggle, btnResizeToggle, btnSettingsToggle,
     btnPillMore, btnPillPin, btnPillResize, btnPillLock, btnPillSettings, btnPillMinimize, btnPillClose,
     btnMinimize, btnClose, btnPlayPause, btnPrev, btnNext, btnPillExpand, btnPillRetry, btnPillSearch,
-    btnMinimizedExpand
+    btnMinimizedPlay, minimizedPlayOverlay
   ];
   interactiveBtns.forEach((btn) => {
     if (btn) {
@@ -464,14 +467,14 @@ function setupEventListeners() {
     overlayContainer.addEventListener('mouseenter', () => {
       isMouseOverOverlay = true;
       cancelAutoMinimizeTimer();
-      if (state.isAutoMinimized) {
+      if (state.isAutoMinimized && state.mode !== 'minimized') {
         restoreFromAutoMinimize();
       }
     });
 
     overlayContainer.addEventListener('mousemove', () => {
       isMouseOverOverlay = true;
-      if (state.isAutoMinimized) {
+      if (state.isAutoMinimized && state.mode !== 'minimized') {
         restoreFromAutoMinimize();
       }
     });
@@ -554,12 +557,41 @@ function setupEventListeners() {
     });
   }
 
-  // Minimized mode quick expand/restore button
-  if (btnMinimizedExpand) {
-    btnMinimizedExpand.addEventListener('click', (e) => {
+  function handleMinimizedPlayAndExpand(e) {
+    if (e) {
+      e.preventDefault();
       e.stopPropagation();
-      const target = state.preAutoMinMode || 'card';
-      setMode(target, true);
+    }
+    const willBePlaying = (state.status !== 'Playing');
+    if (willBePlaying) {
+      if (window.overlyAPI) window.overlyAPI.togglePlayPause();
+      optimisticStatus = 'Playing';
+      optimisticStatusTime = Date.now();
+      state.status = 'Playing';
+      iconPlay.classList.add('hidden');
+      iconPause.classList.remove('hidden');
+      iconMiniPlay?.classList.add('hidden');
+      iconMiniPause?.classList.remove('hidden');
+      playingIndicator.classList.add('active');
+    }
+    const target = state.preAutoMinMode || 'card';
+    state.isAutoMinimized = false;
+    state.preAutoMinMode = null;
+    setMode(target, true);
+  }
+
+  if (btnMinimizedPlay) {
+    btnMinimizedPlay.addEventListener('click', handleMinimizedPlayAndExpand);
+  }
+  if (minimizedPlayOverlay) {
+    minimizedPlayOverlay.addEventListener('click', handleMinimizedPlayAndExpand);
+  }
+  const artContainer = document.querySelector('.art-container');
+  if (artContainer) {
+    artContainer.addEventListener('click', (e) => {
+      if (state.mode === 'minimized') {
+        handleMinimizedPlayAndExpand(e);
+      }
     });
   }
 
@@ -934,7 +966,7 @@ function setupCornerResize() {
 
 function getTargetWindowDimensions(mode = state.mode) {
   if (mode === 'minimized' || mode === 'mini') {
-    return { width: 208, height: 62 };
+    return { width: 84, height: 84 };
   } else if (mode === 'collapsed' || mode === 'pill') {
     return { width: 440, height: 104 };
   } else if (mode === 'lyrics') {
@@ -1041,8 +1073,8 @@ function updateModeButtonUI(mode) {
       title: 'Layout: Collapsed Pill (Click for Minimized)'
     },
     minimized: {
-      svg: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="9" width="16" height="6" rx="3"/><circle cx="8" cy="12" r="1.5" fill="currentColor"/></svg>`,
-      title: 'Layout: Minimized (Click for Lyrics Only)'
+      svg: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/></svg>`,
+      title: 'Layout: Minimized Ball (Click for Lyrics Only)'
     },
     lyrics: {
       svg: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
@@ -1328,6 +1360,10 @@ function handleMediaUpdate(data) {
   const isPlaying = state.status === 'Playing';
   iconPlay.classList.toggle('hidden', isPlaying);
   iconPause.classList.toggle('hidden', !isPlaying);
+  if (iconMiniPlay && iconMiniPause) {
+    iconMiniPlay.classList.toggle('hidden', isPlaying);
+    iconMiniPause.classList.toggle('hidden', !isPlaying);
+  }
   playingIndicator.classList.toggle('active', isPlaying);
 
   // Auto-minimize handling based on playback status
