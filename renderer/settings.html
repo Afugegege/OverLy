@@ -7,20 +7,25 @@
   <link rel="stylesheet" href="settings.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="settings-window">
     <!-- Draggable Custom Title Bar -->
     <header class="settings-titlebar" id="settingsTitlebar">
       <div class="title-left">
-        <svg class="icon-brand" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-        </svg>
-        <span class="title-text">overLy Settings</span>
+        <div class="brand-badge">
+          <svg class="icon-brand" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+          </svg>
+        </div>
+        <div class="title-text-group">
+          <span class="title-text">overLy</span>
+          <span class="settings-badge">Preferences</span>
+        </div>
       </div>
-      <button id="btnCloseSettingsWindow" class="btn-close-window" title="Close Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <button id="btnCloseSettingsWindow" class="btn-close-window" title="Close Settings (Esc)" aria-label="Close Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <line x1="18" y1="6" x2="6" y2="18"/>
           <line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
@@ -31,38 +36,123 @@
     <main class="settings-content">
 
       <!-- Window Layout View Mode -->
-      <section class="settings-section">
-        <div class="section-header">
-          <label>Window Layout View</label>
+      <section class="settings-card">
+        <div class="card-header">
+          <div class="header-title-box">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="4"/>
+              <path d="M3 9h18M9 21V9"/>
+            </svg>
+            <div>
+              <h3>Window Layout</h3>
+              <p class="section-subtitle">Choose your preferred player layout</p>
+            </div>
+          </div>
         </div>
+
         <div class="layout-mode-grid">
-          <button class="layout-mode-btn active" data-mode="card" title="Normal Card View (Art, Details, Lyrics, Progress)">
-            <span class="mode-name">Normal</span>
-            <span class="mode-sub">Card View</span>
+          <!-- Card / Normal View -->
+          <button class="layout-mode-btn active" data-mode="card" title="Normal Card View with Album Art, Details, Controls & Lyrics">
+            <div class="mode-preview-box">
+              <svg class="mode-wireframe" viewBox="0 0 48 30" fill="none">
+                <rect x="1.5" y="1.5" width="45" height="27" rx="5" stroke="currentColor" stroke-width="1.4" stroke-opacity="0.35"/>
+                <rect x="5.5" y="5.5" width="10" height="10" rx="2.5" fill="currentColor" fill-opacity="0.75"/>
+                <rect x="19" y="6.5" width="18" height="3" rx="1.5" fill="currentColor" fill-opacity="0.65"/>
+                <rect x="19" y="11.5" width="12" height="2.5" rx="1.25" fill="currentColor" fill-opacity="0.35"/>
+                <line x1="5.5" y1="22" x2="42.5" y2="22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-opacity="0.25"/>
+                <line x1="5.5" y1="22" x2="21" y2="22" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="mode-info">
+              <span class="mode-name">Normal Card</span>
+              <span class="mode-sub">Full player with lyrics & art</span>
+            </div>
+            <div class="active-check-circle"></div>
           </button>
-          <button class="layout-mode-btn" data-mode="collapsed" title="Compact Pill View">
-            <span class="mode-name">Collapsed</span>
-            <span class="mode-sub">Compact Pill</span>
+
+          <!-- Collapsed / Pill View -->
+          <button class="layout-mode-btn" data-mode="collapsed" title="Compact Pill View floating over your desktop">
+            <div class="mode-preview-box">
+              <svg class="mode-wireframe" viewBox="0 0 48 30" fill="none">
+                <rect x="2" y="8" width="44" height="14" rx="7" stroke="currentColor" stroke-width="1.4" stroke-opacity="0.35"/>
+                <circle cx="10" cy="15" r="4.5" fill="currentColor" fill-opacity="0.75"/>
+                <rect x="18" y="13.5" width="17" height="3" rx="1.5" fill="currentColor" fill-opacity="0.6"/>
+                <circle cx="39" cy="15" r="1.5" fill="var(--accent)"/>
+              </svg>
+            </div>
+            <div class="mode-info">
+              <span class="mode-name">Compact Pill</span>
+              <span class="mode-sub">Minimalist floating bar</span>
+            </div>
+            <div class="active-check-circle"></div>
           </button>
-          <button class="layout-mode-btn" data-mode="minimized" title="Ultra Minimized Mode (Smaller than Pill)">
-            <span class="mode-name">Minimized</span>
-            <span class="mode-sub">Mini Mode</span>
+
+          <!-- Minimized / Album Disc Ball View -->
+          <button class="layout-mode-btn" data-mode="minimized" title="Ultra Minimized Circular Album Ball">
+            <div class="mode-preview-box">
+              <svg class="mode-wireframe" viewBox="0 0 48 30" fill="none">
+                <circle cx="24" cy="15" r="11.5" stroke="currentColor" stroke-width="1.4" stroke-opacity="0.35"/>
+                <circle cx="24" cy="15" r="8" fill="currentColor" fill-opacity="0.75"/>
+                <circle cx="24" cy="15" r="2.8" fill="var(--accent)"/>
+              </svg>
+            </div>
+            <div class="mode-info">
+              <span class="mode-name">Minimized Ball</span>
+              <span class="mode-sub">Floating circular album disc</span>
+            </div>
+            <div class="active-check-circle"></div>
           </button>
-          <button class="layout-mode-btn" data-mode="lyrics" title="Only Show Lyrics (Floating Aesthetic Overlay)">
-            <span class="mode-name">Only Lyrics</span>
-            <span class="mode-sub">Pure Floating</span>
+
+          <!-- Lyrics Only Pure Floating View -->
+          <button class="layout-mode-btn" data-mode="lyrics" title="Only Show Lyrics as a pure floating aesthetic banner">
+            <div class="mode-preview-box">
+              <svg class="mode-wireframe" viewBox="0 0 48 30" fill="none">
+                <rect x="2" y="3" width="44" height="24" rx="5" stroke="currentColor" stroke-width="1.4" stroke-opacity="0.25" stroke-dasharray="2.5 2.5"/>
+                <rect x="9" y="8" width="22" height="3" rx="1.5" fill="currentColor" fill-opacity="0.3"/>
+                <rect x="9" y="13.5" width="30" height="3.5" rx="1.75" fill="var(--accent)"/>
+                <rect x="9" y="19" width="18" height="3" rx="1.5" fill="currentColor" fill-opacity="0.3"/>
+              </svg>
+            </div>
+            <div class="mode-info">
+              <span class="mode-name">Only Lyrics</span>
+              <span class="mode-sub">Floating text without chrome</span>
+            </div>
+            <div class="active-check-circle"></div>
           </button>
-          <button class="layout-mode-btn" data-mode="expanded" title="Full Height Lyrics Sheet">
-            <span class="mode-name">Expanded</span>
-            <span class="mode-sub">Full Sheet</span>
+
+          <!-- Expanded Full Sheet View -->
+          <button class="layout-mode-btn full-width" data-mode="expanded" title="Full Height Lyrics Sheet for karaoke & reading">
+            <div class="mode-preview-box">
+              <svg class="mode-wireframe" viewBox="0 0 48 30" fill="none">
+                <rect x="8" y="1.5" width="32" height="27" rx="4" stroke="currentColor" stroke-width="1.4" stroke-opacity="0.35"/>
+                <rect x="13" y="5" width="22" height="2.5" rx="1.25" fill="currentColor" fill-opacity="0.35"/>
+                <rect x="13" y="9.5" width="22" height="2.5" rx="1.25" fill="currentColor" fill-opacity="0.35"/>
+                <rect x="13" y="14" width="22" height="3" rx="1.5" fill="var(--accent)"/>
+                <rect x="13" y="18.5" width="22" height="2.5" rx="1.25" fill="currentColor" fill-opacity="0.35"/>
+                <rect x="13" y="23" width="15" height="2" rx="1" fill="currentColor" fill-opacity="0.25"/>
+              </svg>
+            </div>
+            <div class="mode-info">
+              <span class="mode-name">Expanded Sheet</span>
+              <span class="mode-sub">Tall karaoke sheet showing full lyrics history</span>
+            </div>
+            <div class="active-check-circle"></div>
           </button>
         </div>
       </section>
 
       <!-- Theme Mode (Follow System, Dark, Light) -->
-      <section class="settings-section">
-        <div class="section-header">
-          <label>Theme</label>
+      <section class="settings-card">
+        <div class="card-header">
+          <div class="header-title-box">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+            </svg>
+            <div>
+              <h3>Interface Theme</h3>
+              <p class="section-subtitle">Match your Windows style or choose dark/light</p>
+            </div>
+          </div>
         </div>
         <div class="theme-mode-grid">
           <button class="theme-mode-btn active" data-theme="system" title="Follow Windows System Theme">
@@ -97,149 +187,303 @@
       </section>
 
       <!-- Accent Color Selection -->
-      <section class="settings-section">
-        <div class="section-header">
-          <label>Accent Color</label>
-          <span id="labelCurrentColor">#FF3040</span>
+      <section class="settings-card">
+        <div class="card-header">
+          <div class="header-title-box">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="m4.93 4.93 4.24 4.24"/>
+              <path d="m14.83 9.17 4.24-4.24"/>
+              <path d="m14.83 14.83 4.24 4.24"/>
+              <path d="m9.17 14.83-4.24 4.24"/>
+            </svg>
+            <div>
+              <h3>Accent Color</h3>
+              <p class="section-subtitle">Highlights lyrics, waveforms & interactive controls</p>
+            </div>
+          </div>
+          <span id="labelCurrentColor" class="color-badge">#FF3040</span>
         </div>
         <div class="accent-palette">
-          <button class="color-swatch active" data-color="#FF3040" style="background: #FF3040;" title="Crimson Red"></button>
-          <button class="color-swatch" data-color="#FF6B4A" style="background: #FF6B4A;" title="Coral Orange"></button>
-          <button class="color-swatch" data-color="#E1306C" style="background: #E1306C;" title="Ins Magenta"></button>
-          <button class="color-swatch" data-color="#8A3AB9" style="background: #8A3AB9;" title="Deep Purple"></button>
+          <button class="color-swatch auto-accent-swatch" data-color="auto" title="Auto Accent from Album Art">
+            <svg class="auto-swatch-sparkle" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10.5 2.5C10.5 6.9 6.9 10.5 2.5 10.5C6.9 10.5 10.5 14.1 10.5 18.5C10.5 14.1 14.1 10.5 18.5 10.5C14.1 10.5 10.5 6.9 10.5 2.5Z"/>
+              <path d="M18 13.5C18 15.7 16.2 17.5 14 17.5C16.2 17.5 18 19.3 18 21.5C18 19.3 19.8 17.5 22 17.5C19.8 17.5 18 15.7 18 13.5Z" opacity="0.9"/>
+            </svg>
+          </button>
+          <button class="color-swatch" data-color="#FF3040" style="background: #FF3040;" title="Crimson Red"></button>
+          <button class="color-swatch" data-color="#FF6B4A" style="background: #FF6B4A;" title="Sunset Coral"></button>
+          <button class="color-swatch" data-color="#E1306C" style="background: #E1306C;" title="Instagram Magenta"></button>
+          <button class="color-swatch" data-color="#8A3AB9" style="background: #8A3AB9;" title="Deep Violet"></button>
           <button class="color-swatch" data-color="#4F86F7" style="background: #4F86F7;" title="Electric Blue"></button>
-          <button class="color-swatch" data-color="#00C9A7" style="background: #00C9A7;" title="Mint Green"></button>
-          <button class="color-swatch" data-color="#18181B" style="background: #18181B; border: 1px solid rgba(255, 255, 255, 0.35);" title="Midnight Black"></button>
-          <button class="color-swatch" data-color="#FFFFFF" style="background: #FFFFFF; border: 1px solid rgba(0, 0, 0, 0.25);" title="Pure White"></button>
-          <div class="custom-color-wrapper" title="Custom Color">
-            <span class="custom-color-icon">+</span>
-            <input type="color" id="inputCustomColor" value="#FF3040">
+          <button class="color-swatch" data-color="#00C9A7" style="background: #00C9A7;" title="Emerald Mint"></button>
+          <button class="color-swatch" data-color="#18181B" style="background: #18181B; border: 1.5px solid rgba(255, 255, 255, 0.4);" title="Midnight Obsidian"></button>
+          <button class="color-swatch" data-color="#FFFFFF" style="background: #FFFFFF; border: 1.5px solid rgba(0, 0, 0, 0.25);" title="Pure White"></button>
+          <button class="color-swatch custom-accent-swatch" id="btnCustomSwatch" type="button" title="Custom Accent Color" style="background: #E1306C;"></button>
+          <button class="btn-palette-edit" id="btnToggleCustomPicker" type="button" title="Open Custom Color Sliders & Hex">
+            <span>Edit</span>
+          </button>
+        </div>
+
+        <!-- Custom Color Designer Drawer -->
+        <div class="custom-picker-panel" id="customPickerPanel">
+          <div class="picker-inner-card">
+            <div class="picker-top-row">
+              <div class="picker-preview-chip" id="pickerPreviewChip"></div>
+              <div class="picker-hex-box">
+                <span class="hex-hash">#</span>
+                <input type="text" id="inputHexCode" class="input-hex" maxlength="6" value="FF3040" spellcheck="false">
+              </div>
+              <button class="btn-picker-action" id="btnEyedropper" type="button" title="Sample color from screen">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m14 7 3 3m-3-3-9 9a2.121 2.121 0 0 0 0 3v0a2.121 2.121 0 0 0 3 0l9-9m-3-3 1.5-1.5a1.414 1.414 0 0 1 2 0l1 1a1.414 1.414 0 0 1 0 2L17 10"/>
+                  <path d="m5 19-3 3"/>
+                </svg>
+                <span>Pipette</span>
+              </button>
+              <label class="btn-picker-action btn-system-picker" title="Open OS System Color Dialog">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12"/>
+                </svg>
+                <span>More</span>
+                <input type="color" id="inputCustomColor" value="#FF3040" class="hidden-native-picker">
+              </label>
+            </div>
+
+            <div class="picker-slider-row">
+              <div class="picker-slider-label-row">
+                <span>Hue Spectrum</span>
+              </div>
+              <input type="range" id="sliderPickerHue" min="0" max="360" value="355" class="picker-hue-slider">
+            </div>
+
+            <div class="picker-slider-row">
+              <div class="picker-slider-label-row">
+                <span>Tone & Lightness</span>
+              </div>
+              <input type="range" id="sliderPickerBrightness" min="20" max="85" value="50" class="picker-tone-slider">
+            </div>
+
+            <div class="picker-presets-row">
+              <span class="presets-label">Presets:</span>
+              <div class="presets-chips">
+                <button class="preset-chip" type="button" data-color="#FF5B79" style="background: #FF5B79;" title="Rose Pink"></button>
+                <button class="preset-chip" type="button" data-color="#FF9F1C" style="background: #FF9F1C;" title="Tangerine"></button>
+                <button class="preset-chip" type="button" data-color="#F59E0B" style="background: #F59E0B;" title="Amber Gold"></button>
+                <button class="preset-chip" type="button" data-color="#10E778" style="background: #10E778;" title="Neon Mint"></button>
+                <button class="preset-chip" type="button" data-color="#00E5FF" style="background: #00E5FF;" title="Cyber Cyan"></button>
+                <button class="preset-chip" type="button" data-color="#7B2CBF" style="background: #7B2CBF;" title="Deep Nebula"></button>
+                <button class="preset-chip" type="button" data-color="#EC4899" style="background: #EC4899;" title="Candy Magenta"></button>
+                <button class="preset-chip" type="button" data-color="#6366F1" style="background: #6366F1;" title="Indigo Dream"></button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- Glass Opacity Slider -->
-      <section class="settings-section">
-        <div class="section-header">
-          <label>Glass Opacity</label>
-          <span id="opacityVal">85%</span>
+      <!-- Glass Opacity & Lyrics Typography Group -->
+      <section class="settings-card">
+        <div class="card-header">
+          <div class="header-title-box">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+            <div>
+              <h3>Display & Typography</h3>
+              <p class="section-subtitle">Adjust background frost and lyric readability</p>
+            </div>
+          </div>
         </div>
-        <input type="range" id="sliderOpacity" min="15" max="100" value="85">
-        <p class="section-hint">Changes overlay background transparency without obscuring this settings window.</p>
-      </section>
 
-      <!-- Lyrics Font Size -->
-      <section class="settings-section">
-        <div class="section-header">
-          <label>Lyrics Font Size</label>
-          <span id="fontSizeVal">18px</span>
+        <div class="slider-row-group">
+          <!-- Glass Opacity -->
+          <div class="slider-item">
+            <div class="slider-header">
+              <label for="sliderOpacity">Glass Opacity</label>
+              <span id="opacityVal" class="value-chip">85%</span>
+            </div>
+            <div class="range-container">
+              <input type="range" id="sliderOpacity" min="15" max="100" value="85">
+            </div>
+          </div>
+
+          <!-- Lyrics Font Size -->
+          <div class="slider-item">
+            <div class="slider-header">
+              <label for="sliderFontSize">Lyrics Font Size</label>
+              <span id="fontSizeVal" class="value-chip">18px</span>
+            </div>
+            <div class="range-container">
+              <input type="range" id="sliderFontSize" min="14" max="28" value="18">
+            </div>
+          </div>
         </div>
-        <input type="range" id="sliderFontSize" min="14" max="28" value="18">
       </section>
 
       <!-- Timing Sync Offset -->
-      <section class="settings-section">
-        <div class="section-header">
-          <label>Lyrics Timing Offset</label>
-          <span id="offsetVal">0.0s</span>
+      <section class="settings-card">
+        <div class="card-header">
+          <div class="header-title-box">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <div>
+              <h3>Lyrics Timing Offset</h3>
+              <p class="section-subtitle">Nudge lyrics forward or backward to sync with audio</p>
+            </div>
+          </div>
+          <span id="offsetVal" class="value-chip">0.0s</span>
         </div>
         <div class="offset-controls">
-          <button id="btnOffsetMinus" class="sub-btn">-0.2s</button>
-          <input type="range" id="sliderOffset" min="-3" max="3" step="0.1" value="0" style="flex: 1;">
-          <button id="btnOffsetPlus" class="sub-btn">+0.2s</button>
+          <button id="btnOffsetMinus" class="sub-btn step-btn" title="Nudge 0.2s earlier">-0.2s</button>
+          <div class="range-container flex-1">
+            <input type="range" id="sliderOffset" min="-3" max="3" step="0.1" value="0">
+          </div>
+          <button id="btnOffsetPlus" class="sub-btn step-btn" title="Nudge 0.2s later">+0.2s</button>
+          <button id="btnOffsetReset" class="sub-btn reset-btn" title="Reset offset to 0.0s">Reset</button>
         </div>
       </section>
 
-      <!-- Start with Windows Startup Option -->
-      <section class="settings-section">
-        <div class="startup-row">
-          <div class="startup-info">
-            <label for="checkStartup">Start with Windows</label>
-            <p class="section-hint" style="margin: 3px 0 0 0;">Automatically launch overLy when you sign in.</p>
+      <!-- System Integration & Auto Minimize -->
+      <section class="settings-card">
+        <div class="card-header">
+          <div class="header-title-box">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <div>
+              <h3>Automation & Behavior</h3>
+              <p class="section-subtitle">Startup options and intelligent shrinking</p>
+            </div>
           </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="checkStartup">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </section>
-
-      <!-- Auto Minimize on Pause / Inactivity -->
-      <section class="settings-section">
-        <div class="startup-row">
-          <div class="startup-info">
-            <label for="checkAutoMinimize">Auto Minimize on Pause</label>
-            <p class="section-hint" style="margin: 3px 0 0 0;">Auto shrink to a round album ball when music is paused or idle.</p>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="checkAutoMinimize">
-            <span class="toggle-slider"></span>
-          </label>
         </div>
 
-        <div class="delay-row" id="autoMinimizeDelayRow" style="display: none;">
-          <div class="delay-info">
-            <label for="selectAutoMinimizeDelay" class="delay-label">Shrink Delay Time</label>
-            <p class="section-hint" style="margin: 2px 0 0 0;">Time after music pauses before shrinking.</p>
+        <div class="toggle-group">
+          <!-- Start with Windows -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <label for="checkStartup">Start with Windows</label>
+              <p class="section-hint">Automatically launch overLy when you sign into your PC</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="checkStartup">
+              <span class="toggle-slider"></span>
+            </label>
           </div>
-          <select id="selectAutoMinimizeDelay" class="custom-select">
-            <option value="3">3 seconds (Fast)</option>
-            <option value="5">5 seconds</option>
-            <option value="10">10 seconds (Default)</option>
-            <option value="15">15 seconds</option>
-            <option value="30">30 seconds</option>
-            <option value="60">1 minute</option>
-            <option value="120">2 minutes</option>
-            <option value="300">5 minutes</option>
-          </select>
+
+          <div class="card-divider"></div>
+
+          <!-- Auto Minimize on Pause -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <label for="checkAutoMinimize">Auto Minimize on Pause</label>
+              <p class="section-hint">Auto shrink to circular album disc when playback is idle</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="checkAutoMinimize">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <!-- Shrink Delay Selector -->
+          <div class="delay-row" id="autoMinimizeDelayRow" style="display: none;">
+            <div class="delay-info">
+              <label for="selectAutoMinimizeDelay" class="delay-label">Shrink Delay Time</label>
+              <p class="section-hint">Delay after audio pauses before shrinking</p>
+            </div>
+            <div class="custom-select-wrapper">
+              <select id="selectAutoMinimizeDelay" class="custom-select">
+                <option value="3">3 seconds (Fast)</option>
+                <option value="5">5 seconds</option>
+                <option value="10">10 seconds (Default)</option>
+                <option value="15">15 seconds</option>
+                <option value="30">30 seconds</option>
+                <option value="60">1 minute</option>
+                <option value="120">2 minutes</option>
+                <option value="300">5 minutes</option>
+              </select>
+              <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+          </div>
         </div>
       </section>
 
       <!-- Manual Lyric Search -->
-      <section class="settings-section">
-        <div class="section-header">
-          <label>Search Lyrics Manually</label>
+      <section class="settings-card">
+        <div class="card-header">
+          <div class="header-title-box">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <div>
+              <h3>Search Lyrics Manually</h3>
+              <p class="section-subtitle">Search LRCLIB / NetEase if track info didn't match</p>
+            </div>
+          </div>
         </div>
         <div class="search-box">
-          <input type="text" id="inputSearchTrack" placeholder="Title - Artist">
-          <button id="btnSearch" class="sub-btn highlight">Search</button>
+          <div class="search-input-wrapper">
+            <svg class="search-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="inputSearchTrack" placeholder="Song Title — Artist Name">
+          </div>
+          <button id="btnSearch" class="btn-primary">Search</button>
         </div>
         <div id="searchFeedback" class="search-feedback"></div>
       </section>
 
       <!-- Shortcuts / Tips -->
-      <section class="settings-section shortcut-section">
-        <div class="shortcut-row">
-          <span>Toggle Window Resize</span>
-          <code>R</code>
+      <section class="settings-card">
+        <div class="card-header">
+          <div class="header-title-box">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="4" width="20" height="16" rx="3"/>
+              <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M18 12h.01M8 16h8"/>
+            </svg>
+            <div>
+              <h3>Keyboard Shortcuts</h3>
+              <p class="section-subtitle">Quick hotkeys to control overLy anywhere</p>
+            </div>
+          </div>
         </div>
-        <div class="shortcut-row">
-          <span>Cycle Layout Mode</span>
-          <code>M</code>
-        </div>
-        <div class="shortcut-row">
-          <span>Always on Top Pin</span>
-          <code>P</code>
-        </div>
-        <div class="shortcut-row">
-          <span>Click-Through Lock</span>
-          <code>Ctrl + Shift + L</code>
-        </div>
-        <div class="shortcut-row">
-          <span>Reset Window Size</span>
-          <code>Double-click Handle / R</code>
+        <div class="shortcuts-grid">
+          <div class="shortcut-chip">
+            <span class="shortcut-label">Cycle Layout Mode</span>
+            <kbd>M</kbd>
+          </div>
+          <div class="shortcut-chip">
+            <span class="shortcut-label">Toggle Resizing</span>
+            <kbd>R</kbd>
+          </div>
+          <div class="shortcut-chip">
+            <span class="shortcut-label">Always on Top Pin</span>
+            <kbd>P</kbd>
+          </div>
+          <div class="shortcut-chip">
+            <span class="shortcut-label">Click-Through Lock</span>
+            <kbd>Ctrl+Shift+L</kbd>
+          </div>
+          <div class="shortcut-chip span-2">
+            <span class="shortcut-label">Reset Window Size Preset</span>
+            <kbd>Double-Click Handle</kbd>
+          </div>
         </div>
       </section>
 
       <!-- App Management / Uninstall -->
-      <section class="settings-section app-management-section">
-        <div class="section-header">
-          <label>App Management</label>
-        </div>
+      <section class="settings-card danger-zone-card">
         <div class="uninstall-row">
           <div class="uninstall-info">
             <span class="uninstall-title">Uninstall overLy</span>
-            <p class="section-hint">Remove overLy from your computer and delete app files.</p>
+            <p class="section-hint">Remove app, startup hooks, and clean files completely</p>
           </div>
           <button id="btnUninstallApp" class="btn-uninstall" title="Uninstall overLy from Windows">
             <svg class="uninstall-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

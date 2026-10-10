@@ -40,6 +40,19 @@ contextBridge.exposeInMainWorld('overlyAPI', {
   openSettings: (title, artist) => ipcRenderer.send('open-settings', { title, artist }),
   closeSettingsWindow: () => ipcRenderer.send('close-settings-window'),
   updateSetting: (key, value) => ipcRenderer.send('update-setting', { key, value }),
+  extractCoverColors: (coverUrl) => ipcRenderer.invoke('extract-cover-colors', coverUrl),
+  previewLayoutMode: (mode) => ipcRenderer.send('preview-layout-mode', mode),
+  restoreLayoutMode: () => ipcRenderer.send('restore-layout-mode'),
+  onPreviewLayoutMode: (callback) => {
+    const handler = (_event, mode) => callback(mode);
+    ipcRenderer.on('preview-layout-mode', handler);
+    return () => ipcRenderer.removeListener('preview-layout-mode', handler);
+  },
+  onRestoreLayoutMode: (callback) => {
+    const handler = (_event) => callback();
+    ipcRenderer.on('restore-layout-mode', handler);
+    return () => ipcRenderer.removeListener('restore-layout-mode', handler);
+  },
   onSettingUpdated: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('setting-updated', handler);

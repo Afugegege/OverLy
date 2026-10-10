@@ -230,7 +230,19 @@ async function init() {
 
       // Subscribe to live settings updates from separate Settings window
       window.overlyAPI.onSettingUpdated?.(({ key, value }) => {
-        if (key === 'mode') setMode(value, true);
+        if (key === 'previewLayoutMode') {
+          if (!state.committedMode) state.committedMode = state.mode;
+          setMode(value, true, true);
+        }
+        if (key === 'restoreLayoutMode') {
+          if (state.committedMode && state.mode !== state.committedMode) {
+            setMode(state.committedMode, true, true);
+          }
+        }
+        if (key === 'mode') {
+          state.committedMode = value;
+          setMode(value, true, false);
+        }
         if (key === 'theme') applyTheme(value);
         if (key === 'accentColor') setAccentColor(value);
         if (key === 'opacity') setOpacity(value);
@@ -258,6 +270,20 @@ async function init() {
           if (state.autoMinimize && !state.isAutoMinimized) {
             startAutoMinimizeTimer();
           }
+        }
+      });
+
+      // Subscribe to hover layout mode preview and restore
+      window.overlyAPI.onPreviewLayoutMode?.((mode) => {
+        if (!state.committedMode) {
+          state.committedMode = state.mode;
+        }
+        setMode(mode, true, true);
+      });
+
+      window.overlyAPI.onRestoreLayoutMode?.(() => {
+        if (state.committedMode && state.mode !== state.committedMode) {
+          setMode(state.committedMode, true, true);
         }
       });
 
@@ -340,12 +366,25 @@ function setupEventListeners() {
     }
   });
 
-  // Mode toggle
+  // Mode toggle & Layout cycling
   btnModeToggle.addEventListener('click', (e) => {
     e.stopPropagation();
-    const modes = ['card', 'collapsed', 'minimized', 'lyrics', 'expanded'];
-    const nextIdx = (modes.indexOf(state.mode) + 1) % modes.length;
-    setMode(modes[nextIdx], true);
+    cycleNextLayout();
+  });
+
+  // Double click anywhere on overlay to cycle through overall layout
+  window.addEventListener('dblclick', (e) => {
+    // If double clicking the minimized disc/ball, always cycle layout
+    if (e.target.closest('#minimizedBall, #minimizedBallArt, .disc-groove, #minimizedPlayOverlay')) {
+      e.stopPropagation();
+      cycleNextLayout();
+      return;
+    }
+    // Ignore interactive controls
+    if (e.target.closest('button, input, select, textarea, #resizeHandle, .progress-bar-wrap, .pill-more-actions, .pill-more-menu')) {
+      return;
+    }
+    cycleNextLayout();
   });
 
   // Lock (Click-Through) toggle
@@ -1011,6 +1050,7 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
   if (mode === 'mini') mode = 'minimized';
 
   if (!isInternalAutoAction) {
+    state.committedMode = mode;
     if (state.isAutoMinimized) {
       state.isAutoMinimized = false;
       state.preAutoMinMode = null;
@@ -1020,6 +1060,23 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
     } else if (state.autoMinimize && !isMouseOverOverlay && (!state.hasMedia || state.status !== 'Playing')) {
       startAutoMinimizeTimer();
     }
+  }
+
+  const oldMode = state.mode;
+  if (oldMode && oldMode !== mode) {
+    const allTrans = [
+      'from-collapsed-to-minimized', 'from-minimized-to-collapsed',
+      'from-pill-to-minimized', 'from-minimized-to-pill',
+      'from-card-to-collapsed', 'from-collapsed-to-card',
+      'from-card-to-pill', 'from-pill-to-card',
+      'from-card-to-lyrics', 'from-lyrics-to-card',
+      'from-card-to-expanded', 'from-expanded-to-card'
+    ];
+    body.classList.remove(...allTrans);
+    body.classList.add(`from-${oldMode}-to-${mode}`);
+    setTimeout(() => {
+      body.classList.remove(...allTrans);
+    }, 380);
   }
 
   state.mode = mode;
@@ -1076,6 +1133,17 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
   persistSettings();
 }
 
+function cycleNextLayout() {
+  const modes = ['card', 'collapsed', 'minimized', 'lyrics', 'expanded'];
+  const cur = (state.mode === 'pill' ? 'collapsed' : (state.mode === 'normal' ? 'card' : (state.mode === 'mini' ? 'minimized' : state.mode)));
+  const nextIdx = (modes.indexOf(cur) + 1) % modes.length;
+  const nextMode = modes[nextIdx];
+  setMode(nextMode, true);
+  if (window.overlyAPI?.updateSetting) {
+    window.overlyAPI.updateSetting('mode', nextMode);
+  }
+}
+
 function updateModeButtonUI(mode) {
   if (!btnModeToggle) return;
   const icons = {
@@ -1125,8 +1193,7 @@ function hexToRgb(hex) {
   return { r: 255, g: 48, b: 64 };
 }
 
-function setAccentColor(color) {
-  state.accentColor = color;
+function applyAccentTokens(color, customSecondary = null) {
   const rgb = hexToRgb(color);
 
   // Perceived luminance formula (ITU-R BT.709 / W3C)
@@ -1141,9 +1208,7 @@ function setAccentColor(color) {
   let playBtnShadow = 'none';
 
   if (luminance > 0.70) {
-    // Pure white or very bright accent (e.g. #FFFFFF)
     if (isLight) {
-      // In Light mode: white text is invisible against light glass, so accent text is rich dark
       accentText = '#0f1118';
       contrastColor = '#0f1118';
       playBtnBg = '#ffffff';
@@ -1151,7 +1216,6 @@ function setAccentColor(color) {
       playBtnBorder = '1.5px solid rgba(0, 0, 0, 0.22)';
       playBtnShadow = '0 4px 14px rgba(0, 0, 0, 0.15)';
     } else {
-      // In Dark mode: white is bright, vibrant, and high contrast
       accentText = '#ffffff';
       contrastColor = '#0e1018';
       playBtnBg = '#ffffff';
@@ -1160,9 +1224,7 @@ function setAccentColor(color) {
       playBtnShadow = '0 4px 14px rgba(255, 255, 255, 0.25)';
     }
   } else if (luminance < 0.25) {
-    // Jet black or very dark accent (e.g. #18181B or #000000)
     if (isLight) {
-      // In Light mode: black is sharp and crisp
       accentText = '#18181b';
       contrastColor = '#ffffff';
       playBtnBg = '#18181b';
@@ -1170,7 +1232,6 @@ function setAccentColor(color) {
       playBtnBorder = '1px solid rgba(0, 0, 0, 0.2)';
       playBtnShadow = '0 4px 14px rgba(0, 0, 0, 0.2)';
     } else {
-      // In Dark mode: pure black text is invisible on dark card, so accent text is white!
       accentText = '#ffffff';
       contrastColor = '#ffffff';
       playBtnBg = '#22232a';
@@ -1179,7 +1240,6 @@ function setAccentColor(color) {
       playBtnShadow = '0 4px 14px rgba(255, 255, 255, 0.2)';
     }
   } else {
-    // Standard chromatic accents
     contrastColor = luminance > 0.6 ? '#11131a' : '#ffffff';
     accentText = color;
     playBtnBg = color;
@@ -1188,11 +1248,11 @@ function setAccentColor(color) {
     playBtnShadow = `0 4px 14px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.35)`;
   }
 
-  // Harmonious lighter tint for gradients without any hardcoded pink/red
   const lighterR = Math.min(255, Math.round(rgb.r + (255 - rgb.r) * 0.35));
   const lighterG = Math.min(255, Math.round(rgb.g + (255 - rgb.g) * 0.35));
   const lighterB = Math.min(255, Math.round(rgb.b + (255 - rgb.b) * 0.35));
-  const lighterColor = `rgb(${lighterR}, ${lighterG}, ${lighterB})`;
+  const lighterColor = customSecondary || `rgb(${lighterR}, ${lighterG}, ${lighterB})`;
+  const secRgb = customSecondary ? hexToRgb(customSecondary) : { r: lighterR, g: lighterG, b: lighterB };
 
   const glowAlpha = luminance > 0.65 ? 0.25 : 0.4;
   const subtleGlowAlpha = luminance > 0.65 ? 0.08 : 0.14;
@@ -1208,7 +1268,7 @@ function setAccentColor(color) {
   document.documentElement.style.setProperty('--accent-glow', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${glowAlpha})`);
   document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${subtleGlowAlpha})`);
   document.documentElement.style.setProperty('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.22)`);
-  document.documentElement.style.setProperty('--aura-color2', `rgba(${lighterR}, ${lighterG}, ${lighterB}, 0.10)`);
+  document.documentElement.style.setProperty('--aura-color2', `rgba(${secRgb.r}, ${secRgb.g}, ${secRgb.b}, 0.12)`);
 
   const gradStop1 = document.getElementById('pillGradStop1');
   if (gradStop1) {
@@ -1220,6 +1280,121 @@ function setAccentColor(color) {
     const grad2 = (luminance < 0.25 && !isLight) ? '#b0b5c5' : (luminance > 0.70 && isLight ? '#3a3f50' : lighterColor);
     gradStop2.setAttribute('stop-color', grad2);
   }
+
+  if (state.accentColor === 'auto' && color !== getNeutralAccentColor()) {
+    state.lastExtractedPrimary = color;
+  }
+
+  const isAutoMode = (state.accentColor === 'auto');
+  if (isAutoMode && color !== getNeutralAccentColor()) {
+    const norm = (typeof state.opacity === 'number') ? state.opacity : 0.85;
+    if (isLight) {
+      const br = Math.round(248 * 0.90 + rgb.r * 0.10);
+      const bg = Math.round(250 * 0.90 + rgb.g * 0.10);
+      const bb = Math.round(254 * 0.90 + rgb.b * 0.10);
+      document.documentElement.style.setProperty('--bg-glass', `rgba(${br}, ${bg}, ${bb}, ${norm})`);
+    } else {
+      const br = Math.round(14 * 0.86 + rgb.r * 0.14);
+      const bg = Math.round(16 * 0.86 + rgb.g * 0.14);
+      const bb = Math.round(24 * 0.86 + rgb.b * 0.14);
+      document.documentElement.style.setProperty('--bg-glass', `rgba(${br}, ${bg}, ${bb}, ${norm})`);
+    }
+  } else {
+    setOpacity(state.opacity ?? 0.85);
+  }
+}
+
+function extractColorsFromCanvas(img) {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 36;
+    canvas.height = 36;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, 36, 36);
+    const data = ctx.getImageData(0, 0, 36, 36).data;
+    const buckets = [];
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+      if (a < 128) continue;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const l = (max + min) / 510;
+      const d = max - min;
+      const s = max === 0 ? 0 : d / max;
+      if (l > 0.15 && l < 0.88 && s > 0.18) {
+        buckets.push({ r, g, b, score: s * 2.5 + (1 - Math.abs(l - 0.55)) * 1.5 });
+      }
+    }
+    if (!buckets.length) return null;
+    buckets.sort((a, b) => b.score - a.score);
+    const primary = buckets[0];
+    let secondary = buckets.find(c => Math.abs(c.r - primary.r) + Math.abs(c.g - primary.g) + Math.abs(c.b - primary.b) > 70);
+    const toHex = n => n.toString(16).padStart(2, '0');
+    return {
+      primary: `#${toHex(primary.r)}${toHex(primary.g)}${toHex(primary.b)}`,
+      secondary: secondary ? `#${toHex(secondary.r)}${toHex(secondary.g)}${toHex(secondary.b)}` : null
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function getNeutralAccentColor() {
+  const isLight = document.body.classList.contains('theme-light');
+  return isLight ? '#22242E' : '#A4AAB8';
+}
+
+async function applyExtractedAlbumColors() {
+  if (state.accentColor !== 'auto') return;
+  if (!state.coverUrl) {
+    state.lastExtractedPrimary = null;
+    applyAccentTokens(getNeutralAccentColor(), null);
+    if (window.overlyAPI?.updateSetting) {
+      window.overlyAPI.updateSetting('extractedAccentColor', null);
+    }
+    return;
+  }
+  try {
+    // Show neutral grey/white/black accent while loading & fetching
+    applyAccentTokens(getNeutralAccentColor(), null);
+
+    let colors = null;
+    if (window.overlyAPI?.extractCoverColors) {
+      colors = await window.overlyAPI.extractCoverColors(state.coverUrl);
+    }
+    if (!colors && albumArt && albumArt.complete && albumArt.naturalWidth) {
+      colors = extractColorsFromCanvas(albumArt);
+    }
+    if (colors && colors.primary) {
+      state.lastExtractedPrimary = colors.primary;
+      applyAccentTokens(colors.primary, colors.secondary);
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('extractedAccentColor', colors.primary);
+      }
+    } else {
+      state.lastExtractedPrimary = null;
+      applyAccentTokens(getNeutralAccentColor(), null);
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('extractedAccentColor', null);
+      }
+    }
+  } catch (err) {
+    state.lastExtractedPrimary = null;
+    applyAccentTokens(getNeutralAccentColor(), null);
+    if (window.overlyAPI?.updateSetting) {
+      window.overlyAPI.updateSetting('extractedAccentColor', null);
+    }
+  }
+}
+
+function setAccentColor(color) {
+  state.accentColor = color;
+  if (color === 'auto') {
+    applyAccentTokens(getNeutralAccentColor(), null);
+    applyExtractedAlbumColors();
+  } else {
+    state.lastExtractedPrimary = null;
+    applyAccentTokens(color);
+  }
 }
 
 function setOpacity(val) {
@@ -1228,10 +1403,25 @@ function setOpacity(val) {
 
   const isLight = document.body.classList.contains('theme-light');
   document.documentElement.style.setProperty('--glass-opacity', norm);
-  if (isLight) {
-    document.documentElement.style.setProperty('--bg-glass', `rgba(248, 250, 254, ${norm})`);
+  if (state.accentColor === 'auto' && state.lastExtractedPrimary) {
+    const rgb = hexToRgb(state.lastExtractedPrimary);
+    if (isLight) {
+      const br = Math.round(248 * 0.90 + rgb.r * 0.10);
+      const bg = Math.round(250 * 0.90 + rgb.g * 0.10);
+      const bb = Math.round(254 * 0.90 + rgb.b * 0.10);
+      document.documentElement.style.setProperty('--bg-glass', `rgba(${br}, ${bg}, ${bb}, ${norm})`);
+    } else {
+      const br = Math.round(14 * 0.86 + rgb.r * 0.14);
+      const bg = Math.round(16 * 0.86 + rgb.g * 0.14);
+      const bb = Math.round(24 * 0.86 + rgb.b * 0.14);
+      document.documentElement.style.setProperty('--bg-glass', `rgba(${br}, ${bg}, ${bb}, ${norm})`);
+    }
   } else {
-    document.documentElement.style.setProperty('--bg-glass', `rgba(14, 16, 24, ${norm})`);
+    if (isLight) {
+      document.documentElement.style.setProperty('--bg-glass', `rgba(248, 250, 254, ${norm})`);
+    } else {
+      document.documentElement.style.setProperty('--bg-glass', `rgba(14, 16, 24, ${norm})`);
+    }
   }
 }
 
@@ -1443,6 +1633,9 @@ function renderTrackInfo() {
     if (state.mode !== 'minimized') {
       updatePillLyric('Listening for playback');
     }
+    if (state.accentColor === 'auto') {
+      applyAccentTokens(getNeutralAccentColor(), null);
+    }
     return;
   }
 
@@ -1454,18 +1647,31 @@ function renderTrackInfo() {
   }
 
   if (state.coverUrl) {
+    if (state.accentColor === 'auto') {
+      applyAccentTokens(getNeutralAccentColor(), null);
+    }
+    albumArt.crossOrigin = 'anonymous';
     albumArt.src = state.coverUrl;
     albumArt.onload = () => {
       albumArt.classList.add('visible');
       albumPlaceholder.classList.add('hidden');
+      if (state.accentColor === 'auto') {
+        applyExtractedAlbumColors();
+      }
     };
     albumArt.onerror = () => {
       albumArt.classList.remove('visible');
       albumPlaceholder.classList.remove('hidden');
+      if (state.accentColor === 'auto') {
+        applyAccentTokens(getNeutralAccentColor(), null);
+      }
     };
   } else {
     albumArt.classList.remove('visible');
     albumPlaceholder.classList.remove('hidden');
+    if (state.accentColor === 'auto') {
+      applyExtractedAlbumColors();
+    }
   }
 }
 

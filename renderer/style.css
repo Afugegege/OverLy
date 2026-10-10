@@ -1281,57 +1281,162 @@ body.mode-lyrics .lyrics-list {
 
 /* Mode: Minimized (Round Circle Ball with Album Cover) */
 body.mode-minimized {
-  padding: 5px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
   justify-content: center !important;
   align-items: center !important;
 }
 
+body.mode-minimized .ambient-aura {
+  display: none !important;
+}
+
+body.mode-minimized .lock-toast {
+  display: none !important;
+}
+
 body.mode-minimized .overlay-container {
-  width: 54px !important;
-  height: 54px !important;
-  min-width: 54px !important;
-  min-height: 54px !important;
-  max-width: 54px !important;
-  max-height: 54px !important;
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
   border-radius: 50% !important;
   padding: 0 !important;
-  border: 1.5px solid var(--border-glass) !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 14px var(--accent-glow) !important;
+  border: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
   overflow: hidden !important;
-  display: block !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   cursor: grab;
   position: relative !important;
   isolation: isolate;
   transform: translateZ(0);
-  animation: shrinkToBall 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes shrinkToBall {
+/* Distinct Tailored Transitions Between Each Layout */
+
+/* 1. Transition: Pill (Collapsed) -> Minimized Round Ball */
+body.from-collapsed-to-minimized .overlay-container,
+body.from-pill-to-minimized .overlay-container {
+  animation: pillShrinkToDisc 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes pillShrinkToDisc {
   0% {
-    transform: scale(1.35);
-    border-radius: 20px;
-    opacity: 0.82;
+    width: 380px;
+    height: 56px;
+    border-radius: 9999px;
   }
   100% {
-    transform: scale(1);
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
-    opacity: 1;
   }
 }
 
-body:not(.mode-minimized) .overlay-container {
-  animation: expandFromBall 0.30s cubic-bezier(0.16, 1, 0.3, 1);
+/* 2. Transition: Minimized Round Ball -> Pill (Collapsed) */
+body.from-minimized-to-collapsed .overlay-container,
+body.from-minimized-to-pill .overlay-container {
+  animation: discExpandToPill 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 
-@keyframes expandFromBall {
+@keyframes discExpandToPill {
   0% {
-    transform: scale(0.86);
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
-    opacity: 0.75;
   }
   100% {
-    transform: scale(1);
-    opacity: 1;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--pill-radius);
+  }
+}
+
+/* 3. Transition: Card -> Pill (Collapsed) */
+body.from-card-to-collapsed .overlay-container,
+body.from-card-to-pill .overlay-container {
+  animation: cardCollapseToPill 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes cardCollapseToPill {
+  0% {
+    border-radius: var(--card-radius);
+    height: 220px;
+  }
+  100% {
+    border-radius: var(--pill-radius);
+    height: 100%;
+  }
+}
+
+/* 4. Transition: Pill (Collapsed) -> Card */
+body.from-collapsed-to-card .overlay-container,
+body.from-pill-to-card .overlay-container {
+  animation: pillExpandToCard 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes pillExpandToCard {
+  0% {
+    border-radius: var(--pill-radius);
+    height: 60px;
+  }
+  100% {
+    border-radius: var(--card-radius);
+    height: 100%;
+  }
+}
+
+/* 5. Transition: Card -> Lyrics Only */
+body.from-card-to-lyrics .overlay-container {
+  animation: cardShrinkToLyrics 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes cardShrinkToLyrics {
+  0% {
+    height: 240px;
+  }
+  100% {
+    height: 100%;
+  }
+}
+
+/* 6. Transition: Lyrics Only -> Card */
+body.from-lyrics-to-card .overlay-container {
+  animation: lyricsExpandToCard 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes lyricsExpandToCard {
+  0% {
+    height: 120px;
+  }
+  100% {
+    height: 100%;
+  }
+}
+
+/* 7. Transition: Card -> Expanded */
+body.from-card-to-expanded .overlay-container {
+  animation: cardExpandToSheet 0.30s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes cardExpandToSheet {
+  0% {
+    height: 240px;
+  }
+  100% {
+    height: 100%;
   }
 }
 
@@ -1508,8 +1613,15 @@ body.mode-minimized .overlay-container.is-hovered .minimized-play-overlay {
 }
 
 body.theme-light.mode-minimized .overlay-container {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), 0 0 14px var(--accent-glow-subtle) !important;
-  border-color: rgba(255, 255, 255, 0.6) !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  border: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.theme-light.mode-minimized .art-wrapper {
+  border: 1.5px solid rgba(0, 0, 0, 0.16) !important;
 }
 
 body.theme-light.mode-minimized .minimized-play-overlay {

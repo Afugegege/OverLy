@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu, nativeImage, screen, nativeTheme, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu, nativeImage, screen, nativeTheme, dialog, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -17,6 +17,7 @@ let lastMediaData = null;
 let currentWindowWidth = 460;
 let currentWindowHeight = 260;
 let isUserResizing = false;
+let currentLayoutMode = 'card';
 
 const settingsPath = path.join(app.getPath('userData'), 'overly-settings.json');
 
@@ -349,6 +350,15 @@ app.whenReady().then(() => {
   // Start SMTC background service
   smtcService.start();
 
+  function broadcastMediaUpdate(payload) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('media-update', payload);
+    }
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send('media-update', payload);
+    }
+  }
+
   smtcService.on('update', async (mediaData) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
 
@@ -356,7 +366,7 @@ app.whenReady().then(() => {
       currentTrackKey = '';
       currentTrackData = null;
       lastMediaData = null;
-      mainWindow.webContents.send('media-update', {
+      broadcastMediaUpdate({
         hasMedia: false,
         status: 'Stopped'
       });
@@ -379,8 +389,8 @@ app.whenReady().then(() => {
         isFetchingLyrics: true
       };
 
-      // Notify renderer at once so previous lyrics vanish without delay
-      mainWindow.webContents.send('media-update', {
+      // Notify renderers at once so previous lyrics vanish without delay
+      broadcastMediaUpdate({
         ...mediaData,
         ...currentTrackData
       });
@@ -408,23 +418,19 @@ app.whenReady().then(() => {
                   coverUrl: null,
                   isFetchingLyrics: false
                 };
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('media-update', {
-                ...mediaData,
-                ...currentTrackData
-              });
-            }
+            broadcastMediaUpdate({
+              ...mediaData,
+              ...currentTrackData
+            });
           }
         } catch (err) {
           console.error('Error fetching track data:', err);
           if (currentTrackKey === fetchKey && currentTrackData) {
             currentTrackData.isFetchingLyrics = false;
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('media-update', {
-                ...mediaData,
-                ...currentTrackData
-              });
-            }
+            broadcastMediaUpdate({
+              ...mediaData,
+              ...currentTrackData
+            });
           }
         }
       })();
@@ -441,7 +447,7 @@ app.whenReady().then(() => {
       isFetchingLyrics: currentTrackData?.isFetchingLyrics || false
     };
 
-    mainWindow.webContents.send('media-update', payload);
+    broadcastMediaUpdate(payload);
   });
 });
 
@@ -462,8 +468,8 @@ function openSettingsWindow(searchQuery) {
     ? screen.getDisplayMatching(mainWindow.getBounds())
     : screen.getPrimaryDisplay();
   const wa = display.workArea;
-  const sw = 380;
-  const sh = 540;
+  const sw = 420;
+  const sh = 580;
 
   let x = wa.x + Math.round((wa.width - sw) / 2);
   let y = wa.y + Math.round((wa.height - sh) / 2);
@@ -496,8 +502,8 @@ function openSettingsWindow(searchQuery) {
     y,
     width: sw,
     height: sh,
-    minWidth: 340,
-    minHeight: 480,
+    minWidth: 380,
+    minHeight: 520,
     title: 'overLy Settings',
     icon: path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     frame: false,
@@ -518,9 +524,22 @@ function openSettingsWindow(searchQuery) {
     if (searchQuery) {
       settingsWindow.webContents.send('init-search-query', searchQuery);
     }
+    if (lastMediaData) {
+      settingsWindow.webContents.send('media-update', {
+        ...lastMediaData,
+        coverUrl: currentTrackData?.coverUrl || null,
+        lyrics: currentTrackData?.lyrics || [],
+        hasSynced: currentTrackData?.hasSynced || false,
+        plainLyrics: currentTrackData?.plainLyrics || '',
+        isFetchingLyrics: currentTrackData?.isFetchingLyrics || false
+      });
+    }
   });
 
   settingsWindow.on('closed', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('restore-layout-mode');
+    }
     settingsWindow = null;
   });
 }
@@ -543,6 +562,23 @@ ipcMain.on('set-always-on-top', (_event, pinned) => {
   updateTray();
 });
 
+let windowAnchor = null;
+let targetAnimationBounds = null;
+
+function updateWindowAnchor(bounds = null) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const b = bounds || (targetAnimationBounds || mainWindow.getBounds());
+  const display = screen.getDisplayMatching(b);
+  const wa = display.workArea;
+  const isBottom = (b.y + b.height / 2) >= (wa.y + wa.height / 2);
+  windowAnchor = {
+    centerX: Math.round(b.x + b.width / 2),
+    bottomY: Math.round(b.y + b.height),
+    topY: Math.round(b.y),
+    isBottom
+  };
+}
+
 ipcMain.on('window-move', (_event, { deltaX, deltaY }) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     const [x, y] = mainWindow.getPosition();
@@ -562,6 +598,8 @@ ipcMain.on('window-move', (_event, { deltaX, deltaY }) => {
       width: currentWindowWidth,
       height: currentWindowHeight
     });
+
+    updateWindowAnchor({ x: newX, y: newY, width: currentWindowWidth, height: currentWindowHeight });
 
     const s = loadSettings();
     const normMode = normalizeMode(s.mode);
@@ -589,6 +627,8 @@ ipcMain.on('window-move-to', (_event, { x, y }) => {
       height: currentWindowHeight
     });
 
+    updateWindowAnchor({ x: newX, y: newY, width: currentWindowWidth, height: currentWindowHeight });
+
     const s = loadSettings();
     const normMode = normalizeMode(s.mode);
     if (!s.layoutPositions) s.layoutPositions = {};
@@ -615,6 +655,7 @@ function animateWindowBounds(targetBounds, duration = 180, onComplete) {
     boundsAnimationTimer = null;
   }
 
+  targetAnimationBounds = { ...targetBounds };
   const startBounds = mainWindow.getBounds();
   if (
     Math.abs(startBounds.x - targetBounds.x) < 2 &&
@@ -623,6 +664,7 @@ function animateWindowBounds(targetBounds, duration = 180, onComplete) {
     Math.abs(startBounds.height - targetBounds.height) < 2
   ) {
     mainWindow.setBounds(targetBounds);
+    targetAnimationBounds = null;
     if (onComplete) onComplete();
     return;
   }
@@ -642,6 +684,7 @@ function animateWindowBounds(targetBounds, duration = 180, onComplete) {
     if (!mainWindow || mainWindow.isDestroyed()) {
       clearInterval(boundsAnimationTimer);
       boundsAnimationTimer = null;
+      targetAnimationBounds = null;
       return;
     }
 
@@ -666,6 +709,7 @@ function animateWindowBounds(targetBounds, duration = 180, onComplete) {
       clearInterval(boundsAnimationTimer);
       boundsAnimationTimer = null;
       mainWindow.setBounds(targetBounds);
+      targetAnimationBounds = null;
       if (onComplete) onComplete();
     }
   }, frameInterval);
@@ -695,7 +739,7 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
 
   if (!s.layoutPositions) s.layoutPositions = {};
 
-  const currentBounds = mainWindow.getBounds();
+  const currentBounds = targetAnimationBounds || mainWindow.getBounds();
   const display = screen.getDisplayMatching(currentBounds);
   const wa = display.workArea;
 
@@ -714,62 +758,38 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
     if (targetY + currentWindowHeight > wa.y + wa.height) {
       currentWindowHeight = Math.max(minH, wa.y + wa.height - targetY);
     }
+    updateWindowAnchor({ x: targetX, y: targetY, width: currentWindowWidth, height: currentWindowHeight });
     s.layoutPositions[normMode] = { x: targetX, y: targetY };
     saveSettings(s);
   } else {
-    const isRightHalf = (currentBounds.x + currentBounds.width / 2) >= (wa.x + wa.width / 2);
-    const isBottomHalf = (currentBounds.y + currentBounds.height / 2) >= (wa.y + wa.height / 2);
+    currentLayoutMode = normMode;
 
-    if (normMode === 'minimized') {
-      // Always shrink smoothly directly into the corner of the current window!
-      targetX = isRightHalf
-        ? (currentBounds.x + currentBounds.width - currentWindowWidth)
-        : currentBounds.x;
-      targetY = isBottomHalf
-        ? (currentBounds.y + currentBounds.height - currentWindowHeight)
-        : currentBounds.y;
-
-      s.layoutPositions[normMode] = { x: targetX, y: targetY };
-      saveSettings(s);
-    } else {
-      const wasMini = (currentBounds.width <= 84 && currentBounds.height <= 84);
-      if (wasMini) {
-        // Expand directly out from the corner where the ball was located!
-        targetX = isRightHalf
-          ? (currentBounds.x + currentBounds.width - currentWindowWidth)
-          : currentBounds.x;
-        targetY = isBottomHalf
-          ? (currentBounds.y + currentBounds.height - currentWindowHeight)
-          : currentBounds.y;
-      } else if (s.layoutPositions[normMode] && typeof s.layoutPositions[normMode].x === 'number') {
-        targetX = s.layoutPositions[normMode].x;
-        targetY = s.layoutPositions[normMode].y;
-      } else {
-        targetX = isRightHalf
-          ? (currentBounds.x + currentBounds.width - currentWindowWidth)
-          : currentBounds.x;
-        targetY = isBottomHalf
-          ? (currentBounds.y + currentBounds.height - currentWindowHeight)
-          : currentBounds.y;
-      }
-
-      s.layoutPositions[normMode] = { x: targetX, y: targetY };
-      saveSettings(s);
+    if (!windowAnchor) {
+      updateWindowAnchor(currentBounds);
     }
 
-    // Always clamp strictly within workArea so the window is NEVER off screen
-    if (targetX + currentWindowWidth > wa.x + wa.width) {
-      targetX = wa.x + wa.width - currentWindowWidth;
-    }
-    if (targetX < wa.x) {
-      targetX = wa.x;
-    }
-    if (targetY + currentWindowHeight > wa.y + wa.height) {
-      targetY = wa.y + wa.height - currentWindowHeight;
-    }
-    if (targetY < wa.y) {
-      targetY = wa.y;
-    }
+    // Stable anchor: Window's center and bottom/top stay anchored without wandering
+    targetX = Math.round(windowAnchor.centerX - currentWindowWidth / 2);
+    targetY = windowAnchor.isBottom
+      ? Math.round(windowAnchor.bottomY - currentWindowHeight)
+      : Math.round(windowAnchor.topY);
+
+    s.layoutPositions[normMode] = { x: targetX, y: targetY };
+    saveSettings(s);
+  }
+
+  // Always clamp strictly within workArea so the window is NEVER off screen
+  if (targetX + currentWindowWidth > wa.x + wa.width) {
+    targetX = wa.x + wa.width - currentWindowWidth;
+  }
+  if (targetX < wa.x) {
+    targetX = wa.x;
+  }
+  if (targetY + currentWindowHeight > wa.y + wa.height) {
+    targetY = wa.y + wa.height - currentWindowHeight;
+  }
+  if (targetY < wa.y) {
+    targetY = wa.y;
   }
 
   animateWindowBounds({
@@ -827,6 +847,103 @@ ipcMain.on('update-setting', (_event, { key, value }) => {
   }
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.webContents.send('setting-updated', { key, value });
+  }
+});
+
+ipcMain.on('preview-layout-mode', (_event, mode) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('preview-layout-mode', mode);
+  }
+});
+
+ipcMain.on('restore-layout-mode', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('restore-layout-mode');
+  }
+});
+
+function analyzeBitmapColors(buffer) {
+  if (!buffer || buffer.length < 16) return null;
+  const buckets = [];
+  for (let i = 0; i < buffer.length; i += 4) {
+    // Windows nativeImage.toBitmap() buffer is BGRA
+    const b = buffer[i];
+    const g = buffer[i + 1];
+    const r = buffer[i + 2];
+    const a = buffer[i + 3];
+    if (a < 128) continue;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 510;
+    const d = max - min;
+    const s = max === 0 ? 0 : d / max;
+
+    if (l > 0.15 && l < 0.88 && s > 0.18) {
+      const score = s * 2.5 + (1 - Math.abs(l - 0.55)) * 1.5;
+      buckets.push({ r, g, b, score });
+    }
+  }
+
+  if (buckets.length === 0) {
+    for (let i = 0; i < buffer.length; i += 16) {
+      const b = buffer[i];
+      const g = buffer[i + 1];
+      const r = buffer[i + 2];
+      buckets.push({ r, g, b, score: 1 });
+    }
+  }
+
+  if (buckets.length === 0) return null;
+
+  buckets.sort((a, b) => b.score - a.score);
+  const primary = buckets[0];
+
+  let secondary = null;
+  for (let i = 1; i < buckets.length; i++) {
+    const c = buckets[i];
+    const dist = Math.abs(c.r - primary.r) + Math.abs(c.g - primary.g) + Math.abs(c.b - primary.b);
+    if (dist > 70) {
+      secondary = c;
+      break;
+    }
+  }
+
+  if (!secondary) {
+    secondary = {
+      r: Math.min(255, Math.round(primary.r * 0.7 + 255 * 0.3)),
+      g: Math.min(255, Math.round(primary.g * 0.7 + 255 * 0.3)),
+      b: Math.min(255, Math.round(primary.b * 0.7 + 255 * 0.3))
+    };
+  }
+
+  const toHex = (n) => n.toString(16).padStart(2, '0');
+  return {
+    primary: `#${toHex(primary.r)}${toHex(primary.g)}${toHex(primary.b)}`,
+    secondary: `#${toHex(secondary.r)}${toHex(secondary.g)}${toHex(secondary.b)}`
+  };
+}
+
+ipcMain.handle('extract-cover-colors', async (_event, urlOrPath) => {
+  try {
+    if (!urlOrPath) return null;
+    let img;
+    if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
+      const response = await net.fetch(urlOrPath);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      img = nativeImage.createFromBuffer(buffer);
+    } else if (urlOrPath.startsWith('data:image/')) {
+      img = nativeImage.createFromDataURL(urlOrPath);
+    } else {
+      img = nativeImage.createFromPath(urlOrPath);
+    }
+    if (!img || img.isEmpty()) return null;
+    const resized = img.resize({ width: 36, height: 36, quality: 'good' });
+    const bitmap = resized.toBitmap();
+    return analyzeBitmapColors(bitmap);
+  } catch (e) {
+    console.error('Failed to extract cover colors in main:', e);
+    return null;
   }
 });
 
