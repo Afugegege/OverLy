@@ -408,22 +408,22 @@ body.theme-light .layout-mode-btn:hover .mode-preview-box {
    ========================================================================== */
 .theme-mode-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
 }
 
 .theme-mode-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 9px 12px;
+  gap: 6px;
+  padding: 8px 6px;
   background: var(--bg-subtle);
   border: 1.5px solid var(--border-color);
   border-radius: var(--radius-btn);
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -463,20 +463,23 @@ body.theme-light .layout-mode-btn:hover .mode-preview-box {
 .accent-palette {
   display: flex;
   align-items: center;
-  gap: 9px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: nowrap;
   padding-top: 2px;
 }
 
 .color-swatch {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
   border-radius: 50%;
-  border: 2.5px solid transparent;
+  border: 2px solid transparent;
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   position: relative;
+  flex-shrink: 0;
 }
 
 .color-swatch:hover {
@@ -505,62 +508,82 @@ body.theme-light .color-swatch.active {
 }
 
 .auto-swatch-sparkle {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   color: #ffffff;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
   pointer-events: none;
 }
 
-/* Custom Accent Swatch & Edit Button */
+/* Custom Accent Swatch & Edit Combo Pill */
+.custom-swatch-combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  padding: 2px 7px 2px 2px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.custom-swatch-combo:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+}
+
+.custom-swatch-combo.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+
 .custom-accent-swatch {
-  border: 2px solid transparent;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
   position: relative;
+  flex-shrink: 0;
 }
 
 .custom-accent-swatch:hover {
-  transform: scale(1.18);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  transform: scale(1.15);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
 }
 
 .custom-accent-swatch.active {
-  transform: scale(1.22);
+  transform: scale(1.15);
   border-color: #ffffff !important;
-  box-shadow: 0 0 0 2px var(--accent), 0 3px 12px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0 0 1.5px var(--accent), 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .btn-palette-edit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3px 9px;
-  height: 24px;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
+  padding: 1px 3px;
+  height: 18px;
+  background: transparent;
+  border: none;
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease;
   user-select: none;
-  margin-left: 2px;
 }
 
 .btn-palette-edit:hover {
-  background: var(--bg-card-hover);
   color: var(--text-primary);
-  border-color: var(--border-hover);
-  transform: translateY(-1px);
 }
 
 .btn-palette-edit.active {
-  background: var(--accent-glow-subtle);
-  border-color: var(--accent);
   color: var(--accent);
 }
 

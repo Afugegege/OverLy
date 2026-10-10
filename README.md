@@ -9,8 +9,8 @@ Hooks directly into Windows System Media Transport Controls (SMTC), meaning it w
 ## Features
 
 ### Dynamic Album Art Theming
-- In Auto Accent mode, overLy samples colors directly from the currently playing album artwork.
-- Themes the entire interface to match the song: the frosted glass background tint, glowing outer aura, lyrics, waveform visualizer, buttons, and progress scrubbers.
+- In Auto Theme mode, both the background tint and text colors are derived from the album art (with contrast checks ensuring text is always sharp and readable), and the accent color automatically switches to auto as well.
+- In Auto Accent mode, overLy samples colors directly from the currently playing album artwork to theme lyrics, waveform visualizer, buttons, and progress scrubbers.
 - If the Settings window is open when the track changes, Settings updates its accent colors, preview chips, and ambient glow in real time.
 - Falls back to a clean neutral tone while artwork is fetching or if no cover art is found.
 

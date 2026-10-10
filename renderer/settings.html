@@ -183,6 +183,12 @@
             </svg>
             <span>Light</span>
           </button>
+          <button class="theme-mode-btn" data-theme="auto" title="Dynamic Album Theme (Colors and background follow album art)">
+            <svg class="theme-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.5C12 6.9 8.4 10.5 4 10.5C8.4 10.5 12 14.1 12 18.5C12 14.1 15.6 10.5 20 10.5C15.6 10.5 12 6.9 12 2.5Z"/>
+            </svg>
+            <span>Auto</span>
+          </button>
         </div>
       </section>
 
@@ -219,10 +225,12 @@
           <button class="color-swatch" data-color="#00C9A7" style="background: #00C9A7;" title="Emerald Mint"></button>
           <button class="color-swatch" data-color="#18181B" style="background: #18181B; border: 1.5px solid rgba(255, 255, 255, 0.4);" title="Midnight Obsidian"></button>
           <button class="color-swatch" data-color="#FFFFFF" style="background: #FFFFFF; border: 1.5px solid rgba(0, 0, 0, 0.25);" title="Pure White"></button>
-          <button class="color-swatch custom-accent-swatch" id="btnCustomSwatch" type="button" title="Custom Accent Color" style="background: #E1306C;"></button>
-          <button class="btn-palette-edit" id="btnToggleCustomPicker" type="button" title="Open Custom Color Sliders & Hex">
-            <span>Edit</span>
-          </button>
+          <div class="custom-swatch-combo" id="customSwatchCombo" title="Custom Accent Color">
+            <button class="color-swatch custom-accent-swatch" id="btnCustomSwatch" type="button" title="Apply Custom Accent Color" style="background: #E1306C;"></button>
+            <button class="btn-palette-edit" id="btnToggleCustomPicker" type="button" title="Open Custom Color Sliders & Hex">
+              <span>Edit</span>
+            </button>
+          </div>
         </div>
 
         <!-- Custom Color Designer Drawer -->

@@ -966,9 +966,11 @@ ipcMain.on('set-startup', (_event, enabled) => {
 ipcMain.handle('get-theme', () => {
   const s = loadSettings();
   const setting = s.theme || 'system';
-  const effective = (setting === 'dark' || setting === 'light')
-    ? setting
-    : (nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
+  const effective = (setting === 'auto')
+    ? 'auto'
+    : ((setting === 'dark' || setting === 'light')
+      ? setting
+      : (nativeTheme.shouldUseDarkColors ? 'dark' : 'light'));
   return { setting, effective };
 });
 
@@ -976,15 +978,26 @@ ipcMain.on('set-theme', (_event, theme) => {
   applyTheme(theme);
   const s = loadSettings();
   s.theme = theme;
+  if (theme === 'auto') {
+    s.accentColor = 'auto';
+  }
   saveSettings(s);
-  const effective = (theme === 'dark' || theme === 'light')
-    ? theme
-    : (nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
+  const effective = (theme === 'auto')
+    ? 'auto'
+    : ((theme === 'dark' || theme === 'light')
+      ? theme
+      : (nativeTheme.shouldUseDarkColors ? 'dark' : 'light'));
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('theme-changed', { setting: theme, effective });
+    if (theme === 'auto') {
+      mainWindow.webContents.send('setting-updated', { key: 'accentColor', value: 'auto' });
+    }
   }
   if (settingsWindow && !settingsWindow.isDestroyed()) {
-    mainWindow.webContents.send('theme-changed', { setting: theme, effective });
+    settingsWindow.webContents.send('theme-changed', { setting: theme, effective });
+    if (theme === 'auto') {
+      settingsWindow.webContents.send('setting-updated', { key: 'accentColor', value: 'auto' });
+    }
   }
 });
 

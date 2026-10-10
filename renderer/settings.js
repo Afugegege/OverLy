@@ -22,8 +22,35 @@ const btnCloseSettingsWindow = document.getElementById('btnCloseSettingsWindow')
 let currentAccent = '#FF3040';
 let lastCustomColor = '#E1306C';
 let lastExtractedAccentColor = null;
+let currentThemeSetting = 'system';
 let currentOffset = 0.0;
 let committedMode = 'card';
+
+function applyAlbumArtThemeTokens(hexColor) {
+  if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return;
+  const rgb = hexToRgb(hexColor);
+
+  const bgR = Math.max(9, Math.min(32, Math.round(rgb.r * 0.16 + 10 * 0.84)));
+  const bgG = Math.max(11, Math.min(34, Math.round(rgb.g * 0.16 + 12 * 0.84)));
+  const bgB = Math.max(16, Math.min(42, Math.round(rgb.b * 0.16 + 18 * 0.84)));
+
+  const cardR = Math.round(bgR + 12);
+  const cardG = Math.round(bgG + 14);
+  const cardB = Math.round(bgB + 20);
+
+  const textR = Math.round(255 * 0.94 + rgb.r * 0.06);
+  const textG = Math.round(255 * 0.94 + rgb.g * 0.06);
+  const textB = Math.round(255 * 0.94 + rgb.b * 0.06);
+
+  document.documentElement.style.setProperty('--bg-window', `rgb(${bgR}, ${bgG}, ${bgB})`);
+  document.documentElement.style.setProperty('--bg-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
+  document.documentElement.style.setProperty('--bg-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.12)`);
+  document.documentElement.style.setProperty('--border-color', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.22)`);
+  document.documentElement.style.setProperty('--text-primary', `rgb(${textR}, ${textG}, ${textB})`);
+  document.documentElement.style.setProperty('--text-secondary', `rgba(${textR}, ${textG}, ${textB}, 0.72)`);
+  document.documentElement.style.setProperty('--text-muted', `rgba(${textR}, ${textG}, ${textB}, 0.46)`);
+  document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)`);
+}
 
 function hexToRgb(hex) {
   if (!hex || typeof hex !== 'string') return { r: 255, g: 48, b: 64 };
@@ -183,6 +210,10 @@ function updateThemeTokens(color, extractedColor = null) {
   if (btnToggleCustomPicker) {
     btnToggleCustomPicker.classList.toggle('active', isCustomMatch);
   }
+  const customSwatchCombo = document.getElementById('customSwatchCombo');
+  if (customSwatchCombo) {
+    customSwatchCombo.classList.toggle('active', isCustomMatch);
+  }
 
   if (inputCustomColor) inputCustomColor.value = color;
 
@@ -192,6 +223,24 @@ function updateThemeTokens(color, extractedColor = null) {
 
 function applyThemeUI(themeData) {
   const setting = typeof themeData === 'object' ? themeData.setting : themeData;
+  currentThemeSetting = setting || 'system';
+  const isAutoTheme = (setting === 'auto');
+
+  document.querySelectorAll('.theme-mode-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.theme === setting);
+  });
+
+  if (isAutoTheme) {
+    document.body.classList.remove('theme-light');
+    document.body.classList.add('theme-dark', 'theme-album-auto');
+    if (lastExtractedAccentColor) {
+      applyAlbumArtThemeTokens(lastExtractedAccentColor);
+    }
+    updateThemeTokens('auto', lastExtractedAccentColor);
+    return;
+  }
+
+  document.body.classList.remove('theme-album-auto');
   const effective = (typeof themeData === 'object' && themeData.effective) ? themeData.effective : (
     setting === 'light' ? 'light' : setting === 'dark' ? 'dark' : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
   );
@@ -199,9 +248,14 @@ function applyThemeUI(themeData) {
   document.body.classList.toggle('theme-light', effective === 'light');
   document.body.classList.toggle('theme-dark', effective !== 'light');
 
-  document.querySelectorAll('.theme-mode-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.theme === setting);
-  });
+  // Reset standard background and text tokens
+  document.documentElement.style.removeProperty('--bg-window');
+  document.documentElement.style.removeProperty('--bg-card');
+  document.documentElement.style.removeProperty('--bg-subtle');
+  document.documentElement.style.removeProperty('--border-color');
+  document.documentElement.style.removeProperty('--text-primary');
+  document.documentElement.style.removeProperty('--text-secondary');
+  document.documentElement.style.removeProperty('--text-muted');
 
   updateThemeTokens(currentAccent, lastExtractedAccentColor);
 }
@@ -311,6 +365,9 @@ async function initSettings() {
               if (currentAccent === 'auto') {
                 updateThemeTokens('auto', colors.primary);
               }
+              if (currentThemeSetting === 'auto') {
+                applyAlbumArtThemeTokens(colors.primary);
+              }
             }
           } catch (err) {
             console.error('Settings cover color extraction error:', err);
@@ -332,6 +389,9 @@ async function initSettings() {
           lastExtractedAccentColor = value;
           if (currentAccent === 'auto') {
             updateThemeTokens('auto', lastExtractedAccentColor);
+          }
+          if (currentThemeSetting === 'auto' && value) {
+            applyAlbumArtThemeTokens(value);
           }
         }
         if (key === 'customColor') {
@@ -411,6 +471,12 @@ function setupEventListeners() {
     btn.addEventListener('click', () => {
       const theme = btn.dataset.theme;
       applyThemeUI(theme);
+      if (theme === 'auto') {
+        updateThemeTokens('auto', lastExtractedAccentColor);
+        if (window.overlyAPI?.updateSetting) {
+          window.overlyAPI.updateSetting('accentColor', 'auto');
+        }
+      }
       if (window.overlyAPI?.setTheme) {
         window.overlyAPI.setTheme(theme);
       }

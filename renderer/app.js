@@ -327,22 +327,68 @@ function persistSettings() {
   }
 }
 
+function applyAlbumArtThemeTokens(hexColor) {
+  if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return;
+  const rgb = hexToRgb(hexColor);
+  const norm = (typeof state.opacity === 'number') ? state.opacity : 0.85;
+
+  // Derive rich atmospheric background tint from album cover
+  const bgR = Math.max(9, Math.min(32, Math.round(rgb.r * 0.16 + 10 * 0.84)));
+  const bgG = Math.max(11, Math.min(34, Math.round(rgb.g * 0.16 + 12 * 0.84)));
+  const bgB = Math.max(16, Math.min(42, Math.round(rgb.b * 0.16 + 18 * 0.84)));
+
+  const cardR = Math.round(bgR + 12);
+  const cardG = Math.round(bgG + 14);
+  const cardB = Math.round(bgB + 20);
+
+  // Guarantee high-contrast text that stays completely visible and readable (WCAG AA > 5:1)
+  const textR = Math.round(255 * 0.94 + rgb.r * 0.06);
+  const textG = Math.round(255 * 0.94 + rgb.g * 0.06);
+  const textB = Math.round(255 * 0.94 + rgb.b * 0.06);
+
+  document.documentElement.style.setProperty('--bg-glass', `rgba(${bgR}, ${bgG}, ${bgB}, ${norm})`);
+  document.documentElement.style.setProperty('--bg-glass-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
+  document.documentElement.style.setProperty('--border-glass', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.24)`);
+  document.documentElement.style.setProperty('--text-primary', `rgb(${textR}, ${textG}, ${textB})`);
+  document.documentElement.style.setProperty('--text-secondary', `rgba(${textR}, ${textG}, ${textB}, 0.72)`);
+  document.documentElement.style.setProperty('--text-muted', `rgba(${textR}, ${textG}, ${textB}, 0.46)`);
+  document.documentElement.style.setProperty('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);
+  document.documentElement.style.setProperty('--aura-color2', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.14)`);
+}
+
 function applyTheme(themeData) {
   const setting = typeof themeData === 'object' ? themeData.setting : themeData;
+  state.theme = setting || 'system';
+
+  const isAutoTheme = (setting === 'auto');
+  if (isAutoTheme) {
+    state.effectiveTheme = 'auto';
+    document.body.classList.remove('theme-light');
+    document.body.classList.add('theme-dark', 'theme-album-auto');
+    setAccentColor('auto');
+    if (state.lastExtractedPrimary) {
+      applyAlbumArtThemeTokens(state.lastExtractedPrimary);
+    }
+    return;
+  }
+
+  document.body.classList.remove('theme-album-auto');
   const effective = (typeof themeData === 'object' && themeData.effective) ? themeData.effective : (
     setting === 'light' ? 'light' : setting === 'dark' ? 'dark' : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
   );
 
-  state.theme = setting || 'system';
   state.effectiveTheme = effective;
 
   document.body.classList.toggle('theme-light', effective === 'light');
   document.body.classList.toggle('theme-dark', effective !== 'light');
 
-  // Re-apply opacity with new base background color
+  // Reset standard tokens
+  document.documentElement.style.removeProperty('--text-primary');
+  document.documentElement.style.removeProperty('--text-secondary');
+  document.documentElement.style.removeProperty('--text-muted');
+
   setOpacity(state.opacity);
 
-  // Re-calculate accent tokens for light/dark contrast
   if (state.accentColor) {
     setAccentColor(state.accentColor);
   }
@@ -1367,12 +1413,22 @@ async function applyExtractedAlbumColors() {
     if (colors && colors.primary) {
       state.lastExtractedPrimary = colors.primary;
       applyAccentTokens(colors.primary, colors.secondary);
+      if (state.theme === 'auto') {
+        applyAlbumArtThemeTokens(colors.primary);
+      }
       if (window.overlyAPI?.updateSetting) {
         window.overlyAPI.updateSetting('extractedAccentColor', colors.primary);
       }
     } else {
       state.lastExtractedPrimary = null;
       applyAccentTokens(getNeutralAccentColor(), null);
+      if (state.theme === 'auto') {
+        document.documentElement.style.removeProperty('--bg-window');
+        document.documentElement.style.removeProperty('--bg-glass-card');
+        document.documentElement.style.removeProperty('--text-primary');
+        document.documentElement.style.removeProperty('--text-secondary');
+        document.documentElement.style.removeProperty('--text-muted');
+      }
       if (window.overlyAPI?.updateSetting) {
         window.overlyAPI.updateSetting('extractedAccentColor', null);
       }
@@ -1403,7 +1459,9 @@ function setOpacity(val) {
 
   const isLight = document.body.classList.contains('theme-light');
   document.documentElement.style.setProperty('--glass-opacity', norm);
-  if (state.accentColor === 'auto' && state.lastExtractedPrimary) {
+  if (state.theme === 'auto' && state.lastExtractedPrimary) {
+    applyAlbumArtThemeTokens(state.lastExtractedPrimary);
+  } else if (state.accentColor === 'auto' && state.lastExtractedPrimary) {
     const rgb = hexToRgb(state.lastExtractedPrimary);
     if (isLight) {
       const br = Math.round(248 * 0.90 + rgb.r * 0.10);
