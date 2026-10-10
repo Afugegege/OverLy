@@ -1811,6 +1811,29 @@ body.theme-light .media-btn:active {
   background: rgba(0, 0, 0, 0.16);
 }
 
+body.theme-light .media-btn.play-btn {
+  background: #12141a !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.25) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22) !important;
+}
+
+body.theme-light .media-btn.play-btn svg {
+  fill: #ffffff !important;
+  color: #ffffff !important;
+}
+
+body.theme-light .media-btn.play-btn:hover {
+  background: #000000 !important;
+  transform: scale(1.12);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.theme-light .media-btn.play-btn:active {
+  background: #22242c !important;
+  transform: scale(0.94);
+}
+
 body.theme-light .pill-more-btn {
   color: #181a20;
 }
