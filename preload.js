@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('overlyAPI', {
   seekTo: (seconds) => ipcRenderer.send('media-seek', seconds),
   setClickThrough: (locked) => ipcRenderer.send('set-click-through', locked),
   setAlwaysOnTop: (pinned) => ipcRenderer.send('set-always-on-top', pinned),
+  setResizable: (resizable) => ipcRenderer.send('set-resizable', resizable),
   setWindowSize: (width, height, mode) => {
     if (typeof width === 'object' && width !== null) {
       ipcRenderer.send('set-window-size', width);

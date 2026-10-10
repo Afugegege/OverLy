@@ -107,12 +107,22 @@ const resizeHandle = document.getElementById('resizeHandle');
 // ==========================================================================
 
 async function init() {
+  // Always register UI event listeners (close, minimize, controls, dragging) first
+  try {
+    setupEventListeners();
+  } catch (err) {
+    console.error('Error setting up event listeners:', err);
+  }
+
+  // Start playback animation loop
+  requestAnimationFrame(playbackLoop);
+
   try {
     if (window.overlyAPI) {
       // Always ensure window starts in interactive mode accepting clicks
-      window.overlyAPI.setClickThrough(false);
+      window.overlyAPI.setClickThrough?.(false);
 
-      const saved = await window.overlyAPI.getSettings();
+      const saved = await window.overlyAPI.getSettings?.();
       if (saved) {
         if (saved.theme) applyTheme(saved.theme);
         if (saved.mode) setMode(saved.mode, false);
@@ -144,17 +154,17 @@ async function init() {
       }
 
       // Subscribe to SMTC media updates
-      window.overlyAPI.onMediaUpdate((data) => {
+      window.overlyAPI.onMediaUpdate?.((data) => {
         handleMediaUpdate(data);
       });
 
       // Subscribe to Lock toggle (e.g. from global shortcut Ctrl+Shift+L)
-      window.overlyAPI.onLockToggle((locked) => {
+      window.overlyAPI.onLockToggle?.((locked) => {
         setLockState(locked);
       });
 
       // Subscribe to live settings updates from separate Settings window
-      window.overlyAPI.onSettingUpdated(({ key, value }) => {
+      window.overlyAPI.onSettingUpdated?.(({ key, value }) => {
         if (key === 'mode') setMode(value, true);
         if (key === 'theme') applyTheme(value);
         if (key === 'accentColor') setAccentColor(value);
@@ -167,7 +177,7 @@ async function init() {
       });
 
       // Subscribe to manually applied lyrics from Settings window search
-      window.overlyAPI.onManualLyricsApplied((trackData) => {
+      window.overlyAPI.onManualLyricsApplied?.((trackData) => {
         if (trackData) {
           state.coverUrl = trackData.coverUrl || state.coverUrl;
           state.lyrics = trackData.lyrics || [];
@@ -181,16 +191,13 @@ async function init() {
         }
       });
     }
-
-    setupEventListeners();
-    requestAnimationFrame(playbackLoop);
   } catch (err) {
     console.error('App init error:', err);
   }
 }
 
 function persistSettings() {
-  if (window.overlyAPI) {
+  if (window.overlyAPI?.saveSettings) {
     window.overlyAPI.saveSettings({
       mode: state.mode,
       theme: state.theme,
@@ -807,9 +814,9 @@ function getTargetWindowDimensions(mode = state.mode) {
 function updateWindowDimensionsForLyrics() {
   if (!window.overlyAPI) return;
   const target = getTargetWindowDimensions(state.mode);
-  window.overlyAPI.setWindowSize(target.width, target.height, state.mode);
+  window.overlyAPI.setWindowSize?.(target.width, target.height, state.mode);
   if (state.isPinned) {
-    window.overlyAPI.setAlwaysOnTop(true);
+    window.overlyAPI.setAlwaysOnTop?.(true);
   }
   if (state.mode === 'collapsed' || state.mode === 'pill') {
     setTimeout(updatePillBorderDimensions, 60);
@@ -837,10 +844,10 @@ function setMode(mode, updateSize = true) {
 
   if (updateSize && window.overlyAPI) {
     const target = getTargetWindowDimensions(mode);
-    window.overlyAPI.setWindowSize(target.width, target.height, mode);
+    window.overlyAPI.setWindowSize?.(target.width, target.height, mode);
     // Re-assert topmost state on mode size transition
     if (state.isPinned) {
-      window.overlyAPI.setAlwaysOnTop(true);
+      window.overlyAPI.setAlwaysOnTop?.(true);
     }
   }
 
@@ -1073,7 +1080,7 @@ function setPinState(pinned) {
     btnPillPin.classList.toggle('active', state.isPinned);
     btnPillPin.title = state.isPinned ? 'Always on Top (Enabled, P)' : 'Always on Top (Disabled, P)';
   }
-  if (window.overlyAPI) {
+  if (window.overlyAPI?.setAlwaysOnTop) {
     window.overlyAPI.setAlwaysOnTop(state.isPinned);
   }
   persistSettings();
