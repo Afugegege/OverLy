@@ -30,6 +30,7 @@ const state = {
   isResizeMode: false,
   autoMinimize: false,
   autoMinimizeDelay: 10,
+  autoMinimizeExpand: 'play', // 'play' | 'hover'
   isAutoMinimized: false,
   preAutoMinMode: null,
   visualizerStyle: 'spectrum', // 'spectrum' | 'wave' | 'pulse' | 'minimal'
@@ -180,6 +181,11 @@ function cancelAutoMinimizeTimer() {
   }
 }
 
+function applyAutoMinimizeExpandUI() {
+  const isHoverExpand = Boolean(state.isAutoMinimized && state.mode === 'minimized' && state.autoMinimizeExpand === 'hover');
+  body.classList.toggle('hover-expand-minimized', isHoverExpand);
+}
+
 function triggerAutoMinimize() {
   cancelAutoMinimizeTimer();
   if (!state.autoMinimize) return;
@@ -190,6 +196,7 @@ function triggerAutoMinimize() {
   state.preAutoMinMode = state.mode;
   state.isAutoMinimized = true;
   setMode('minimized', true, true);
+  applyAutoMinimizeExpandUI();
 }
 
 function restoreFromAutoMinimize() {
@@ -198,6 +205,7 @@ function restoreFromAutoMinimize() {
   const targetMode = state.preAutoMinMode || 'card';
   state.isAutoMinimized = false;
   state.preAutoMinMode = null;
+  applyAutoMinimizeExpandUI();
   setMode(targetMode, true, true);
 }
 
@@ -244,6 +252,9 @@ async function init() {
         if (typeof saved.autoMinimizeDelay === 'number') {
           state.autoMinimizeDelay = saved.autoMinimizeDelay;
         }
+        if (saved.autoMinimizeExpand) {
+          state.autoMinimizeExpand = saved.autoMinimizeExpand === 'hover' ? 'hover' : 'play';
+        }
         if (saved.visualizerStyle) {
           state.visualizerStyle = saved.visualizerStyle;
         }
@@ -253,6 +264,8 @@ async function init() {
         setOpacity(state.opacity);
         setPinState(state.isPinned);
       }
+
+      applyAutoMinimizeExpandUI();
 
       if (window.overlyAPI.getTheme) {
         const themeData = await window.overlyAPI.getTheme();
@@ -317,6 +330,10 @@ async function init() {
             startAutoMinimizeTimer();
           }
         }
+        if (key === 'autoMinimizeExpand') {
+          state.autoMinimizeExpand = value === 'hover' ? 'hover' : 'play';
+          applyAutoMinimizeExpandUI();
+        }
         if (key === 'visualizerStyle') {
           state.visualizerStyle = value || 'spectrum';
           updateInstrumentalVisualizerStyle();
@@ -372,7 +389,9 @@ function persistSettings() {
       fontSize: state.fontSize,
       offset: state.offset,
       alwaysOnTop: state.isPinned,
-      autoMinimize: state.autoMinimize
+      autoMinimize: state.autoMinimize,
+      autoMinimizeDelay: state.autoMinimizeDelay,
+      autoMinimizeExpand: state.autoMinimizeExpand
     });
   }
 }
@@ -693,15 +712,19 @@ function setupEventListeners() {
     overlayContainer.addEventListener('mouseenter', () => {
       isMouseOverOverlay = true;
       cancelAutoMinimizeTimer();
-      if (state.isAutoMinimized && state.mode !== 'minimized') {
-        restoreFromAutoMinimize();
+      if (state.isAutoMinimized) {
+        if (state.mode !== 'minimized' || state.autoMinimizeExpand === 'hover') {
+          restoreFromAutoMinimize();
+        }
       }
     });
 
     overlayContainer.addEventListener('mousemove', () => {
       isMouseOverOverlay = true;
-      if (state.isAutoMinimized && state.mode !== 'minimized') {
-        restoreFromAutoMinimize();
+      if (state.isAutoMinimized) {
+        if (state.mode !== 'minimized' || state.autoMinimizeExpand === 'hover') {
+          restoreFromAutoMinimize();
+        }
       }
     });
 
@@ -868,7 +891,16 @@ function setupEventListeners() {
   if (artContainer) {
     artContainer.addEventListener('click', (e) => {
       if (state.mode === 'minimized') {
-        handleMinimizedPlay(e);
+        if (state.isAutoMinimized && state.autoMinimizeExpand === 'hover') {
+          restoreFromAutoMinimize();
+        } else {
+          handleMinimizedPlay(e);
+        }
+      }
+    });
+    artContainer.addEventListener('mouseenter', () => {
+      if (state.mode === 'minimized' && state.isAutoMinimized && state.autoMinimizeExpand === 'hover') {
+        restoreFromAutoMinimize();
       }
     });
   }
@@ -1659,6 +1691,8 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
   body.classList.add(`mode-${mode}`);
   if (mode === 'collapsed') body.classList.add('mode-pill');
   if (mode === 'card') body.classList.add('mode-normal');
+
+  applyAutoMinimizeExpandUI();
 
   overlayContainer?.classList.remove('pill-more-open');
   pillMoreContainer?.classList.remove('open');

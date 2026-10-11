@@ -475,6 +475,28 @@
               </svg>
             </div>
           </div>
+
+          <!-- Expand Method Switch (Play / Click to Expand vs Hover to Expand) -->
+          <div class="delay-row" id="autoMinimizeExpandRow" style="display: none;">
+            <div class="delay-info">
+              <label class="delay-label">Expand Trigger</label>
+              <p class="section-hint">Method to expand minimized disc back to full layout</p>
+            </div>
+            <div class="segmented-switch" id="autoMinimizeExpandSwitch" role="radiogroup" aria-label="Expand Method">
+              <button type="button" class="segment-btn active" data-expand="play" role="radio" aria-checked="true" title="Click play button or resume playback to expand">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                <span>Play to Expand</span>
+              </button>
+              <button type="button" class="segment-btn" data-expand="hover" role="radio" aria-checked="false" title="Hover over minimized disc to expand immediately">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                </svg>
+                <span>Hover to Expand</span>
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 

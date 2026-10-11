@@ -41,6 +41,7 @@ const defaultSettings = {
   theme: 'system', // 'system' | 'dark' | 'light' | 'auto'
   autoMinimize: false,
   autoMinimizeDelay: 10,
+  autoMinimizeExpand: 'play', // 'play' | 'hover'
   visualizerStyle: 'spectrum' // 'spectrum' | 'wave' | 'pulse' | 'minimal'
 };
 

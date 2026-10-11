@@ -345,12 +345,19 @@ async function initSettings() {
       if (typeof saved.autoMinimize === 'boolean') {
         const checkAutoMinimize = document.getElementById('checkAutoMinimize');
         const autoMinimizeDelayRow = document.getElementById('autoMinimizeDelayRow');
+        const autoMinimizeExpandRow = document.getElementById('autoMinimizeExpandRow');
         if (checkAutoMinimize) {
           checkAutoMinimize.checked = saved.autoMinimize;
           if (autoMinimizeDelayRow) {
             autoMinimizeDelayRow.style.display = saved.autoMinimize ? 'flex' : 'none';
           }
+          if (autoMinimizeExpandRow) {
+            autoMinimizeExpandRow.style.display = saved.autoMinimize ? 'flex' : 'none';
+          }
         }
+      }
+      if (saved.autoMinimizeExpand) {
+        updateActiveAutoMinimizeExpand(saved.autoMinimizeExpand);
       }
       if (typeof saved.autoMinimizeDelay === 'number') {
         const selectAutoMinimizeDelay = document.getElementById('selectAutoMinimizeDelay');
@@ -429,10 +436,14 @@ async function initSettings() {
         if (key === 'autoMinimize') {
           const checkAutoMinimize = document.getElementById('checkAutoMinimize');
           const autoMinimizeDelayRow = document.getElementById('autoMinimizeDelayRow');
+          const autoMinimizeExpandRow = document.getElementById('autoMinimizeExpandRow');
           if (checkAutoMinimize) {
             checkAutoMinimize.checked = Boolean(value);
             if (autoMinimizeDelayRow) {
               autoMinimizeDelayRow.style.display = Boolean(value) ? 'flex' : 'none';
+            }
+            if (autoMinimizeExpandRow) {
+              autoMinimizeExpandRow.style.display = Boolean(value) ? 'flex' : 'none';
             }
           }
         }
@@ -441,6 +452,9 @@ async function initSettings() {
           if (selectAutoMinimizeDelay) {
             selectAutoMinimizeDelay.value = String(value);
           }
+        }
+        if (key === 'autoMinimizeExpand') {
+          updateActiveAutoMinimizeExpand(value);
         }
         if (key === 'visualizerStyle') {
           updateActiveVisStyle(value);
@@ -516,16 +530,30 @@ function setupEventListeners() {
     });
   }
 
-  // Auto minimize checkbox & delay selector
+  // Auto minimize checkbox, delay selector & expand trigger switch
   const checkAutoMinimize = document.getElementById('checkAutoMinimize');
   const autoMinimizeDelayRow = document.getElementById('autoMinimizeDelayRow');
+  const autoMinimizeExpandRow = document.getElementById('autoMinimizeExpandRow');
   const selectAutoMinimizeDelay = document.getElementById('selectAutoMinimizeDelay');
+
+  function updateActiveAutoMinimizeExpand(method) {
+    const val = (method === 'hover' ? 'hover' : 'play');
+    const btns = document.querySelectorAll('#autoMinimizeExpandSwitch .segment-btn');
+    btns.forEach((btn) => {
+      const active = btn.dataset.expand === val;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-checked', active ? 'true' : 'false');
+    });
+  }
 
   if (checkAutoMinimize) {
     checkAutoMinimize.addEventListener('change', (e) => {
       const isChecked = e.target.checked;
       if (autoMinimizeDelayRow) {
         autoMinimizeDelayRow.style.display = isChecked ? 'flex' : 'none';
+      }
+      if (autoMinimizeExpandRow) {
+        autoMinimizeExpandRow.style.display = isChecked ? 'flex' : 'none';
       }
       if (window.overlyAPI?.updateSetting) {
         window.overlyAPI.updateSetting('autoMinimize', isChecked);
@@ -541,6 +569,17 @@ function setupEventListeners() {
       }
     });
   }
+
+  const autoMinimizeExpandBtns = document.querySelectorAll('#autoMinimizeExpandSwitch .segment-btn');
+  autoMinimizeExpandBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const method = btn.dataset.expand || 'play';
+      updateActiveAutoMinimizeExpand(method);
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('autoMinimizeExpand', method);
+      }
+    });
+  });
 
   // Layout mode buttons
   const layoutModeBtns = document.querySelectorAll('.layout-mode-btn');

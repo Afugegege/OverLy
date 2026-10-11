@@ -1570,6 +1570,20 @@ body.mode-minimized .overlay-container.is-hovered .minimized-play-overlay {
   pointer-events: auto !important;
 }
 
+/* When Hover to Expand is active: suppress play overlay button so expansion is immediate and clean */
+body.hover-expand-minimized .minimized-play-overlay,
+body.mode-minimized.hover-expand-minimized .minimized-play-overlay {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+body.mode-minimized.hover-expand-minimized .overlay-container:hover .album-art {
+  transform: scale(1.02) !important;
+  filter: none !important;
+}
+
 .mini-play-btn {
   width: 32px;
   height: 32px;
