@@ -778,13 +778,13 @@ async function getTrackData(rawArtist, rawTitle, album = '', duration = 0, force
   const key = `${(artist || '').toLowerCase()}:::${title.toLowerCase()}`;
   const coverKey = `${cleanArtist(artist).toLowerCase()}:::${cleanTitle(title).toLowerCase()}`;
 
-  if (existingCoverUrl) {
+  if (existingCoverUrl && !forceRefresh) {
     coverArtCache.set(coverKey, existingCoverUrl);
   }
 
   if (forceRefresh) {
     cache.delete(key);
-    if (!existingCoverUrl) coverArtCache.delete(coverKey);
+    coverArtCache.delete(coverKey);
   } else if (cache.has(key)) {
     const cached = cache.get(key);
     if (cached && ((cached.lyrics && cached.lyrics.length > 0) || cached.plainLyrics)) {
@@ -796,9 +796,12 @@ async function getTrackData(rawArtist, rawTitle, album = '', duration = 0, force
   }
 
   // Parallel fetch lyrics (concurrent across sources) and artwork
-  const artworkPromise = existingCoverUrl
+  const isLocalThumb = existingCoverUrl && existingCoverUrl.startsWith('data:image/');
+  const artworkPromise = (isLocalThumb && !forceRefresh)
     ? Promise.resolve(existingCoverUrl)
-    : (coverArtCache.has(coverKey) ? Promise.resolve(coverArtCache.get(coverKey)) : fetchCoverArt(artist, title, album));
+    : (!forceRefresh && coverArtCache.has(coverKey)
+        ? Promise.resolve(coverArtCache.get(coverKey))
+        : fetchCoverArt(artist, title, album));
 
   const [lyricsData, coverUrl] = await Promise.all([
     fetchLyricsMultiSource(artist, title, album, duration),

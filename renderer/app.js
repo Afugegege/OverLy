@@ -68,8 +68,10 @@ const btnPillMore = document.getElementById('btnPillMore');
 const pillMoreActions = document.getElementById('pillMoreActions');
 const btnPillLock = document.getElementById('btnPillLock');
 const btnPillSettings = document.getElementById('btnPillSettings');
+const btnPillDrawerRefetch = document.getElementById('btnPillDrawerRefetch');
 const btnPillMinimize = document.getElementById('btnPillMinimize');
 const btnPillClose = document.getElementById('btnPillClose');
+const btnRefetch = document.getElementById('btnRefetch');
 const btnSettingsToggle = document.getElementById('btnSettingsToggle');
 const btnMinimize = document.getElementById('btnMinimize');
 const btnClose = document.getElementById('btnClose');
@@ -81,6 +83,7 @@ const miniMoreActions = document.getElementById('miniMoreActions');
 const btnMiniExpand = document.getElementById('btnMiniExpand');
 const btnMiniPin = document.getElementById('btnMiniPin');
 const btnMiniSettings = document.getElementById('btnMiniSettings');
+const btnMiniDrawerRefetch = document.getElementById('btnMiniDrawerRefetch');
 const btnMiniClose = document.getElementById('btnMiniClose');
 
 // Track Metadata
@@ -94,6 +97,7 @@ const trackArtist = document.getElementById('trackArtist');
 const btnPrev = document.getElementById('btnPrev');
 const btnPlayPause = document.getElementById('btnPlayPause');
 const btnNext = document.getElementById('btnNext');
+const btnCardRefetch = document.getElementById('btnCardRefetch');
 const btnPillExpand = document.getElementById('btnPillExpand');
 const iconPlay = document.getElementById('iconPlay');
 const iconPause = document.getElementById('iconPause');
@@ -1240,16 +1244,18 @@ function setupEventListeners() {
   minimizedPlayOverlay?.addEventListener('dblclick', handleOrbDblClick);
   artContainer?.addEventListener('dblclick', handleOrbDblClick);
 
-  // Pill view lyrics retry buttons
+  // Lyrics retry and refetch buttons
   const wireRetry = (btn) => {
     if (!btn) return;
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      btn.classList.add('spinning');
       await triggerRetryLyrics();
-      btn.classList.remove('spinning');
     });
   };
+  wireRetry(btnRefetch);
+  wireRetry(btnCardRefetch);
+  wireRetry(btnPillDrawerRefetch);
+  wireRetry(btnMiniDrawerRefetch);
   wireRetry(btnPillRetry);
   wireRetry(document.getElementById('btnPillVisRetry'));
 
@@ -1347,6 +1353,9 @@ function setupEventListeners() {
         e.preventDefault();
         toggleResizeMode();
       }
+    } else if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'r')) {
+      e.preventDefault();
+      triggerRetryLyrics();
     }
   });
 
@@ -3487,10 +3496,22 @@ async function triggerRetryLyrics() {
 
   state.isFetchingLyrics = true;
   updatePillLyricsBadge();
-  if (btnPillRetry) {
-    btnPillRetry.classList.add('spinning');
-    btnPillRetry.setAttribute('disabled', 'true');
-  }
+
+  const spinningButtons = [
+    btnRefetch,
+    btnCardRefetch,
+    btnPillRetry,
+    document.getElementById('btnPillVisRetry'),
+    btnPillDrawerRefetch,
+    btnMiniDrawerRefetch,
+    document.getElementById('btnImmersiveRetry')
+  ].filter(Boolean);
+
+  spinningButtons.forEach(btn => {
+    btn.classList.add('spinning');
+    btn.setAttribute('disabled', 'true');
+  });
+
   const retryCardBtn = document.getElementById('btnRetryEmptyLyrics');
   if (retryCardBtn) {
     retryCardBtn.classList.add('spinning');
@@ -3501,12 +3522,14 @@ async function triggerRetryLyrics() {
       </svg>
       Retrying...`;
   }
-  updatePillLyric('Retrying lyrics...');
+  updatePillLyric('Refetching lyrics & song...');
 
   try {
     const res = await window.overlyAPI.retryLyrics();
-    if (res && ((res.lyrics && res.lyrics.length > 0) || res.plainLyrics)) {
-      state.coverUrl = res.coverUrl || state.coverUrl;
+    if (res) {
+      if (res.title) state.title = res.title;
+      if (res.artist) state.artist = res.artist;
+      if (res.coverUrl) state.coverUrl = res.coverUrl;
       state.lyrics = res.lyrics || [];
       state.hasSynced = Boolean(res.hasSynced);
       state.plainLyrics = res.plainLyrics || '';
@@ -3523,10 +3546,10 @@ async function triggerRetryLyrics() {
     console.error('Error retrying lyrics:', err);
   } finally {
     state.isFetchingLyrics = false;
-    if (btnPillRetry) {
-      btnPillRetry.classList.remove('spinning');
-      btnPillRetry.removeAttribute('disabled');
-    }
+    spinningButtons.forEach(btn => {
+      btn.classList.remove('spinning');
+      btn.removeAttribute('disabled');
+    });
     const cardBtn = document.getElementById('btnRetryEmptyLyrics');
     if (cardBtn) {
       cardBtn.classList.remove('spinning');

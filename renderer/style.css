@@ -548,7 +548,7 @@ body.fetching-lyrics .album-placeholder svg {
 .overlay-container:hover .media-controls,
 .overlay-container.is-hovered .media-controls {
   opacity: 1;
-  max-width: 140px;
+  max-width: 175px;
   overflow: visible;
   pointer-events: auto;
   transform: scale(1);
@@ -933,13 +933,29 @@ body.mode-collapsed .pill-more-container {
 }
 
 .pill-action-btn.spinning svg,
-.no-lyrics-btn.retry-btn.spinning svg {
+.no-lyrics-btn.retry-btn.spinning svg,
+.icon-btn.spinning svg,
+.media-btn.spinning svg,
+.card-refetch-btn.spinning svg,
+.pill-sub-btn.spinning svg,
+.mini-sub-btn.spinning svg {
   animation: spinRetry 0.75s linear infinite;
 }
 
 @keyframes spinRetry {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+.card-refetch-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+body.mode-pill .card-refetch-btn,
+body.mode-collapsed .card-refetch-btn,
+body.mode-minimized .card-refetch-btn {
+  display: none !important;
 }
 
 .pill-action-btn.hidden {

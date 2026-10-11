@@ -1285,6 +1285,9 @@ ipcMain.handle('manual-search-lyrics', async (_event, { title, artist }) => {
 });
 
 ipcMain.handle('retry-lyrics', async () => {
+  if (smtcService) {
+    smtcService.sendCommand('refresh');
+  }
   if (!lastMediaData || !lastMediaData.title) return null;
   const artist = lastMediaData.artist || '';
   const title = lastMediaData.title || '';
@@ -1304,10 +1307,14 @@ ipcMain.handle('retry-lyrics', async () => {
   }
 
   try {
-    const existingCover = currentTrackData?.coverUrl || resolveThumbnailDataUrl(lastMediaData?.thumbnailPath);
-    const freshData = await lyricsService.getTrackData(artist, title, album, duration, true, existingCover);
+    const nativeThumb = resolveThumbnailDataUrl(lastMediaData?.thumbnailPath);
+    const freshData = await lyricsService.getTrackData(artist, title, album, duration, true, nativeThumb);
     if (currentTrackKey === trackKey && freshData) {
-      currentTrackData = { ...freshData, coverUrl: freshData.coverUrl || existingCover, isFetchingLyrics: false };
+      currentTrackData = {
+        ...freshData,
+        coverUrl: freshData.coverUrl || nativeThumb,
+        isFetchingLyrics: false
+      };
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('media-update', {
           ...lastMediaData,

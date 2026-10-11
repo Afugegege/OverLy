@@ -165,6 +165,12 @@ while ($true) {
     $pendingCmd = $null
     while ($pendingCmd = [CommandBridge]::GetNextCommand()) {
         if ($pendingCmd -eq "exit") { [System.Environment]::Exit(0) }
+        if ($pendingCmd -eq "refresh") {
+            $global:lastManagerRefresh = [DateTime]::MinValue
+            $global:lastRawTrackKey = ""
+            $global:lastSentJson = ""
+            continue
+        }
         $handled = $false
         try {
             $targetSession = $global:lastActiveSession
