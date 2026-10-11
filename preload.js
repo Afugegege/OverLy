@@ -25,6 +25,13 @@ contextBridge.exposeInMainWorld('overlyAPI', {
       ipcRenderer.send('set-window-size', { width, height, mode });
     }
   },
+  enterImmersive: () => ipcRenderer.send('enter-immersive'),
+  exitImmersive: (restoreBounds) => ipcRenderer.send('exit-immersive', restoreBounds),
+  onImmersiveModeChanged: (callback) => {
+    const handler = (_event, isImmersive) => callback(isImmersive);
+    ipcRenderer.on('immersive-mode-changed', handler);
+    return () => ipcRenderer.removeListener('immersive-mode-changed', handler);
+  },
   manualSearchLyrics: (title, artist) => ipcRenderer.invoke('manual-search-lyrics', { title, artist }),
   retryLyrics: () => ipcRenderer.invoke('retry-lyrics'),
   saveSettings: (settings) => ipcRenderer.send('save-settings', settings),

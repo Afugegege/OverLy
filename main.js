@@ -200,6 +200,21 @@ function createWindow() {
     }
   });
 
+  mainWindow.on('leave-full-screen', () => {
+    if (isImmersiveMode) {
+      isImmersiveMode = false;
+      mainWindow.webContents.send('immersive-mode-changed', false);
+      if (preImmersiveBounds) {
+        setTimeout(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.setBounds(preImmersiveBounds);
+            mainWindow.setResizable(false);
+          }
+        }, 60);
+      }
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -561,6 +576,43 @@ ipcMain.on('set-always-on-top', (_event, pinned) => {
     mainWindow.setAlwaysOnTop(isAlwaysOnTop, isAlwaysOnTop ? 'screen-saver' : 'normal');
   }
   updateTray();
+});
+
+let preImmersiveBounds = null;
+let isImmersiveMode = false;
+
+ipcMain.on('enter-immersive', () => {
+  if (!mainWindow || mainWindow.isDestroyed() || isImmersiveMode) return;
+  isImmersiveMode = true;
+  preImmersiveBounds = mainWindow.getBounds();
+
+  mainWindow.setResizable(true);
+  mainWindow.setMinimumSize(400, 300);
+  mainWindow.setMaximumSize(10000, 10000);
+  mainWindow.setFullScreen(true);
+  if (isAlwaysOnTop) {
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  }
+  mainWindow.webContents.send('immersive-mode-changed', true);
+});
+
+ipcMain.on('exit-immersive', (_event, restoreBounds) => {
+  if (!mainWindow || mainWindow.isDestroyed() || !isImmersiveMode) return;
+  isImmersiveMode = false;
+
+  mainWindow.setFullScreen(false);
+  const target = restoreBounds || preImmersiveBounds;
+  if (target) {
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setBounds(target);
+        mainWindow.setResizable(false);
+      }
+    }, 60);
+  } else {
+    mainWindow.setResizable(false);
+  }
+  mainWindow.webContents.send('immersive-mode-changed', false);
 });
 
 let windowAnchor = null;
