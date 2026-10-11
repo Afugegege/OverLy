@@ -2597,19 +2597,24 @@ body.mode-expanded .instrumental-visualizer-container .vis-footer-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   margin-top: 6px;
   flex-shrink: 0;
   z-index: 2;
 }
 
 .vis-status-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  box-sizing: border-box;
   font-size: 10px;
   font-weight: 600;
   color: var(--text-primary, #ffffff);
   background: var(--vis-status-bg, rgba(255, 255, 255, 0.14));
   border: 1px solid var(--vis-btn-border, rgba(255, 255, 255, 0.22));
-  padding: 2.5px 8.5px;
+  padding: 0 9.5px;
   border-radius: 9999px;
   letter-spacing: 0.2px;
   white-space: nowrap;
@@ -2617,6 +2622,7 @@ body.mode-expanded .instrumental-visualizer-container .vis-footer-bar {
   overflow: hidden;
   text-overflow: ellipsis;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  line-height: 1;
 }
 
 body.theme-light .vis-status-tag {
@@ -2629,10 +2635,13 @@ body.theme-light .vis-status-tag {
 .vis-mini-btn {
   display: inline-flex;
   align-items: center;
-  gap: 3.5px;
-  font-size: 9.5px;
+  justify-content: center;
+  gap: 5px;
+  height: 22px;
+  box-sizing: border-box;
+  font-size: 10px;
   font-weight: 600;
-  padding: 2.5px 7.5px;
+  padding: 0 9.5px;
   border-radius: 9999px;
   border: 1px solid var(--vis-btn-border, rgba(255, 255, 255, 0.24));
   background: var(--vis-btn-bg, rgba(255, 255, 255, 0.15));
@@ -2664,9 +2673,15 @@ body.theme-light .vis-mini-btn:hover {
 }
 
 .vis-mini-btn svg {
-  width: 9.5px;
-  height: 9.5px;
+  width: 11px;
+  height: 11px;
+  display: block;
   flex-shrink: 0;
+}
+
+.vis-mini-btn span {
+  display: inline-block;
+  line-height: 1;
 }
 
 .vis-mini-btn.vis-mini-search {
@@ -3313,18 +3328,37 @@ body.mode-immersive #resizeHandle {
 .immersive-inst-meta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  gap: 10px;
 }
 
 .immersive-inst-tag {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  box-sizing: border-box;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.5px;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.22);
-  padding: 5px 16px;
+  padding: 0 16px;
   border-radius: 9999px;
+  line-height: 1;
+}
+
+.immersive-inst-meta .vis-mini-btn {
+  height: 28px;
+  padding: 0 14px;
+  font-size: 11.5px;
+  gap: 6px;
+}
+
+.immersive-inst-meta .vis-mini-btn svg {
+  width: 12.5px;
+  height: 12.5px;
 }
 
 /* Optional Centered-Lyrics Layout */
