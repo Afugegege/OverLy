@@ -2024,7 +2024,7 @@ function setupCornerResize() {
 
 function getTargetWindowDimensions(mode = state.mode) {
   if (mode === 'minimized' || mode === 'mini') {
-    return { width: 230, height: 68 };
+    return { width: 280, height: 68 };
   } else if (mode === 'collapsed' || mode === 'pill') {
     return { width: 440, height: 104 };
   } else if (mode === 'lyrics') {

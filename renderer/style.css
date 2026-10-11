@@ -2051,7 +2051,7 @@ body.mode-minimized .overlay-container.mini-more-open .mini-more-container {
 .mini-more-actions {
   display: flex !important;
   align-items: center !important;
-  gap: 5px !important;
+  gap: 4px !important;
   background: rgba(22, 26, 38, 0.94) !important;
   border: 1.5px solid rgba(255, 255, 255, 0.28) !important;
   backdrop-filter: blur(28px) saturate(200%) !important;

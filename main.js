@@ -114,8 +114,8 @@ function createWindow() {
     normal: { width: 460, height: 274 },
     collapsed: { width: 440, height: 104 },
     pill: { width: 440, height: 104 },
-    minimized: { width: 230, height: 68 },
-    mini: { width: 230, height: 68 },
+    minimized: { width: 280, height: 68 },
+    mini: { width: 280, height: 68 },
     lyrics: { width: 460, height: 164 },
     expanded: { width: 460, height: 504 }
   };
