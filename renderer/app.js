@@ -330,6 +330,9 @@ async function init() {
         if (saved.visualizerStyle) {
           state.visualizerStyle = saved.visualizerStyle;
         }
+        if (saved.immersiveLayout) {
+          setImmersiveLayout(saved.immersiveLayout, false);
+        }
       } else {
         setMode(state.mode, false);
         setAccentColor(state.accentColor);
@@ -371,8 +374,15 @@ async function init() {
           }
         }
         if (key === 'mode') {
-          state.committedMode = value;
-          setMode(value, true, false);
+          if (value === 'immersive') {
+            enterImmersiveMode();
+          } else {
+            if (state.isImmersive) {
+              exitImmersiveMode(true, false);
+            }
+            state.committedMode = value;
+            setMode(value, true, false);
+          }
         }
         if (key === 'extractedAccentColor') {
           if (value) {
@@ -426,6 +436,9 @@ async function init() {
         if (key === 'visualizerStyle') {
           state.visualizerStyle = value || 'spectrum';
           updateInstrumentalVisualizerStyle();
+        }
+        if (key === 'immersiveLayout') {
+          setImmersiveLayout(value, false);
         }
       });
 
@@ -487,7 +500,8 @@ function persistSettings() {
       autoMinimize: state.autoMinimize,
       autoMinimizeDelay: state.autoMinimizeDelay,
       autoMinimizeExpand: state.autoMinimizeExpand,
-      autoMinimizeRehide: state.autoMinimizeRehide
+      autoMinimizeRehide: state.autoMinimizeRehide,
+      immersiveLayout: state.immersiveLayout
     });
   }
 }
@@ -1721,8 +1735,8 @@ function exitImmersiveMode(notifyIpc = true, restoreMode = true) {
   }
 }
 
-function toggleImmersiveLayout() {
-  state.immersiveLayout = (state.immersiveLayout === 'split') ? 'centered' : 'split';
+function setImmersiveLayout(layout, persist = true) {
+  state.immersiveLayout = (layout === 'centered') ? 'centered' : 'split';
   if (immersiveView) {
     immersiveView.classList.toggle('immersive-layout-centered', state.immersiveLayout === 'centered');
   }
@@ -1740,6 +1754,14 @@ function toggleImmersiveLayout() {
   if (state.activeLyricIndex >= 0) {
     setActiveLyric(state.activeLyricIndex, true);
   }
+  if (persist && window.overlyAPI?.updateSetting) {
+    window.overlyAPI.updateSetting('immersiveLayout', state.immersiveLayout);
+  }
+}
+
+function toggleImmersiveLayout() {
+  const next = (state.immersiveLayout === 'split') ? 'centered' : 'split';
+  setImmersiveLayout(next, true);
 }
 
 function renderImmersiveLyricsList() {

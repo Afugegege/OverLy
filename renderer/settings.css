@@ -1530,3 +1530,108 @@ body.theme-light kbd {
 .btn-uninstall:active {
   transform: scale(0.96);
 }
+
+/* ==========================================================================
+   Immersive View Layout Styles (Split vs Centered)
+   ========================================================================== */
+.immersive-layout-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+  margin-top: 2px;
+}
+
+.immersive-layout-card {
+  background: var(--bg-subtle);
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  position: relative;
+  text-align: left;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  outline: none;
+  font-family: inherit;
+  color: inherit;
+}
+
+.immersive-layout-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+
+.immersive-layout-card.active {
+  background: var(--accent-glow-subtle);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 14px var(--accent-glow);
+}
+
+.immersive-layout-card.active .active-check-circle {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.immersive-preview-box {
+  width: 100%;
+  height: 48px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  color: var(--text-secondary);
+  transition: all 0.22s ease;
+}
+
+body.theme-light .immersive-preview-box {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.immersive-layout-card.active .immersive-preview-box {
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-primary);
+}
+
+.immersive-wireframe {
+  width: 52px;
+  height: 32px;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.immersive-layout-card:hover .immersive-wireframe {
+  transform: scale(1.05);
+}
+
+.immersive-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.immersive-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.immersive-card-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.immersive-card-sub {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}

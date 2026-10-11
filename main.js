@@ -58,7 +58,8 @@ const defaultSettings = {
   autoMinimizeDelay: 10,
   autoMinimizeExpand: 'play', // 'play' | 'hover'
   autoMinimizeRehide: true,
-  visualizerStyle: 'spectrum' // 'spectrum' | 'wave' | 'pulse' | 'minimal'
+  visualizerStyle: 'spectrum', // 'spectrum' | 'wave' | 'pulse' | 'minimal'
+  immersiveLayout: 'split' // 'split' | 'centered'
 };
 
 function loadSettings() {

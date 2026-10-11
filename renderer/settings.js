@@ -43,6 +43,7 @@ let committedMode = 'card';
 let autoMinimizeEnabled = false;
 let autoMinimizeExpandMethod = 'play';
 let adaptAlbumColorSetting = true;
+let currentImmersiveLayout = 'split';
 
 let isMediaPlaying = false;
 let currentTrackKey = '';
@@ -451,6 +452,13 @@ function updateActiveModeBtn(mode) {
   });
 }
 
+function updateActiveImmersiveLayout(layout) {
+  currentImmersiveLayout = (layout === 'centered' ? 'centered' : 'split');
+  document.querySelectorAll('.immersive-layout-card').forEach((card) => {
+    card.classList.toggle('active', card.dataset.immersiveLayout === currentImmersiveLayout);
+  });
+}
+
 function updateSliderProgress(slider) {
   if (!slider) return;
   const min = parseFloat(slider.min) || 0;
@@ -555,6 +563,9 @@ async function loadSettingsIntoUI() {
       }
       if (saved.visualizerStyle) {
         updateActiveVisStyle(saved.visualizerStyle);
+      }
+      if (saved.immersiveLayout) {
+        updateActiveImmersiveLayout(saved.immersiveLayout);
       }
     }
 
@@ -671,6 +682,13 @@ async function loadSettingsIntoUI() {
         if (key === 'visualizerStyle') {
           updateActiveVisStyle(value);
         }
+        if (key === 'immersiveLayout') {
+          updateActiveImmersiveLayout(value);
+        }
+        if (key === 'mode') {
+          committedMode = value;
+          updateActiveModeBtn(value);
+        }
       });
     }
 
@@ -683,6 +701,16 @@ async function loadSettingsIntoUI() {
       window.overlyAPI.onStartupChanged((enabled) => {
         const checkStartup = document.getElementById('checkStartup');
         if (checkStartup) checkStartup.checked = Boolean(enabled);
+      });
+    }
+
+    if (window.overlyAPI.onImmersiveModeChanged) {
+      window.overlyAPI.onImmersiveModeChanged((isImm) => {
+        if (isImm) {
+          updateActiveModeBtn('immersive');
+        } else {
+          updateActiveModeBtn(committedMode);
+        }
       });
     }
 
@@ -811,8 +839,30 @@ function setupEventListeners() {
     btn.addEventListener('click', () => {
       committedMode = mode;
       updateActiveModeBtn(mode);
-      if (window.overlyAPI?.updateSetting) {
-        window.overlyAPI.updateSetting('mode', mode);
+      if (mode === 'immersive') {
+        if (window.overlyAPI?.enterImmersive) {
+          window.overlyAPI.enterImmersive();
+        } else if (window.overlyAPI?.updateSetting) {
+          window.overlyAPI.updateSetting('mode', 'immersive');
+        }
+      } else {
+        if (window.overlyAPI?.updateSetting) {
+          window.overlyAPI.updateSetting('mode', mode);
+        }
+      }
+    });
+  });
+
+  // Immersive View Layout selection (Split vs Centered)
+  const immersiveLayoutCards = document.querySelectorAll('.immersive-layout-card');
+  immersiveLayoutCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      const layout = card.dataset.immersiveLayout;
+      if (layout) {
+        updateActiveImmersiveLayout(layout);
+        if (window.overlyAPI?.updateSetting) {
+          window.overlyAPI.updateSetting('immersiveLayout', layout);
+        }
       }
     });
   });
