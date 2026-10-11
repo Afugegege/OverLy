@@ -1032,8 +1032,6 @@ function setupEventListeners() {
       if (state.isAutoMinimized && !isAutoMinimizeTransitioning) {
         if (state.mode !== 'minimized') {
           restoreFromAutoMinimize();
-        } else if (state.autoMinimizeExpand === 'hover') {
-          restoreFromAutoMinimize(true);
         }
       }
     });
@@ -1045,6 +1043,11 @@ function setupEventListeners() {
       overlayContainer.classList.remove('pill-more-open');
       miniMoreContainer?.classList.remove('open');
       overlayContainer.classList.remove('mini-more-open');
+
+      if (state.mode === 'minimized' && !state.isImmersive) {
+        contractMiniDrawerWindow();
+      }
+
       if (state.autoMinimize && !state.isAutoMinimized && state.mode !== 'minimized') {
         const isPlaying = (state.hasMedia && state.status === 'Playing');
         if (!isPlaying) {
@@ -1203,6 +1206,15 @@ function setupEventListeners() {
   }
   if (minimizedPlayOverlay) {
     minimizedPlayOverlay.addEventListener('click', handleMinimizedPlay);
+    minimizedPlayOverlay.addEventListener('mouseenter', () => {
+      if (state.mode === 'minimized') {
+        if (state.isAutoMinimized && state.autoMinimizeExpand === 'hover' && !isAutoMinimizeTransitioning) {
+          restoreFromAutoMinimize(true);
+        } else if (!state.isImmersive) {
+          expandMiniDrawerWindow();
+        }
+      }
+    });
   }
   const artContainer = document.querySelector('.art-container');
   if (artContainer) {
@@ -1216,8 +1228,12 @@ function setupEventListeners() {
       }
     });
     artContainer.addEventListener('mouseenter', () => {
-      if (state.mode === 'minimized' && state.isAutoMinimized && state.autoMinimizeExpand === 'hover' && !isAutoMinimizeTransitioning) {
-        restoreFromAutoMinimize(true);
+      if (state.mode === 'minimized') {
+        if (state.isAutoMinimized && state.autoMinimizeExpand === 'hover' && !isAutoMinimizeTransitioning) {
+          restoreFromAutoMinimize(true);
+        } else if (!state.isImmersive) {
+          expandMiniDrawerWindow();
+        }
       }
       if (state.mode === 'pill' || state.mode === 'collapsed') {
         updatePillHoverTitle();
@@ -1226,6 +1242,15 @@ function setupEventListeners() {
     });
     artContainer.addEventListener('mouseleave', () => {
       document.body.classList.remove('pill-art-hovered');
+    });
+  }
+
+  if (miniMoreContainer) {
+    miniMoreContainer.addEventListener('mouseenter', () => {
+      if (miniDrawerCloseTimer) {
+        clearTimeout(miniDrawerCloseTimer);
+        miniDrawerCloseTimer = null;
+      }
     });
   }
 
@@ -2022,9 +2047,48 @@ function setupCornerResize() {
 // Mode, Accent Color & Opacity Functions
 // ==========================================================================
 
+let miniDrawerCloseTimer = null;
+
+function expandMiniDrawerWindow() {
+  if (state.mode !== 'minimized' || state.isImmersive) return;
+  if (state.isAutoMinimized && state.autoMinimizeExpand === 'hover') return;
+
+  if (miniDrawerCloseTimer) {
+    clearTimeout(miniDrawerCloseTimer);
+    miniDrawerCloseTimer = null;
+  }
+
+  if (overlayContainer?.classList.contains('mini-more-open')) return;
+
+  overlayContainer?.classList.add('mini-more-open');
+  miniMoreContainer?.classList.add('open');
+
+  if (window.overlyAPI?.setWindowSize) {
+    window.overlyAPI.setWindowSize({ width: 280, height: 68, mode: 'minimized', anchorLeft: true });
+  }
+}
+
+function contractMiniDrawerWindow() {
+  if (state.mode !== 'minimized' || state.isImmersive) return;
+
+  if (miniDrawerCloseTimer) {
+    clearTimeout(miniDrawerCloseTimer);
+  }
+
+  miniDrawerCloseTimer = setTimeout(() => {
+    overlayContainer?.classList.remove('mini-more-open');
+    miniMoreContainer?.classList.remove('open');
+
+    if (window.overlyAPI?.setWindowSize) {
+      window.overlyAPI.setWindowSize({ width: 68, height: 68, mode: 'minimized', anchorLeft: true });
+    }
+    miniDrawerCloseTimer = null;
+  }, 140);
+}
+
 function getTargetWindowDimensions(mode = state.mode) {
   if (mode === 'minimized' || mode === 'mini') {
-    return { width: 280, height: 68 };
+    return { width: 68, height: 68 };
   } else if (mode === 'collapsed' || mode === 'pill') {
     return { width: 440, height: 104 };
   } else if (mode === 'lyrics') {

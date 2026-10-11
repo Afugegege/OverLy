@@ -114,8 +114,8 @@ function createWindow() {
     normal: { width: 460, height: 274 },
     collapsed: { width: 440, height: 104 },
     pill: { width: 440, height: 104 },
-    minimized: { width: 280, height: 68 },
-    mini: { width: 280, height: 68 },
+    minimized: { width: 68, height: 68 },
+    mini: { width: 68, height: 68 },
     lyrics: { width: 460, height: 164 },
     expanded: { width: 460, height: 504 }
   };
@@ -883,11 +883,12 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
     return; // Never exit fullscreen or shrink window while in immersive mode
   }
 
-  let width, height, targetMode;
+  let width, height, targetMode, anchorLeft;
   if (typeof arg1 === 'object' && arg1 !== null) {
     width = arg1.width;
     height = arg1.height;
     targetMode = arg1.mode;
+    anchorLeft = Boolean(arg1.anchorLeft);
   } else {
     width = arg1;
     height = arg2;
@@ -933,11 +934,16 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
       updateWindowAnchor(currentBounds);
     }
 
-    // Stable anchor: Window's center and bottom/top stay anchored without wandering
-    targetX = Math.round(windowAnchor.centerX - currentWindowWidth / 2);
-    targetY = windowAnchor.isBottom
-      ? Math.round(windowAnchor.bottomY - currentWindowHeight)
-      : Math.round(windowAnchor.topY);
+    if (anchorLeft && (normMode === 'minimized' || normMode === 'mini')) {
+      targetX = currentBounds.x;
+      targetY = currentBounds.y;
+    } else {
+      // Stable anchor: Window's center and bottom/top stay anchored without wandering
+      targetX = Math.round(windowAnchor.centerX - currentWindowWidth / 2);
+      targetY = windowAnchor.isBottom
+        ? Math.round(windowAnchor.bottomY - currentWindowHeight)
+        : Math.round(windowAnchor.topY);
+    }
 
     s.layoutPositions[normMode] = { x: targetX, y: targetY };
     saveSettings(s);
@@ -958,7 +964,7 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
   }
 
   const isMiniTransition = (normMode === 'minimized' || currentLayoutMode === 'minimized' || currentWindowHeight <= 70 || currentWindowWidth <= 70);
-  const animDuration = isMiniTransition ? 340 : 280;
+  const animDuration = anchorLeft ? 160 : (isMiniTransition ? 340 : 280);
 
   animateWindowBounds({
     x: Math.round(targetX),

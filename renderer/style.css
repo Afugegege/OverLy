@@ -2036,15 +2036,21 @@ body.mode-minimized .mini-more-container {
   padding: 4px 0;
 }
 
-/* Smoothly pop up the drawer whenever user hovers into the window or drawer area */
-body.mode-minimized .overlay-container:hover .mini-more-container,
-body.mode-minimized .overlay-container.is-hovered .mini-more-container,
+/* Pop up the drawer only when mini-more-open is active on the container or hovering the drawer */
 body.mode-minimized .mini-more-container:hover,
 body.mode-minimized .mini-more-container.open,
 body.mode-minimized .overlay-container.mini-more-open .mini-more-container {
   opacity: 1 !important;
   pointer-events: auto !important;
   transform: scale(1) translateX(0) !important;
+}
+
+body.hover-expand-minimized .mini-more-container,
+body.mode-minimized.hover-expand-minimized .mini-more-container {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 
 /* Drawer tray */
