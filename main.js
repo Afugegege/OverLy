@@ -7,6 +7,20 @@ const lyricsService = require('./lyrics-service');
 
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+  process.exit(0);
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 let mainWindow = null;
 let tray = null;
 let isClickThrough = false;
