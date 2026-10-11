@@ -106,6 +106,29 @@ function cleanArtist(artist) {
 
 const isCJK = s => /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f\uac00-\ud7af]/.test(s || '');
 
+function normalizeCJKVariants(text) {
+  if (!text) return '';
+  return text
+    .replace(/後/g, '后')
+    .replace(/裡|裏/g, '里')
+    .replace(/麼|麽/g, '么')
+    .replace(/隻/g, '只')
+    .replace(/愛/g, '爱')
+    .replace(/說/g, '说')
+    .replace(/聽/g, '听')
+    .replace(/著/g, '着')
+    .replace(/會/g, '会')
+    .replace(/過/g, '过')
+    .replace(/這/g, '这')
+    .replace(/個/g, '个')
+    .replace(/們/g, '们')
+    .replace(/時/g, '时')
+    .replace(/點/g, '点')
+    .replace(/臺|檯/g, '台')
+    .replace(/為/g, '为')
+    .replace(/與/g, '与');
+}
+
 function extractTrackAndArtist(rawArtist, rawTitle) {
   let artist = normalizeText(rawArtist || '');
   let title = normalizeText(rawTitle || '');
@@ -187,28 +210,51 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 4500) {
   }
 }
 
-async function fetchFromDeezer(query) {
+async function fetchFromDeezer(query, targetTitle = '') {
   try {
-    const res = await fetchWithTimeout('https://api.deezer.com/search?q=' + encodeURIComponent(query) + '&limit=1', {}, 3500);
+    const res = await fetchWithTimeout('https://api.deezer.com/search?q=' + encodeURIComponent(query) + '&limit=5', {}, 3500);
     if (res.ok) {
       const data = await res.json();
-      if (data?.data?.[0]?.album) {
+      if (Array.isArray(data?.data) && data.data.length > 0) {
+        if (targetTitle) {
+          const normTarget = normalizeCJKVariants(cleanTitle(targetTitle)).toLowerCase();
+          const match = data.data.find(d => {
+            const track = normalizeCJKVariants(d.title || '').toLowerCase();
+            const alb = normalizeCJKVariants(d.album?.title || '').toLowerCase();
+            return track.includes(normTarget) || normTarget.includes(track) || alb.includes(normTarget);
+          });
+          if (match?.album) {
+            const alb = match.album;
+            return alb.cover_xl || alb.cover_big || alb.cover_medium || alb.cover || null;
+          }
+        }
         const alb = data.data[0].album;
-        return alb.cover_xl || alb.cover_big || alb.cover_medium || alb.cover || null;
+        return alb?.cover_xl || alb?.cover_big || alb?.cover_medium || alb?.cover || null;
       }
     }
   } catch (err) {}
   return null;
 }
 
-async function fetchFromITunes(query, country = '') {
+async function fetchFromITunes(query, country = '', targetTitle = '') {
   try {
     const countryParam = country ? `&country=${country}` : '';
-    const res = await fetchWithTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1${countryParam}`, {}, 3500);
+    const res = await fetchWithTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=5${countryParam}`, {}, 3500);
     if (res.ok) {
       const data = await res.json();
-      if (data?.results?.[0]?.artworkUrl100) {
-        return data.results[0].artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+      if (Array.isArray(data?.results) && data.results.length > 0) {
+        if (targetTitle) {
+          const normTarget = normalizeCJKVariants(cleanTitle(targetTitle)).toLowerCase();
+          const match = data.results.find(r => {
+            const track = normalizeCJKVariants(r.trackName || '').toLowerCase();
+            const alb = normalizeCJKVariants(r.collectionName || '').toLowerCase();
+            return track.includes(normTarget) || normTarget.includes(track) || alb.includes(normTarget);
+          });
+          if (match && match.artworkUrl100) {
+            return match.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+          }
+        }
+        return data.results[0].artworkUrl100?.replace('100x100bb.jpg', '600x600bb.jpg') || null;
       }
     }
   } catch (err) {}
@@ -247,14 +293,16 @@ async function fetchCoverArt(artist, title, album = '') {
   // Tier 1: Clean artist + Clean title across providers
   const q1 = `${cArtist} ${cTitle}`.trim();
   if (q1) {
-    let cover = await fetchFromDeezer(q1);
-    if (!cover) {
-      cover = await fetchFromITunes(q1, hasCJK ? 'TW' : '');
-      if (!cover && hasCJK) cover = await fetchFromITunes(q1, 'JP');
-      if (!cover) cover = await fetchFromITunes(q1);
-    }
-    if (!cover) {
-      cover = await fetchFromKugou(q1);
+    let cover = null;
+    if (hasCJK) {
+      cover = await fetchFromITunes(q1, 'TW', cTitle);
+      if (!cover) cover = await fetchFromITunes(q1, 'HK', cTitle);
+      if (!cover) cover = await fetchFromKugou(q1);
+      if (!cover) cover = await fetchFromDeezer(q1, cTitle);
+    } else {
+      cover = await fetchFromDeezer(q1, cTitle);
+      if (!cover) cover = await fetchFromITunes(q1, '', cTitle);
+      if (!cover) cover = await fetchFromKugou(q1);
     }
     if (cover) {
       coverArtCache.set(cacheKey, cover);
@@ -265,10 +313,17 @@ async function fetchCoverArt(artist, title, album = '') {
   // Tier 2: Raw artist + Raw title if different from cleaned
   const qRaw = `${artist} ${title}`.trim();
   if (qRaw && qRaw !== q1) {
-    let cover = await fetchFromDeezer(qRaw);
-    if (!cover) cover = await fetchFromITunes(qRaw, hasCJK ? 'TW' : '');
-    if (!cover) cover = await fetchFromITunes(qRaw);
-    if (!cover) cover = await fetchFromKugou(qRaw);
+    let cover = null;
+    if (hasCJK) {
+      cover = await fetchFromITunes(qRaw, 'TW', title);
+      if (!cover) cover = await fetchFromITunes(qRaw, 'HK', title);
+      if (!cover) cover = await fetchFromKugou(qRaw);
+      if (!cover) cover = await fetchFromDeezer(qRaw, title);
+    } else {
+      cover = await fetchFromDeezer(qRaw, title);
+      if (!cover) cover = await fetchFromITunes(qRaw, '', title);
+      if (!cover) cover = await fetchFromKugou(qRaw);
+    }
     if (cover) {
       coverArtCache.set(cacheKey, cover);
       return cover;
@@ -277,10 +332,16 @@ async function fetchCoverArt(artist, title, album = '') {
 
   // Tier 3: Clean title only (critical for localized / bilingual titles)
   if (cTitle && cTitle !== q1) {
-    let cover = await fetchFromDeezer(cTitle);
-    if (!cover) cover = await fetchFromITunes(cTitle, hasCJK ? 'TW' : '');
-    if (!cover) cover = await fetchFromITunes(cTitle);
-    if (!cover) cover = await fetchFromKugou(cTitle);
+    let cover = null;
+    if (hasCJK) {
+      cover = await fetchFromITunes(cTitle, 'TW', cTitle);
+      if (!cover) cover = await fetchFromKugou(cTitle);
+      if (!cover) cover = await fetchFromDeezer(cTitle, cTitle);
+    } else {
+      cover = await fetchFromDeezer(cTitle, cTitle);
+      if (!cover) cover = await fetchFromITunes(cTitle, '', cTitle);
+      if (!cover) cover = await fetchFromKugou(cTitle);
+    }
     if (cover) {
       coverArtCache.set(cacheKey, cover);
       return cover;
@@ -291,8 +352,14 @@ async function fetchCoverArt(artist, title, album = '') {
   if (album) {
     const qAlbum = `${cArtist} ${cleanTitle(album)}`.trim();
     if (qAlbum) {
-      let cover = await fetchFromDeezer(qAlbum);
-      if (!cover) cover = await fetchFromITunes(qAlbum);
+      let cover = null;
+      if (hasCJK) {
+        cover = await fetchFromITunes(qAlbum, 'TW', album);
+        if (!cover) cover = await fetchFromDeezer(qAlbum, album);
+      } else {
+        cover = await fetchFromDeezer(qAlbum, album);
+        if (!cover) cover = await fetchFromITunes(qAlbum, '', album);
+      }
       if (cover) {
         coverArtCache.set(cacheKey, cover);
         return cover;
@@ -316,7 +383,8 @@ function scoreCandidate(item, targetArtist, targetTitle, targetDuration) {
   const expTitle = normalizeText(targetTitle || '').toLowerCase().trim();
   const expCleanedTitle = cleanTitle(targetTitle).toLowerCase().trim();
 
-  const tokenize = s => s.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 1);
+  // Support all international Unicode letters and digits across Chinese, Japanese, Korean, Cyrillic, Latin
+  const tokenize = s => s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(w => w.length > 0);
   const candArtistTokens = tokenize(candArtist);
   const expArtistTokens = tokenize(expArtist);
   const candTitleTokens = tokenize(candTitle);
@@ -343,19 +411,24 @@ function scoreCandidate(item, targetArtist, targetTitle, targetDuration) {
     artistScore = 20;
   }
 
-  // 2. Title Verification
+  // 2. Title Verification with CJK Variant & Substring Awareness
+  const normCandTitle = normalizeCJKVariants(candTitle);
+  const normExpTitle = normalizeCJKVariants(expTitle);
+  const normExpCleaned = normalizeCJKVariants(expCleanedTitle);
+
   let titleScore = 0;
-  if (candTitle === expTitle || candTitle === expCleanedTitle) {
+  if (normCandTitle === normExpTitle || normCandTitle === normExpCleaned) {
     titleScore = 55;
+  } else if (normCandTitle.includes(normExpCleaned) || normExpCleaned.includes(normCandTitle) || normCandTitle.includes(normExpTitle) || normExpTitle.includes(normCandTitle)) {
+    titleScore = 45;
   } else {
     const matchingTitleTokens = expTitleTokens.filter(t => candTitleTokens.includes(t));
     if (matchingTitleTokens.length > 0) {
       titleScore = (matchingTitleTokens.length / Math.max(expTitleTokens.length, 1)) * 45;
-    } else if (candTitle.includes(expCleanedTitle) || expCleanedTitle.includes(candTitle)) {
-      titleScore = 35;
     }
   }
 
+  // Strict guard: If title has zero similarity, reject immediately (never match unrelated song from same artist!)
   if (titleScore === 0) {
     return -1;
   }

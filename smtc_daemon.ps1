@@ -64,7 +64,8 @@ $global:manager = Await $asyncOp ([Windows.Media.Control.GlobalSystemMediaTransp
 [Windows.Storage.Streams.IRandomAccessStreamWithContentType, Windows.Storage.Streams, ContentType=WindowsRuntime] | Out-Null
 $global:asStreamMethod = [System.IO.WindowsRuntimeStreamExtensions].GetMethods() | ? { $_.Name -eq 'AsStream' -and $_.GetParameters().Count -eq 1 }
 $global:tempThumbFile = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "overLy_smtc_thumb.jpg")
-$global:lastThumbTrack = ""
+$global:lastThumbFile = ""
+$global:lastManagerRefresh = $null
 
 [Console]::Out.WriteLine("READY")
 [Console]::Out.Flush()
@@ -76,31 +77,32 @@ $global:lastAppId = $null
 $global:noMediaCount = 0
 
 function Get-ResolvedSession {
-    # 1. Check GetCurrentSession()
-    try {
-        $cur = $global:manager.GetCurrentSession()
-        if ($cur) {
-            $props = Await ($cur.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
-            if ($props -and -not [string]::IsNullOrWhiteSpace($props.Title)) {
-                $global:lastActiveSession = $cur
-                $global:lastAppId = $cur.SourceAppId
-                return @{ session = $cur; props = $props }
+    # 0. Periodically refresh the WinRT session manager so new/closed sessions and track switches are never missed
+    $now = [DateTimeOffset]::UtcNow
+    if (-not $global:lastManagerRefresh -or ($now - $global:lastManagerRefresh).TotalSeconds -ge 1.5) {
+        $global:lastManagerRefresh = $now
+        try {
+            $asyncOp = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()
+            $freshMgr = Await $asyncOp ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+            if ($freshMgr) {
+                $global:manager = $freshMgr
             }
-        }
-    } catch {}
+        } catch {}
+    }
 
-    # 2. If GetCurrentSession() is null or returned empty title (common Windows bug when paused for a while),
-    # search all registered sessions in GetSessions()
+    # 1. ALWAYS search all sessions first to find an actively PLAYING session!
+    # In Windows, GetCurrentSession() frequently remains stuck on an old paused/idle app
+    # while Spotify or another media player is actively playing in GetSessions().
+    $playingCandidate = $null
+    $playingProps = $null
+    $lastAppCandidate = $null
+    $lastAppProps = $null
+    $pausedCandidate = $null
+    $pausedProps = $null
+
     try {
         $sessions = $global:manager.GetSessions()
         if ($sessions -and $sessions.Count -gt 0) {
-            $playingCandidate = $null
-            $playingProps = $null
-            $lastAppCandidate = $null
-            $lastAppProps = $null
-            $pausedCandidate = $null
-            $pausedProps = $null
-
             foreach ($s in $sessions) {
                 try {
                     $props = Await ($s.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
@@ -111,7 +113,7 @@ function Get-ResolvedSession {
                         if ($stat -eq "Playing") {
                             $playingCandidate = $s
                             $playingProps = $props
-                            break # Found actively playing session, prioritize immediately
+                            break # Found actively playing session, prioritize immediately!
                         } elseif ($global:lastAppId -and $s.SourceAppId -eq $global:lastAppId -and -not $lastAppCandidate) {
                             $lastAppCandidate = $s
                             $lastAppProps = $props
@@ -128,26 +130,31 @@ function Get-ResolvedSession {
                 $global:lastAppId = $playingCandidate.SourceAppId
                 return @{ session = $playingCandidate; props = $playingProps }
             }
-            if ($lastAppCandidate) {
-                $global:lastActiveSession = $lastAppCandidate
-                return @{ session = $lastAppCandidate; props = $lastAppProps }
-            }
-            if ($pausedCandidate) {
-                $global:lastActiveSession = $pausedCandidate
-                $global:lastAppId = $pausedCandidate.SourceAppId
-                return @{ session = $pausedCandidate; props = $pausedProps }
+        }
+    } catch {}
+
+    # 2. If no actively playing session, check GetCurrentSession()
+    try {
+        $cur = $global:manager.GetCurrentSession()
+        if ($cur) {
+            $props = Await ($cur.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+            if ($props -and -not [string]::IsNullOrWhiteSpace($props.Title)) {
+                $global:lastActiveSession = $cur
+                $global:lastAppId = $cur.SourceAppId
+                return @{ session = $cur; props = $props }
             }
         }
     } catch {}
 
-    # 3. If nothing found across several poll cycles, refresh the WinRT session manager cache
-    $global:noMediaCount++
-    if ($global:noMediaCount -ge 15) {
-        $global:noMediaCount = 0
-        try {
-            $asyncOp = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()
-            $global:manager = Await $asyncOp ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
-        } catch {}
+    # 3. Fallbacks from registered sessions
+    if ($lastAppCandidate) {
+        $global:lastActiveSession = $lastAppCandidate
+        return @{ session = $lastAppCandidate; props = $lastAppProps }
+    }
+    if ($pausedCandidate) {
+        $global:lastActiveSession = $pausedCandidate
+        $global:lastAppId = $pausedCandidate.SourceAppId
+        return @{ session = $pausedCandidate; props = $pausedProps }
     }
 
     return $null
@@ -252,28 +259,35 @@ while ($true) {
 
             $thumbFileAvailable = $null
 
-            if ($props.Thumbnail -and ($trackKey -ne $global:lastThumbTrack -or (-not (Test-Path $global:tempThumbFile)))) {
+            if ($props.Thumbnail -and ($trackKey -ne $global:lastThumbTrack -or (-not (Test-Path $global:lastThumbFile)))) {
                 try {
+                    $safeHash = [Math]::Abs($trackKey.GetHashCode())
+                    $targetThumb = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "overLy_thumb_$safeHash.jpg")
                     $stream = Await ($props.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
                     if ($stream -and $stream.Size -gt 0 -and $global:asStreamMethod) {
                         $netStream = $global:asStreamMethod.Invoke($null, @($stream))
-                        $fileStream = [System.IO.File]::Create($global:tempThumbFile)
+                        $fileStream = [System.IO.File]::Create($targetThumb)
                         $netStream.CopyTo($fileStream)
                         $fileStream.Dispose()
                         $netStream.Dispose()
+                        if ($global:lastThumbFile -and $global:lastThumbFile -ne $targetThumb -and (Test-Path $global:lastThumbFile)) {
+                            try { Remove-Item -Force $global:lastThumbFile } catch {}
+                        }
+                        $global:lastThumbFile = $targetThumb
                         $global:lastThumbTrack = $trackKey
                     }
                 } catch {}
             } elseif ($trackKey -ne $global:lastThumbTrack) {
                 # New track without native thumbnail - reset tracking so old thumb is not reused
                 $global:lastThumbTrack = $trackKey
-                if (Test-Path $global:tempThumbFile) {
-                    try { Remove-Item -Force $global:tempThumbFile } catch {}
+                if ($global:lastThumbFile -and (Test-Path $global:lastThumbFile)) {
+                    try { Remove-Item -Force $global:lastThumbFile } catch {}
                 }
+                $global:lastThumbFile = ""
             }
 
-            if ($global:lastThumbTrack -eq $trackKey -and (Test-Path $global:tempThumbFile)) {
-                $thumbFileAvailable = $global:tempThumbFile
+            if ($global:lastThumbTrack -eq $trackKey -and $global:lastThumbFile -and (Test-Path $global:lastThumbFile)) {
+                $thumbFileAvailable = $global:lastThumbFile
             }
 
             $res = @{
