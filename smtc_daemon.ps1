@@ -66,6 +66,88 @@ $global:manager = Await $asyncOp ([Windows.Media.Control.GlobalSystemMediaTransp
 
 $lastJson = ""
 
+$global:lastActiveSession = $null
+$global:lastAppId = $null
+$global:noMediaCount = 0
+
+function Get-ResolvedSession {
+    # 1. Check GetCurrentSession()
+    try {
+        $cur = $global:manager.GetCurrentSession()
+        if ($cur) {
+            $props = Await ($cur.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+            if ($props -and -not [string]::IsNullOrWhiteSpace($props.Title)) {
+                $global:lastActiveSession = $cur
+                $global:lastAppId = $cur.SourceAppId
+                return @{ session = $cur; props = $props }
+            }
+        }
+    } catch {}
+
+    # 2. If GetCurrentSession() is null or returned empty title (common Windows bug when paused for a while),
+    # search all registered sessions in GetSessions()
+    try {
+        $sessions = $global:manager.GetSessions()
+        if ($sessions -and $sessions.Count -gt 0) {
+            $playingCandidate = $null
+            $playingProps = $null
+            $lastAppCandidate = $null
+            $lastAppProps = $null
+            $pausedCandidate = $null
+            $pausedProps = $null
+
+            foreach ($s in $sessions) {
+                try {
+                    $props = Await ($s.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+                    if ($props -and -not [string]::IsNullOrWhiteSpace($props.Title)) {
+                        $pInfo = $s.GetPlaybackInfo()
+                        $stat = if ($pInfo) { $pInfo.PlaybackStatus.ToString() } else { "Unknown" }
+
+                        if ($stat -eq "Playing") {
+                            $playingCandidate = $s
+                            $playingProps = $props
+                            break # Found actively playing session, prioritize immediately
+                        } elseif ($global:lastAppId -and $s.SourceAppId -eq $global:lastAppId -and -not $lastAppCandidate) {
+                            $lastAppCandidate = $s
+                            $lastAppProps = $props
+                        } elseif (-not $pausedCandidate) {
+                            $pausedCandidate = $s
+                            $pausedProps = $props
+                        }
+                    }
+                } catch {}
+            }
+
+            if ($playingCandidate) {
+                $global:lastActiveSession = $playingCandidate
+                $global:lastAppId = $playingCandidate.SourceAppId
+                return @{ session = $playingCandidate; props = $playingProps }
+            }
+            if ($lastAppCandidate) {
+                $global:lastActiveSession = $lastAppCandidate
+                return @{ session = $lastAppCandidate; props = $lastAppProps }
+            }
+            if ($pausedCandidate) {
+                $global:lastActiveSession = $pausedCandidate
+                $global:lastAppId = $pausedCandidate.SourceAppId
+                return @{ session = $pausedCandidate; props = $pausedProps }
+            }
+        }
+    } catch {}
+
+    # 3. If nothing found across several poll cycles, refresh the WinRT session manager cache
+    $global:noMediaCount++
+    if ($global:noMediaCount -ge 15) {
+        $global:noMediaCount = 0
+        try {
+            $asyncOp = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()
+            $global:manager = Await $asyncOp ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+        } catch {}
+    }
+
+    return $null
+}
+
 while ($true) {
     # Process queued commands on the main thread where $global:manager exists
     $pendingCmd = $null
@@ -73,22 +155,29 @@ while ($true) {
         if ($pendingCmd -eq "exit") { [System.Environment]::Exit(0) }
         $handled = $false
         try {
-            $session = $global:manager.GetCurrentSession()
-            if ($session) {
+            $targetSession = $global:lastActiveSession
+            if (-not $targetSession) {
+                $resolved = Get-ResolvedSession
+                if ($resolved) { $targetSession = $resolved.session }
+            }
+            if (-not $targetSession) {
+                $targetSession = $global:manager.GetCurrentSession()
+            }
+            if ($targetSession) {
                 if ($pendingCmd -eq "play_pause") {
-                    $op = $session.TryTogglePlayPauseAsync()
+                    $op = $targetSession.TryTogglePlayPauseAsync()
                     $handled = [bool](Await $op ([bool]))
                     Start-Sleep -Milliseconds 120
                 } elseif ($pendingCmd -eq "next") {
-                    $op = $session.TrySkipNextAsync()
+                    $op = $targetSession.TrySkipNextAsync()
                     $handled = [bool](Await $op ([bool]))
                 } elseif ($pendingCmd -eq "prev") {
-                    $op = $session.TrySkipPreviousAsync()
+                    $op = $targetSession.TrySkipPreviousAsync()
                     $handled = [bool](Await $op ([bool]))
                 } elseif ($pendingCmd -match '^seek:?([0-9\.]+)') {
                     $seekSec = [double]$matches[1]
                     $ticks = [long]($seekSec * 10000000)
-                    $op = $session.TryChangePlaybackPositionAsync($ticks)
+                    $op = $targetSession.TryChangePlaybackPositionAsync($ticks)
                     $handled = [bool](Await $op ([bool]))
                 }
             }
@@ -104,9 +193,11 @@ while ($true) {
         }
     }
     try {
-        $session = $global:manager.GetCurrentSession()
-        if ($session) {
-            $props = Await ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+        $resolved = Get-ResolvedSession
+        if ($resolved) {
+            $global:noMediaCount = 0
+            $session = $resolved.session
+            $props = $resolved.props
             $timeline = $session.GetTimelineProperties()
             $info = $session.GetPlaybackInfo()
             

@@ -174,10 +174,21 @@ function startAutoMinimizeTimer() {
   if (state.mode === 'minimized' || state.isAutoMinimized || isMouseOverOverlay) return;
   const isPlaying = (state.hasMedia && state.status === 'Playing');
   if (isPlaying) return;
-  // Window was expanded by hovering while still paused: only re-minimize if the user allows it
-  if (state.hoverExpandedWhilePaused && !state.autoMinimizeRehide) return;
 
-  const delayMs = getAutoMinimizeDelaySeconds() * 1000;
+  // Window was expanded by hovering while still paused:
+  if (state.hoverExpandedWhilePaused) {
+    if (!state.autoMinimizeRehide) return;
+    const delaySec = getAutoMinimizeDelaySeconds();
+    // When re-minimizing on hover out, shrink straight after hover out (40ms) or within 1s
+    const delayMs = delaySec === 0 ? 40 : Math.min(delaySec, 1) * 1000;
+    autoMinimizeTimer = setTimeout(() => {
+      triggerAutoMinimize();
+    }, delayMs);
+    return;
+  }
+
+  const delaySec = getAutoMinimizeDelaySeconds();
+  const delayMs = delaySec === 0 ? 40 : delaySec * 1000;
   autoMinimizeTimer = setTimeout(() => {
     triggerAutoMinimize();
   }, delayMs);
@@ -487,77 +498,125 @@ function getHighContrastVisualizerColor(baseHex, isLight) {
   }
 }
 
-function applyAlbumArtThemeTokens(hexColor) {
+function applyAlbumArtThemeTokens(hexColor, isLight = false) {
   if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return;
   const rgb = hexToRgb(hexColor);
   const norm = (typeof state.opacity === 'number') ? state.opacity : 0.85;
 
-  // Derive rich atmospheric background tint from album cover
-  const bgR = Math.max(9, Math.min(32, Math.round(rgb.r * 0.16 + 10 * 0.84)));
-  const bgG = Math.max(11, Math.min(34, Math.round(rgb.g * 0.16 + 12 * 0.84)));
-  const bgB = Math.max(16, Math.min(42, Math.round(rgb.b * 0.16 + 18 * 0.84)));
+  if (isLight) {
+    // Light mode theme derived from album cover: soft frosted tint with high contrast dark text
+    const bgR = Math.max(236, Math.min(252, Math.round(248 * 0.88 + rgb.r * 0.12)));
+    const bgG = Math.max(238, Math.min(253, Math.round(250 * 0.88 + rgb.g * 0.12)));
+    const bgB = Math.max(242, Math.min(255, Math.round(254 * 0.88 + rgb.b * 0.12)));
 
-  const cardR = Math.round(bgR + 12);
-  const cardG = Math.round(bgG + 14);
-  const cardB = Math.round(bgB + 20);
+    const cardR = Math.min(255, Math.round(bgR + 4));
+    const cardG = Math.min(255, Math.round(bgG + 4));
+    const cardB = Math.min(255, Math.round(bgB + 4));
 
-  // Guarantee high-contrast visualizer bars that radiate clearly on dark backgrounds
-  const visColor = getHighContrastVisualizerColor(hexColor, false);
-  const visRgb = hexToRgb(visColor);
+    const visColor = getHighContrastVisualizerColor(hexColor, true);
+    const visRgb = hexToRgb(visColor);
 
-  document.documentElement.style.setProperty('--bg-glass', `rgba(${bgR}, ${bgG}, ${bgB}, ${norm})`);
-  document.documentElement.style.setProperty('--bg-glass-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
-  document.documentElement.style.setProperty('--border-glass', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);
-  document.documentElement.style.setProperty('--text-primary', '#ffffff');
-  document.documentElement.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.92)');
-  document.documentElement.style.setProperty('--text-muted', 'rgba(255, 255, 255, 0.70)');
-  document.documentElement.style.setProperty('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);
-  document.documentElement.style.setProperty('--aura-color2', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.14)`);
+    document.documentElement.style.setProperty('--bg-glass', `rgba(${bgR}, ${bgG}, ${bgB}, ${norm})`);
+    document.documentElement.style.setProperty('--bg-glass-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.72)`);
+    document.documentElement.style.setProperty('--border-glass', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.22)`);
+    document.documentElement.style.setProperty('--text-primary', '#11131a');
+    document.documentElement.style.setProperty('--text-secondary', 'rgba(17, 19, 26, 0.88)');
+    document.documentElement.style.setProperty('--text-muted', 'rgba(17, 19, 26, 0.62)');
+    document.documentElement.style.setProperty('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.22)`);
+    document.documentElement.style.setProperty('--aura-color2', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.10)`);
 
-  document.documentElement.style.setProperty('--vis-bar-color', visColor);
-  document.documentElement.style.setProperty('--vis-bar-glow', `rgba(${visRgb.r}, ${visRgb.g}, ${visRgb.b}, 0.60)`);
-  document.documentElement.style.setProperty('--vis-bar-highlight', '#ffffff');
-  document.documentElement.style.setProperty('--vis-status-bg', 'rgba(255, 255, 255, 0.14)');
-  document.documentElement.style.setProperty('--vis-btn-bg', 'rgba(255, 255, 255, 0.16)');
-  document.documentElement.style.setProperty('--vis-btn-border', 'rgba(255, 255, 255, 0.25)');
+    document.documentElement.style.setProperty('--vis-bar-color', visColor);
+    document.documentElement.style.setProperty('--vis-bar-glow', `rgba(${visRgb.r}, ${visRgb.g}, ${visRgb.b}, 0.35)`);
+    document.documentElement.style.setProperty('--vis-bar-highlight', '#11131a');
+    document.documentElement.style.setProperty('--vis-status-bg', 'rgba(0, 0, 0, 0.08)');
+    document.documentElement.style.setProperty('--vis-btn-bg', 'rgba(0, 0, 0, 0.08)');
+    document.documentElement.style.setProperty('--vis-btn-border', 'rgba(0, 0, 0, 0.16)');
+  } else {
+    // Dark mode theme derived from album cover: rich deep atmospheric dark tint
+    const bgR = Math.max(9, Math.min(32, Math.round(rgb.r * 0.16 + 10 * 0.84)));
+    const bgG = Math.max(11, Math.min(34, Math.round(rgb.g * 0.16 + 12 * 0.84)));
+    const bgB = Math.max(16, Math.min(42, Math.round(rgb.b * 0.16 + 18 * 0.84)));
+
+    const cardR = Math.round(bgR + 12);
+    const cardG = Math.round(bgG + 14);
+    const cardB = Math.round(bgB + 20);
+
+    const visColor = getHighContrastVisualizerColor(hexColor, false);
+    const visRgb = hexToRgb(visColor);
+
+    document.documentElement.style.setProperty('--bg-glass', `rgba(${bgR}, ${bgG}, ${bgB}, ${norm})`);
+    document.documentElement.style.setProperty('--bg-glass-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
+    document.documentElement.style.setProperty('--border-glass', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);
+    document.documentElement.style.setProperty('--text-primary', '#ffffff');
+    document.documentElement.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.92)');
+    document.documentElement.style.setProperty('--text-muted', 'rgba(255, 255, 255, 0.70)');
+    document.documentElement.style.setProperty('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);
+    document.documentElement.style.setProperty('--aura-color2', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.14)`);
+
+    document.documentElement.style.setProperty('--vis-bar-color', visColor);
+    document.documentElement.style.setProperty('--vis-bar-glow', `rgba(${visRgb.r}, ${visRgb.g}, ${visRgb.b}, 0.60)`);
+    document.documentElement.style.setProperty('--vis-bar-highlight', '#ffffff');
+    document.documentElement.style.setProperty('--vis-status-bg', 'rgba(255, 255, 255, 0.14)');
+    document.documentElement.style.setProperty('--vis-btn-bg', 'rgba(255, 255, 255, 0.16)');
+    document.documentElement.style.setProperty('--vis-btn-border', 'rgba(255, 255, 255, 0.25)');
+  }
 }
 
 function applyTheme(themeData) {
   const setting = typeof themeData === 'object' ? themeData.setting : themeData;
   state.theme = setting || 'system';
 
-  const isAutoTheme = (setting === 'auto');
-  if (isAutoTheme) {
-    state.effectiveTheme = 'auto';
-    document.body.classList.remove('theme-light');
-    document.body.classList.add('theme-dark', 'theme-album-auto');
-    setAccentColor('auto');
-    if (state.lastExtractedPrimary) {
-      applyAlbumArtThemeTokens(state.lastExtractedPrimary);
+  let effectiveIsLight = false;
+
+  if (setting === 'auto') {
+    // Auto theme: decides dark or light according to the darkness of the album art!
+    if (state.lastExtractedPrimary && typeof state.coverIsDark === 'boolean') {
+      effectiveIsLight = !state.coverIsDark;
+    } else if (state.lastExtractedPrimary) {
+      const rgb = hexToRgb(state.lastExtractedPrimary);
+      const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+      effectiveIsLight = lum >= 0.50;
+    } else {
+      effectiveIsLight = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
     }
-    return;
+    state.effectiveTheme = effectiveIsLight ? 'light' : 'dark';
+    document.body.classList.add('theme-album-auto');
+    state.accentColor = 'auto';
+  } else if (setting === 'light') {
+    effectiveIsLight = true;
+    state.effectiveTheme = 'light';
+    document.body.classList.remove('theme-album-auto');
+  } else if (setting === 'dark') {
+    effectiveIsLight = false;
+    state.effectiveTheme = 'dark';
+    document.body.classList.remove('theme-album-auto');
+  } else {
+    // 'system'
+    effectiveIsLight = (typeof themeData === 'object' && themeData.effective)
+      ? themeData.effective === 'light'
+      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+    state.effectiveTheme = effectiveIsLight ? 'light' : 'dark';
+    document.body.classList.remove('theme-album-auto');
   }
 
-  document.body.classList.remove('theme-album-auto');
-  const effective = (typeof themeData === 'object' && themeData.effective) ? themeData.effective : (
-    setting === 'light' ? 'light' : setting === 'dark' ? 'dark' : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
-  );
+  document.body.classList.toggle('theme-light', effectiveIsLight);
+  document.body.classList.toggle('theme-dark', !effectiveIsLight);
 
-  state.effectiveTheme = effective;
-
-  document.body.classList.toggle('theme-light', effective === 'light');
-  document.body.classList.toggle('theme-dark', effective !== 'light');
-
-  // Reset standard tokens
-  document.documentElement.style.removeProperty('--text-primary');
-  document.documentElement.style.removeProperty('--text-secondary');
-  document.documentElement.style.removeProperty('--text-muted');
-
-  setOpacity(state.opacity);
-
-  if (state.accentColor) {
-    setAccentColor(state.accentColor);
+  // Both dark and light mode themes change according to the album (one darker, one lighter)!
+  if (state.lastExtractedPrimary) {
+    applyAlbumArtThemeTokens(state.lastExtractedPrimary, effectiveIsLight);
+  } else {
+    // Reset standard tokens when no album art is present
+    document.documentElement.style.removeProperty('--text-primary');
+    document.documentElement.style.removeProperty('--text-secondary');
+    document.documentElement.style.removeProperty('--text-muted');
+    setOpacity(state.opacity);
   }
+
+  const activeAccent = (state.accentColor === 'auto')
+    ? (state.lastExtractedPrimary || getNeutralAccentColor())
+    : (state.accentColor || getNeutralAccentColor());
+  applyAccentTokens(activeAccent);
 }
 
 // ==========================================================================
@@ -949,7 +1008,9 @@ function setupEventListeners() {
     if (!btn) return;
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
+      btn.classList.add('spinning');
       await triggerRetryLyrics();
+      btn.classList.remove('spinning');
     });
   };
   wireRetry(btnPillRetry);
@@ -1148,20 +1209,26 @@ function setupEventListeners() {
   // Setup corner resize handle
   setupCornerResize();
 
-  // Keep collapsed border progress bar aligned on window resize / layout reflow
-  window.addEventListener('resize', () => {
+  const handleDimensionsChanged = () => {
     if (state.mode === 'collapsed' || state.mode === 'pill') {
       updatePillBorderDimensions();
-    }
-  });
-
-  if (window.ResizeObserver && overlayContainer) {
-    const ro = new ResizeObserver(() => {
-      if (state.mode === 'collapsed' || state.mode === 'pill') {
-        updatePillBorderDimensions();
+    } else if (state.mode === 'card' || state.mode === 'lyrics' || state.mode === 'expanded') {
+      if (lyricsScrollArea && lyricsScrollArea.clientHeight > 0 && state.activeLyricIndex >= 0) {
+        scrollActiveLyricToCenter(true);
       }
-    });
-    ro.observe(overlayContainer);
+    }
+    if (state.isImmersive && immersiveLyricsViewport && immersiveLyricsViewport.clientHeight > 0 && state.activeLyricIndex >= 0) {
+      scrollActiveImmersiveLyricToCenter(true);
+    }
+  };
+
+  // Keep collapsed border progress bar aligned and lyrics centered on window resize / layout reflow
+  window.addEventListener('resize', handleDimensionsChanged);
+
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(handleDimensionsChanged);
+    if (overlayContainer) ro.observe(overlayContainer);
+    if (lyricsScrollArea) ro.observe(lyricsScrollArea);
   }
 }
 
@@ -1377,6 +1444,14 @@ function toggleImmersiveLayout() {
   }
   if (immersiveLayoutLabel) {
     immersiveLayoutLabel.textContent = (state.immersiveLayout === 'centered') ? 'Centered View' : 'Split View';
+  }
+  const layoutIcon = document.getElementById('iconImmersiveLayout');
+  if (layoutIcon) {
+    if (state.immersiveLayout === 'centered') {
+      layoutIcon.innerHTML = '<rect x="3" y="3" width="18" height="18" rx="3"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/>';
+    } else {
+      layoutIcon.innerHTML = '<rect x="3" y="3" width="18" height="18" rx="3"/><line x1="12" y1="3" x2="12" y2="21"/>';
+    }
   }
   if (state.activeLyricIndex >= 0) {
     setActiveLyric(state.activeLyricIndex, true);
@@ -1695,6 +1770,10 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
     const allTrans = [
       'from-collapsed-to-minimized', 'from-minimized-to-collapsed',
       'from-pill-to-minimized', 'from-minimized-to-pill',
+      'from-card-to-minimized', 'from-minimized-to-card',
+      'from-normal-to-minimized', 'from-minimized-to-normal',
+      'from-expanded-to-minimized', 'from-minimized-to-expanded',
+      'from-lyrics-to-minimized', 'from-minimized-to-lyrics',
       'from-card-to-collapsed', 'from-collapsed-to-card',
       'from-card-to-pill', 'from-pill-to-card',
       'from-card-to-lyrics', 'from-lyrics-to-card',
@@ -1704,7 +1783,7 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
     body.classList.add(`from-${oldMode}-to-${mode}`);
     setTimeout(() => {
       body.classList.remove(...allTrans);
-    }, 380);
+    }, 440);
   }
 
   state.mode = mode;
@@ -1738,29 +1817,18 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
     }
   }
 
-  // Force re-sync lyrics after mode switch so they stay in sync.
-  // Reset activeLyricIndex so the guards in syncLyrics/setActiveLyric
-  // don't skip the update, and use a short delay for the DOM to reflow
-  // after the CSS mode class change.
-  const savedIndex = state.activeLyricIndex;
-  state.activeLyricIndex = -1;
-  setTimeout(() => {
-    if (savedIndex >= 0) {
-      setActiveLyric(savedIndex, true);
-    }
-    // Also force a position-based sync to catch any drift
-    if (state.hasMedia && state.status === 'Playing') {
-      const elapsed = (Date.now() - state.lastPositionTime) / 1000;
-      const currentPos = Math.min(state.duration, state.position + elapsed);
-      syncLyrics(currentPos, true);
-    } else if (state.hasMedia) {
-      syncLyrics(state.position, true);
-    }
+  // Maintain and realign lyrics immediately and at progressive animation milestones
+  realignLyricsToCurrentPosition(true);
 
-    if (mode === 'collapsed' || mode === 'pill') {
-      updatePillBorderDimensions();
-    }
-  }, 60);
+  const realignMilestones = [40, 120, 240, 360, 480];
+  realignMilestones.forEach((delay) => {
+    setTimeout(() => {
+      realignLyricsToCurrentPosition(true);
+      if (mode === 'collapsed' || mode === 'pill') {
+        updatePillBorderDimensions();
+      }
+    }, delay);
+  });
 
   persistSettings();
 }
@@ -1963,9 +2031,16 @@ function extractColorsFromCanvas(img) {
     ctx.drawImage(img, 0, 0, 36, 36);
     const data = ctx.getImageData(0, 0, 36, 36).data;
     const buckets = [];
+    let totalLum = 0;
+    let pixelCount = 0;
+
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
       if (a < 128) continue;
+      const lumPixel = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      totalLum += lumPixel;
+      pixelCount++;
+
       const max = Math.max(r, g, b), min = Math.min(r, g, b);
       const l = (max + min) / 510;
       const d = max - min;
@@ -1974,6 +2049,10 @@ function extractColorsFromCanvas(img) {
         buckets.push({ r, g, b, score: s * 2.5 + (1 - Math.abs(l - 0.55)) * 1.5 });
       }
     }
+
+    const avgLuminance = pixelCount > 0 ? (totalLum / pixelCount) : 0.5;
+    const isDark = (avgLuminance < 0.48);
+
     if (!buckets.length) return null;
     buckets.sort((a, b) => b.score - a.score);
     const primary = buckets[0];
@@ -1991,7 +2070,9 @@ function extractColorsFromCanvas(img) {
     const toHex = n => n.toString(16).padStart(2, '0');
     return {
       primary: `#${toHex(pr)}${toHex(pg)}${toHex(pb)}`,
-      secondary: secondary ? `#${toHex(secondary.r)}${toHex(secondary.g)}${toHex(secondary.b)}` : null
+      secondary: secondary ? `#${toHex(secondary.r)}${toHex(secondary.g)}${toHex(secondary.b)}` : null,
+      isDark,
+      luminance: avgLuminance
     };
   } catch (_) {
     return null;
@@ -2003,19 +2084,29 @@ function getNeutralAccentColor() {
   return isLight ? '#22242E' : '#A4AAB8';
 }
 
+let isExtractingAlbumColors = false;
+
 async function applyExtractedAlbumColors() {
-  if (state.accentColor !== 'auto') return;
-  if (!state.coverUrl) {
-    state.lastExtractedPrimary = null;
-    applyAccentTokens(getNeutralAccentColor(), null);
-    if (window.overlyAPI?.updateSetting) {
-      window.overlyAPI.updateSetting('extractedAccentColor', null);
-    }
-    return;
-  }
+  if (isExtractingAlbumColors) return;
+  isExtractingAlbumColors = true;
+
   try {
-    // Show neutral grey/white/black accent while loading & fetching
-    applyAccentTokens(getNeutralAccentColor(), null);
+    if (!state.coverUrl) {
+      state.lastExtractedPrimary = null;
+      state.coverIsDark = true;
+      if (state.accentColor === 'auto') {
+        applyAccentTokens(getNeutralAccentColor(), null);
+      }
+      applyTheme(state.theme);
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('extractedAccentColor', null);
+      }
+      return;
+    }
+
+    if (state.accentColor === 'auto' && !state.lastExtractedPrimary) {
+      applyAccentTokens(getNeutralAccentColor(), null);
+    }
 
     let colors = null;
     if (window.overlyAPI?.extractCoverColors) {
@@ -2026,43 +2117,52 @@ async function applyExtractedAlbumColors() {
     }
     if (colors && colors.primary) {
       state.lastExtractedPrimary = colors.primary;
-      applyAccentTokens(colors.primary, colors.secondary);
-      if (state.theme === 'auto') {
-        applyAlbumArtThemeTokens(colors.primary);
+      state.coverIsDark = typeof colors.isDark === 'boolean' ? colors.isDark : true;
+      state.coverLuminance = typeof colors.luminance === 'number' ? colors.luminance : 0.5;
+
+      if (state.accentColor === 'auto') {
+        applyAccentTokens(colors.primary, colors.secondary);
       }
+      applyTheme(state.theme);
       if (window.overlyAPI?.updateSetting) {
         window.overlyAPI.updateSetting('extractedAccentColor', colors.primary);
       }
     } else {
       state.lastExtractedPrimary = null;
-      applyAccentTokens(getNeutralAccentColor(), null);
-      if (state.theme === 'auto') {
-        document.documentElement.style.removeProperty('--bg-window');
-        document.documentElement.style.removeProperty('--bg-glass-card');
-        document.documentElement.style.removeProperty('--text-primary');
-        document.documentElement.style.removeProperty('--text-secondary');
-        document.documentElement.style.removeProperty('--text-muted');
+      state.coverIsDark = true;
+      if (state.accentColor === 'auto') {
+        applyAccentTokens(getNeutralAccentColor(), null);
       }
+      applyTheme(state.theme);
       if (window.overlyAPI?.updateSetting) {
         window.overlyAPI.updateSetting('extractedAccentColor', null);
       }
     }
   } catch (err) {
     state.lastExtractedPrimary = null;
-    applyAccentTokens(getNeutralAccentColor(), null);
+    state.coverIsDark = true;
+    if (state.accentColor === 'auto') {
+      applyAccentTokens(getNeutralAccentColor(), null);
+    }
+    applyTheme(state.theme);
     if (window.overlyAPI?.updateSetting) {
       window.overlyAPI.updateSetting('extractedAccentColor', null);
     }
+  } finally {
+    isExtractingAlbumColors = false;
   }
 }
 
 function setAccentColor(color) {
   state.accentColor = color;
   if (color === 'auto') {
-    applyAccentTokens(getNeutralAccentColor(), null);
-    applyExtractedAlbumColors();
+    if (state.lastExtractedPrimary) {
+      applyAccentTokens(state.lastExtractedPrimary);
+    } else {
+      applyAccentTokens(getNeutralAccentColor(), null);
+      applyExtractedAlbumColors();
+    }
   } else {
-    state.lastExtractedPrimary = null;
     applyAccentTokens(color);
   }
 }
@@ -2073,21 +2173,8 @@ function setOpacity(val) {
 
   const isLight = document.body.classList.contains('theme-light');
   document.documentElement.style.setProperty('--glass-opacity', norm);
-  if (state.theme === 'auto' && state.lastExtractedPrimary) {
-    applyAlbumArtThemeTokens(state.lastExtractedPrimary);
-  } else if (state.accentColor === 'auto' && state.lastExtractedPrimary) {
-    const rgb = hexToRgb(state.lastExtractedPrimary);
-    if (isLight) {
-      const br = Math.round(248 * 0.90 + rgb.r * 0.10);
-      const bg = Math.round(250 * 0.90 + rgb.g * 0.10);
-      const bb = Math.round(254 * 0.90 + rgb.b * 0.10);
-      document.documentElement.style.setProperty('--bg-glass', `rgba(${br}, ${bg}, ${bb}, ${norm})`);
-    } else {
-      const br = Math.round(14 * 0.86 + rgb.r * 0.14);
-      const bg = Math.round(16 * 0.86 + rgb.g * 0.14);
-      const bb = Math.round(24 * 0.86 + rgb.b * 0.14);
-      document.documentElement.style.setProperty('--bg-glass', `rgba(${br}, ${bg}, ${bb}, ${norm})`);
-    }
+  if (state.lastExtractedPrimary) {
+    applyAlbumArtThemeTokens(state.lastExtractedPrimary, isLight);
   } else {
     if (isLight) {
       document.documentElement.style.setProperty('--bg-glass', `rgba(248, 250, 254, ${norm})`);
@@ -2335,9 +2422,7 @@ function renderTrackInfo() {
     albumArt.onload = () => {
       albumArt.classList.add('visible');
       albumPlaceholder.classList.add('hidden');
-      if (state.accentColor === 'auto') {
-        applyExtractedAlbumColors();
-      }
+      applyExtractedAlbumColors();
     };
     albumArt.onerror = () => {
       albumArt.classList.remove('visible');
@@ -2345,6 +2430,7 @@ function renderTrackInfo() {
       if (state.accentColor === 'auto') {
         applyAccentTokens(getNeutralAccentColor(), null);
       }
+      applyTheme(state.theme);
     };
 
     if (immersiveArt) {
@@ -2359,9 +2445,7 @@ function renderTrackInfo() {
   } else {
     albumArt.classList.remove('visible');
     albumPlaceholder.classList.remove('hidden');
-    if (state.accentColor === 'auto') {
-      applyExtractedAlbumColors();
-    }
+    applyExtractedAlbumColors();
     if (immersiveArt) {
       immersiveArt.src = '';
       immersiveArt.classList.remove('visible');
@@ -2972,48 +3056,124 @@ function syncLyrics(currentPos, force = false) {
   }
 }
 
+function scrollActiveLyricToCenter(instant = false) {
+  if (state.activeLyricIndex < 0 || !state.lyrics || !state.lyrics.length) return;
+  if (!lyricsScrollArea || !lyricsList) return;
+  if (state.mode === 'collapsed' || state.mode === 'pill' || state.mode === 'minimized') return;
+
+  const vpHeight = lyricsScrollArea.clientHeight;
+  if (vpHeight <= 0) return;
+
+  const lineEls = lyricsList.querySelectorAll('.lyric-line');
+  const activeEl = lineEls[state.activeLyricIndex];
+  if (!activeEl) return;
+
+  const activeTop = activeEl.offsetTop;
+  const activeHeight = activeEl.clientHeight;
+  if (activeHeight <= 0) return;
+
+  const scrollTarget = activeTop - (vpHeight / 2) + (activeHeight / 2);
+  lyricsScrollArea.scrollTo({
+    top: Math.max(0, scrollTarget),
+    behavior: instant ? 'instant' : 'smooth'
+  });
+}
+
+function scrollActiveImmersiveLyricToCenter(instant = false) {
+  if (!state.isImmersive || state.activeLyricIndex < 0) return;
+  if (!immersiveLyricsList || !immersiveLyricsViewport) return;
+
+  const vpHeight = immersiveLyricsViewport.clientHeight;
+  if (vpHeight <= 0) return;
+
+  const immLines = immersiveLyricsList.querySelectorAll('.immersive-lyric-line');
+  const activeImmLine = immLines[state.activeLyricIndex];
+  if (!activeImmLine) return;
+
+  const scrollTarget = activeImmLine.offsetTop - (vpHeight / 2) + (activeImmLine.clientHeight / 2);
+  immersiveLyricsViewport.scrollTo({
+    top: Math.max(0, scrollTarget),
+    behavior: instant ? 'instant' : 'smooth'
+  });
+}
+
+function realignLyricsToCurrentPosition(instant = true) {
+  if (!state.hasMedia) return;
+
+  const isPlaying = state.status === 'Playing';
+  const elapsed = isPlaying ? (Date.now() - state.lastPositionTime) / 1000 : 0;
+  const currentPos = Math.min(state.duration, state.position + elapsed);
+
+  const hasLyrics = Boolean(state.hasSynced && state.lyrics && state.lyrics.length > 0);
+  if (hasLyrics) {
+    const adjustedPos = currentPos + state.offset + 0.10;
+    let targetIdx = -1;
+    for (let i = 0; i < state.lyrics.length; i++) {
+      if (state.lyrics[i].time <= adjustedPos) {
+        targetIdx = i;
+      } else {
+        break;
+      }
+    }
+
+    if (targetIdx >= 0) {
+      setActiveLyric(targetIdx, instant);
+      scrollActiveLyricToCenter(instant);
+      if (state.isImmersive) {
+        scrollActiveImmersiveLyricToCenter(instant);
+      }
+    } else {
+      state.activeLyricIndex = -1;
+      updatePillLyric(`${state.title} — ${state.artist}`);
+      const lineEls = lyricsList?.querySelectorAll('.lyric-line');
+      lineEls?.forEach(el => el.classList.remove('active', 'near-active'));
+      if (immersiveLyricsList) {
+        const immLines = immersiveLyricsList.querySelectorAll('.immersive-lyric-line');
+        immLines.forEach(el => el.classList.remove('active', 'near-active'));
+      }
+    }
+  } else if (state.plainLyrics) {
+    const lines = state.plainLyrics.split(/\r?\n/).filter(l => l.trim().length > 0);
+    if (lines.length > 0) {
+      const ratio = state.duration > 0 ? Math.max(0, Math.min(1, currentPos / state.duration)) : 0;
+      const idx = Math.min(lines.length - 1, Math.floor(ratio * lines.length));
+      updatePillLyric(lines[idx]);
+    }
+  }
+}
+
 function setActiveLyric(index, instant = false) {
   if (state.activeLyricIndex === index && !instant) return;
   state.activeLyricIndex = index;
-  const lineEls = lyricsList.querySelectorAll('.lyric-line');
+  const lineEls = lyricsList ? lyricsList.querySelectorAll('.lyric-line') : null;
 
-  lineEls.forEach((el, idx) => {
-    const isActive = idx === index;
-    const isNear = Math.abs(idx - index) === 1;
-    el.classList.toggle('active', isActive);
-    el.classList.toggle('near-active', isNear && !isActive);
-  });
+  if (lineEls) {
+    lineEls.forEach((el, idx) => {
+      const isActive = idx === index;
+      const isNear = Math.abs(idx - index) === 1;
+      el.classList.toggle('active', isActive);
+      el.classList.toggle('near-active', isNear && !isActive);
+    });
+  }
 
   // Immersive Mode Synchronized Lyrics Highlight & Smooth Scrolling
   if (immersiveLyricsList) {
     const immLines = immersiveLyricsList.querySelectorAll('.immersive-lyric-line');
     immLines.forEach((el, idx) => {
-      el.classList.toggle('active', idx === index);
+      const isActive = idx === index;
+      const isNear = Math.abs(idx - index) === 1;
+      el.classList.toggle('active', isActive);
+      el.classList.toggle('near-active', isNear && !isActive);
     });
 
-    const activeImmLine = immLines[index];
-    if (activeImmLine && immersiveLyricsViewport) {
-      const vpHeight = immersiveLyricsViewport.clientHeight;
-      const scrollTarget = activeImmLine.offsetTop - (vpHeight * 0.35);
-      immersiveLyricsViewport.scrollTo({
-        top: Math.max(0, scrollTarget),
-        behavior: instant ? 'instant' : 'smooth'
-      });
-    }
+    scrollActiveImmersiveLyricToCenter(instant);
   }
 
   if (index >= 0 && index < state.lyrics.length) {
     const currentLine = state.lyrics[index];
     updatePillLyric(currentLine.text || state.title);
 
-    const activeEl = lineEls[index];
-    if (activeEl && lyricsScrollArea) {
-      const scrollTarget = activeEl.offsetTop - (lyricsScrollArea.clientHeight / 2) + (activeEl.clientHeight / 2);
-      lyricsScrollArea.scrollTo({
-        top: Math.max(0, scrollTarget),
-        behavior: instant ? 'instant' : 'smooth'
-      });
-    }
+    scrollActiveLyricToCenter(instant);
   } else if (state.hasMedia && state.title) {
     updatePillLyric(`${state.title} — ${state.artist}`);
   }

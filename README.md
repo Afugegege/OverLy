@@ -22,32 +22,44 @@ Hooks directly into Windows System Media Transport Controls (SMTC), meaning it w
 - Media buttons, layout toggles, close buttons, and titlebar elements stay hidden while playing so the screen stays clean.
 - Hovering anywhere near the overlay instantly brings the controls back into view.
 
-### 5 Layout Views
-Double-click the overlay or press `M` to cycle through layouts:
-- **Collapsed Pill**: Minimal capsule with the border progress scrubber and playback controls on hover.
-- **Normal Card**: Full card layout with album art, track details, animated waveform, seek bar, and synced scrolling lyrics.
-- **Only Lyrics**: Floating text HUD without player chrome or backgrounds.
-- **Expanded Lyrics**: Tall vertical layout showing upcoming and past lines.
-- **Minimized Bubble**: Compact circular orb showing cover art with an ambient aura.
+### Immersive Theater Mode (F)
+- Fullscreen distraction-free lyric experience with dynamic blurred backdrop.
+- Switch between **Split View** (album art + synced lyrics) and **Centered View** (focused lyric column).
+- Auto-hides controls and cursor after mouse inactivity.
+- Dedicated interactive scrubber, playback controls, and lyrics sync.
 
-**Anchored Transitions**: Switching layouts keeps the window locked to its position anchor (center and screen edge), preventing the window from drifting across your monitor when toggling back and forth.
+### Dynamic Album Art Theming & Auto Mode
+- **Auto Theme**: Intelligently evaluates album art luminance to switch between dark and light aesthetics with tailored glass tints and radiant contrast visualizer colors.
+- **Dynamic Accent**: Colors sampled from album artwork are applied dynamically to lyrics, visualizer waveforms, playback buttons, and progress scrubbers.
+- Real-time accent and theme updates in the Settings window when tracks change.
+
+### 5 Compact & Expanded Layouts
+Double-click the overlay or press `M` to cycle through layouts:
+- **Collapsed Pill**: Minimal capsule with perimeter SVG border progress scrubber and hover controls.
+- **Normal Card**: Elegant card with album art, track details, animated spectrum, scrubber, and synced lyrics.
+- **Only Lyrics**: Minimalist floating text HUD.
+- **Expanded Lyrics**: Tall vertical view displaying upcoming and preceding lyric lines.
+- **Minimized Bubble**: Compact circular orb with album artwork and ambient aura.
+- **Instant Layout Lyric Alignment**: Switching layouts keeps the active lyric pinned dead-center with zero scrolling delay.
+
+### Auto-Minimize on Pause & Hover
+- Automatically minimizes to the compact orb or pill when paused.
+- Configurable delay options: **Instant** (immediately when mouse leaves), **1s**, **5s**, **10s**, up to **5m**.
+- Choice of expansion behavior: expand upon **Resuming Playback** or immediately upon **Mouse Hover**.
+- **Re-minimize Option**: Automatically re-collapses if expanded via hover while remaining paused.
+
+### Resilient SMTC Windows Media Sync
+- Multi-session discovery hooks directly into Windows SMTC, automatically finding active and paused media across Spotify, Apple Music, YouTube Music, web browsers, and media players.
+- Pause retention grace period prevents track information from being lost or desyncing during extended pauses.
 
 ### Click-Through Lock Mode (Ctrl + Shift + L)
-- Transparent mouse mode that ignores all clicks, allowing you to click games, browsers, or code editors directly behind the overlay without interrupting anything.
-- An on-screen toast indicator confirms when lock mode is toggled.
-
-### Custom Accent Color & Instant Recall
-- Clicking the custom swatch instantly applies your last chosen custom color without opening picker menus.
-- Clicking Edit opens a drawer with continuous Hue and Tone/Lightness sliders, raw Hex code input, a screen eyedropper pipette to pick colors from anywhere on your display, and color presets.
-
-### Auto-Minimize on Pause
-- Automatically shrinks the overlay into the collapsed pill or minimized bubble when media is paused for a set duration (5s to 5m, configurable in Settings).
-- Automatically restores your previous layout once music resumes.
+- Transparent mouse mode allowing interaction with games, browsers, or code editors behind the overlay without interruption.
+- Visual toast notification confirms lock status.
 
 ### Manual Lyrics Search & Timing Offset
-- Automatic lookups use LRCLIB and NetEase with fuzzy artist/title matching.
-- Built-in search bar in Settings to look up alternate song tags if automated lookup fails.
-- Timing offset slider and buttons (-3.0s to +3.0s in 0.2s steps) to fix Bluetooth latency or audio desync.
+- Automatic lookups powered by LRCLIB and NetEase with fuzzy matching.
+- Manual search dialog in Settings to query alternate song titles or artists.
+- Timing offset adjustments (-3.0s to +3.0s in 0.2s increments) for Bluetooth audio synchronization.
 
 ---
 
@@ -57,9 +69,10 @@ Double-click the overlay or press `M` to cycle through layouts:
 | :--- | :--- |
 | `Ctrl + Shift + L` | Toggle Click-Through Lock Mode |
 | `M` (or double-click) | Cycle layout mode |
+| `F` | Toggle Fullscreen Immersive Mode |
 | `P` | Toggle Always on Top |
 | `R` | Toggle window resizing mode |
-| `Esc` | Close Settings window |
+| `Esc` | Close Settings window / Exit Immersive Mode |
 
 ---
 

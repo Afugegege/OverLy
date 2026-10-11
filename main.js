@@ -377,10 +377,35 @@ app.whenReady().then(() => {
     }
   }
 
+  let mediaAbsentGraceTimer = null;
+
   smtcService.on('update', async (mediaData) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
 
     if (!mediaData.hasMedia || !mediaData.title) {
+      // If we previously had track data and media was active, preserve it across pauses/transient drops
+      if (currentTrackData && lastMediaData) {
+        if (!mediaAbsentGraceTimer) {
+          broadcastMediaUpdate({
+            ...lastMediaData,
+            ...currentTrackData,
+            status: 'Paused',
+            hasMedia: true
+          });
+          mediaAbsentGraceTimer = setTimeout(() => {
+            mediaAbsentGraceTimer = null;
+            currentTrackKey = '';
+            currentTrackData = null;
+            lastMediaData = null;
+            broadcastMediaUpdate({
+              hasMedia: false,
+              status: 'Stopped'
+            });
+          }, 30000);
+        }
+        return;
+      }
+
       currentTrackKey = '';
       currentTrackData = null;
       lastMediaData = null;
@@ -389,6 +414,11 @@ app.whenReady().then(() => {
         status: 'Stopped'
       });
       return;
+    }
+
+    if (mediaAbsentGraceTimer) {
+      clearTimeout(mediaAbsentGraceTimer);
+      mediaAbsentGraceTimer = null;
     }
 
     lastMediaData = mediaData;
@@ -703,7 +733,7 @@ ipcMain.handle('get-window-pos', () => {
 
 let boundsAnimationTimer = null;
 
-function animateWindowBounds(targetBounds, duration = 180, onComplete) {
+function animateWindowBounds(targetBounds, duration = 320, onComplete) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (boundsAnimationTimer) {
     clearInterval(boundsAnimationTimer);
@@ -733,7 +763,7 @@ function animateWindowBounds(targetBounds, duration = 180, onComplete) {
 
   const startTime = Date.now();
   const fps = 60;
-  const frameInterval = Math.round(1000 / fps);
+  const frameInterval = 16;
 
   boundsAnimationTimer = setInterval(() => {
     if (!mainWindow || mainWindow.isDestroyed()) {
@@ -745,8 +775,8 @@ function animateWindowBounds(targetBounds, duration = 180, onComplete) {
 
     const elapsed = Date.now() - startTime;
     const progress = Math.min(1, elapsed / duration);
-    // Smooth ease-out cubic
-    const ease = 1 - Math.pow(1 - progress, 3);
+    // Smooth ease-out cubic curve
+    const ease = 1 - Math.pow(1 - progress, 3.2);
 
     const curX = Math.round(startBounds.x + (targetBounds.x - startBounds.x) * ease);
     const curY = Math.round(startBounds.y + (targetBounds.y - startBounds.y) * ease);
@@ -847,12 +877,15 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
     targetY = wa.y;
   }
 
+  const isMiniTransition = (normMode === 'minimized' || currentLayoutMode === 'minimized' || currentWindowHeight <= 70 || currentWindowWidth <= 70);
+  const animDuration = isMiniTransition ? 340 : 280;
+
   animateWindowBounds({
     x: Math.round(targetX),
     y: Math.round(targetY),
     width: currentWindowWidth,
     height: currentWindowHeight
-  }, 190, () => {
+  }, animDuration, () => {
     if (mainWindow && !mainWindow.isDestroyed() && !isUserResizing) {
       mainWindow.setMinimumSize(currentWindowWidth, currentWindowHeight);
       mainWindow.setMaximumSize(currentWindowWidth, currentWindowHeight);
@@ -920,6 +953,9 @@ ipcMain.on('restore-layout-mode', () => {
 function analyzeBitmapColors(buffer) {
   if (!buffer || buffer.length < 16) return null;
   const buckets = [];
+  let totalLum = 0;
+  let pixelCount = 0;
+
   for (let i = 0; i < buffer.length; i += 4) {
     // Windows nativeImage.toBitmap() buffer is BGRA
     const b = buffer[i];
@@ -927,6 +963,10 @@ function analyzeBitmapColors(buffer) {
     const r = buffer[i + 2];
     const a = buffer[i + 3];
     if (a < 128) continue;
+
+    const lumPixel = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    totalLum += lumPixel;
+    pixelCount++;
 
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
@@ -939,6 +979,9 @@ function analyzeBitmapColors(buffer) {
       buckets.push({ r, g, b, score });
     }
   }
+
+  const avgLuminance = pixelCount > 0 ? (totalLum / pixelCount) : 0.5;
+  const isDark = (avgLuminance < 0.48);
 
   if (buckets.length === 0) {
     for (let i = 0; i < buffer.length; i += 16) {
@@ -985,13 +1028,20 @@ function analyzeBitmapColors(buffer) {
   const toHex = (n) => n.toString(16).padStart(2, '0');
   return {
     primary: `#${toHex(pr)}${toHex(pg)}${toHex(pb)}`,
-    secondary: `#${toHex(secondary.r)}${toHex(secondary.g)}${toHex(secondary.b)}`
+    secondary: `#${toHex(secondary.r)}${toHex(secondary.g)}${toHex(secondary.b)}`,
+    isDark,
+    luminance: avgLuminance
   };
 }
+
+const coverColorsCache = new Map();
 
 ipcMain.handle('extract-cover-colors', async (_event, urlOrPath) => {
   try {
     if (!urlOrPath) return null;
+    if (coverColorsCache.has(urlOrPath)) {
+      return coverColorsCache.get(urlOrPath);
+    }
     let img;
     if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
       const response = await net.fetch(urlOrPath);
@@ -1005,7 +1055,15 @@ ipcMain.handle('extract-cover-colors', async (_event, urlOrPath) => {
     if (!img || img.isEmpty()) return null;
     const resized = img.resize({ width: 36, height: 36, quality: 'good' });
     const bitmap = resized.toBitmap();
-    return analyzeBitmapColors(bitmap);
+    const result = analyzeBitmapColors(bitmap);
+    if (result) {
+      if (coverColorsCache.size > 100) {
+        const firstKey = coverColorsCache.keys().next().value;
+        coverColorsCache.delete(firstKey);
+      }
+      coverColorsCache.set(urlOrPath, result);
+    }
+    return result;
   } catch (e) {
     console.error('Failed to extract cover colors in main:', e);
     return null;

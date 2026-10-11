@@ -19,9 +19,22 @@ const btnSearch = document.getElementById('btnSearch');
 const searchFeedback = document.getElementById('searchFeedback');
 const btnCloseSettingsWindow = document.getElementById('btnCloseSettingsWindow');
 
+// Immediately bind close button and Escape shortcut to guarantee they work instantly
+if (btnCloseSettingsWindow) {
+  btnCloseSettingsWindow.addEventListener('click', () => {
+    if (window.overlyAPI?.closeSettingsWindow) window.overlyAPI.closeSettingsWindow();
+  });
+}
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (window.overlyAPI?.closeSettingsWindow) window.overlyAPI.closeSettingsWindow();
+  }
+});
+
 let currentAccent = '#FF3040';
 let lastCustomColor = '#E1306C';
 let lastExtractedAccentColor = null;
+let lastCoverIsDark = true;
 let currentThemeSetting = 'system';
 let currentOffset = 0.0;
 let committedMode = 'card';
@@ -64,26 +77,45 @@ function updateActiveVisStyle(activeStyle) {
   });
 }
 
-function applyAlbumArtThemeTokens(hexColor) {
+function applyAlbumArtThemeTokens(hexColor, isLight = false) {
   if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return;
   const rgb = hexToRgb(hexColor);
 
-  const bgR = Math.max(9, Math.min(26, Math.round(rgb.r * 0.12 + 10 * 0.88)));
-  const bgG = Math.max(11, Math.min(28, Math.round(rgb.g * 0.12 + 12 * 0.88)));
-  const bgB = Math.max(16, Math.min(36, Math.round(rgb.b * 0.12 + 18 * 0.88)));
+  if (isLight) {
+    const bgR = Math.max(236, Math.min(252, Math.round(248 * 0.88 + rgb.r * 0.12)));
+    const bgG = Math.max(238, Math.min(253, Math.round(250 * 0.88 + rgb.g * 0.12)));
+    const bgB = Math.max(242, Math.min(255, Math.round(254 * 0.88 + rgb.b * 0.12)));
 
-  const cardR = Math.round(bgR + 10);
-  const cardG = Math.round(bgG + 12);
-  const cardB = Math.round(bgB + 16);
+    const cardR = Math.min(255, Math.round(bgR + 4));
+    const cardG = Math.min(255, Math.round(bgG + 4));
+    const cardB = Math.min(255, Math.round(bgB + 4));
 
-  document.documentElement.style.setProperty('--bg-window', `rgb(${bgR}, ${bgG}, ${bgB})`);
-  document.documentElement.style.setProperty('--bg-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
-  document.documentElement.style.setProperty('--bg-subtle', `rgba(255, 255, 255, 0.08)`);
-  document.documentElement.style.setProperty('--border-color', `rgba(255, 255, 255, 0.14)`);
-  document.documentElement.style.setProperty('--text-primary', '#ffffff');
-  document.documentElement.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.86)');
-  document.documentElement.style.setProperty('--text-muted', 'rgba(255, 255, 255, 0.62)');
-  document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.20)`);
+    document.documentElement.style.setProperty('--bg-window', `rgb(${bgR}, ${bgG}, ${bgB})`);
+    document.documentElement.style.setProperty('--bg-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.80)`);
+    document.documentElement.style.setProperty('--bg-subtle', `rgba(0, 0, 0, 0.05)`);
+    document.documentElement.style.setProperty('--border-color', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.20)`);
+    document.documentElement.style.setProperty('--text-primary', '#11131a');
+    document.documentElement.style.setProperty('--text-secondary', 'rgba(17, 19, 26, 0.85)');
+    document.documentElement.style.setProperty('--text-muted', 'rgba(17, 19, 26, 0.60)');
+    document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)`);
+  } else {
+    const bgR = Math.max(9, Math.min(26, Math.round(rgb.r * 0.12 + 10 * 0.88)));
+    const bgG = Math.max(11, Math.min(28, Math.round(rgb.g * 0.12 + 12 * 0.88)));
+    const bgB = Math.max(16, Math.min(36, Math.round(rgb.b * 0.12 + 18 * 0.88)));
+
+    const cardR = Math.round(bgR + 10);
+    const cardG = Math.round(bgG + 12);
+    const cardB = Math.round(bgB + 16);
+
+    document.documentElement.style.setProperty('--bg-window', `rgb(${bgR}, ${bgG}, ${bgB})`);
+    document.documentElement.style.setProperty('--bg-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
+    document.documentElement.style.setProperty('--bg-subtle', `rgba(255, 255, 255, 0.08)`);
+    document.documentElement.style.setProperty('--border-color', `rgba(255, 255, 255, 0.14)`);
+    document.documentElement.style.setProperty('--text-primary', '#ffffff');
+    document.documentElement.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.86)');
+    document.documentElement.style.setProperty('--text-muted', 'rgba(255, 255, 255, 0.62)');
+    document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.20)`);
+  }
 }
 
 function hexToRgb(hex) {
@@ -271,38 +303,53 @@ function updateThemeTokens(color, extractedColor = null) {
 function applyThemeUI(themeData) {
   const setting = typeof themeData === 'object' ? themeData.setting : themeData;
   currentThemeSetting = setting || 'system';
-  const isAutoTheme = (setting === 'auto');
 
   document.querySelectorAll('.theme-mode-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.theme === setting);
   });
 
-  if (isAutoTheme) {
-    document.body.classList.remove('theme-light');
-    document.body.classList.add('theme-dark', 'theme-album-auto');
-    if (lastExtractedAccentColor) {
-      applyAlbumArtThemeTokens(lastExtractedAccentColor);
+  let effectiveIsLight = false;
+
+  if (setting === 'auto') {
+    if (lastExtractedAccentColor && typeof lastCoverIsDark === 'boolean') {
+      effectiveIsLight = !lastCoverIsDark;
+    } else if (lastExtractedAccentColor) {
+      const rgb = hexToRgb(lastExtractedAccentColor);
+      const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+      effectiveIsLight = lum >= 0.50;
+    } else {
+      effectiveIsLight = window.matchMedia('(prefers-color-scheme: light)').matches;
     }
-    updateThemeTokens('auto', lastExtractedAccentColor);
-    return;
+    document.body.classList.add('theme-album-auto');
+  } else if (setting === 'light') {
+    effectiveIsLight = true;
+    document.body.classList.remove('theme-album-auto');
+  } else if (setting === 'dark') {
+    effectiveIsLight = false;
+    document.body.classList.remove('theme-album-auto');
+  } else {
+    // 'system'
+    effectiveIsLight = (typeof themeData === 'object' && themeData.effective)
+      ? themeData.effective === 'light'
+      : window.matchMedia('(prefers-color-scheme: light)').matches;
+    document.body.classList.remove('theme-album-auto');
   }
 
-  document.body.classList.remove('theme-album-auto');
-  const effective = (typeof themeData === 'object' && themeData.effective) ? themeData.effective : (
-    setting === 'light' ? 'light' : setting === 'dark' ? 'dark' : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
-  );
+  document.body.classList.toggle('theme-light', effectiveIsLight);
+  document.body.classList.toggle('theme-dark', !effectiveIsLight);
 
-  document.body.classList.toggle('theme-light', effective === 'light');
-  document.body.classList.toggle('theme-dark', effective !== 'light');
-
-  // Reset standard background and text tokens
-  document.documentElement.style.removeProperty('--bg-window');
-  document.documentElement.style.removeProperty('--bg-card');
-  document.documentElement.style.removeProperty('--bg-subtle');
-  document.documentElement.style.removeProperty('--border-color');
-  document.documentElement.style.removeProperty('--text-primary');
-  document.documentElement.style.removeProperty('--text-secondary');
-  document.documentElement.style.removeProperty('--text-muted');
+  if (lastExtractedAccentColor) {
+    applyAlbumArtThemeTokens(lastExtractedAccentColor, effectiveIsLight);
+  } else {
+    // Reset standard background and text tokens
+    document.documentElement.style.removeProperty('--bg-window');
+    document.documentElement.style.removeProperty('--bg-card');
+    document.documentElement.style.removeProperty('--bg-subtle');
+    document.documentElement.style.removeProperty('--border-color');
+    document.documentElement.style.removeProperty('--text-primary');
+    document.documentElement.style.removeProperty('--text-secondary');
+    document.documentElement.style.removeProperty('--text-muted');
+  }
 
   updateThemeTokens(currentAccent, lastExtractedAccentColor);
 }
@@ -331,12 +378,16 @@ function updateAllSliderProgress() {
 
 async function initSettings() {
   try {
+    setupEventListeners();
+  } catch (err) {
+    console.error('Settings setupEventListeners error:', err);
+  }
+  try {
     await loadSettingsIntoUI();
   } catch (err) {
     console.error('Settings init error:', err);
   } finally {
     try { updateAllSliderProgress(); } catch (e) { console.error(e); }
-    setupEventListeners();
   }
 }
 
@@ -415,27 +466,34 @@ async function loadSettingsIntoUI() {
     }
 
     // Real-time track artwork color extraction while Settings window is open
+    let lastProcessedCoverUrl = null;
     if (window.overlyAPI.onMediaUpdate) {
       window.overlyAPI.onMediaUpdate(async (media) => {
         if (!media) return;
         if (media.coverUrl) {
+          if (media.coverUrl === lastProcessedCoverUrl) return;
+          lastProcessedCoverUrl = media.coverUrl;
           try {
             const colors = await window.overlyAPI.extractCoverColors(media.coverUrl);
             if (colors && colors.primary) {
               lastExtractedAccentColor = colors.primary;
+              lastCoverIsDark = typeof colors.isDark === 'boolean' ? colors.isDark : true;
               if (currentAccent === 'auto') {
                 updateThemeTokens('auto', colors.primary);
               }
-              if (currentThemeSetting === 'auto') {
-                applyAlbumArtThemeTokens(colors.primary);
-              }
+              applyThemeUI(currentThemeSetting);
             }
           } catch (err) {
             console.error('Settings cover color extraction error:', err);
           }
-        } else if (currentAccent === 'auto') {
+        } else {
+          lastProcessedCoverUrl = null;
           lastExtractedAccentColor = null;
-          updateThemeTokens('auto', null);
+          lastCoverIsDark = true;
+          if (currentAccent === 'auto') {
+            updateThemeTokens('auto', null);
+          }
+          applyThemeUI(currentThemeSetting);
         }
       });
     }
@@ -448,12 +506,7 @@ async function loadSettingsIntoUI() {
         }
         if (key === 'extractedAccentColor') {
           lastExtractedAccentColor = value;
-          if (currentAccent === 'auto') {
-            updateThemeTokens('auto', lastExtractedAccentColor);
-          }
-          if (currentThemeSetting === 'auto' && value) {
-            applyAlbumArtThemeTokens(value);
-          }
+          applyThemeUI(currentThemeSetting);
         }
         if (key === 'customColor') {
           lastCustomColor = value;
