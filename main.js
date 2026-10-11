@@ -149,6 +149,8 @@ function createWindow() {
   x = Math.max(wa.x, Math.min(wa.x + wa.width - defaultWidth, x));
   y = Math.max(wa.y, Math.min(wa.y + wa.height - defaultHeight, y));
 
+  const isSetupMode = !settings.hasCompletedSetup || process.argv.some(arg => /--?setup/i.test(arg));
+
   mainWindow = new BrowserWindow({
     x,
     y,
@@ -166,6 +168,7 @@ function createWindow() {
     resizable: false,
     maximizable: false,
     skipTaskbar: false,
+    show: !isSetupMode,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -286,10 +289,6 @@ function updateTray() {
       }
     },
     {
-      label: 'Setup Wizard...',
-      click: () => openSetupWindow()
-    },
-    {
       label: 'Settings & Styling',
       click: () => openSettingsWindow()
     },
@@ -359,6 +358,11 @@ function toggleClickThrough(explicitValue) {
 
 app.whenReady().then(() => {
   createWindow();
+
+  const settings = loadSettings();
+  if (!settings.hasCompletedSetup || process.argv.some(arg => /--?setup/i.test(arg))) {
+    openSetupWindow();
+  }
 
   // Initialize System Tray
   try {
@@ -711,6 +715,10 @@ ipcMain.on('close-setup-wizard', () => {
     setupWindow.close();
     setupWindow = null;
   }
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
 });
 
 ipcMain.on('finish-setup-wizard', (_event, config) => {
@@ -738,9 +746,9 @@ ipcMain.on('finish-setup-wizard', (_event, config) => {
       });
       updateTray();
     }
-    s.hasCompletedSetup = true;
-    saveSettings(s);
   }
+  s.hasCompletedSetup = true;
+  saveSettings(s);
 
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (config && config.mode) {
