@@ -42,6 +42,7 @@ const defaultSettings = {
   autoMinimize: false,
   autoMinimizeDelay: 10,
   autoMinimizeExpand: 'play', // 'play' | 'hover'
+  autoMinimizeRehide: true,
   visualizerStyle: 'spectrum' // 'spectrum' | 'wave' | 'pulse' | 'minimal'
 };
 

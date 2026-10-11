@@ -31,6 +31,8 @@ const state = {
   autoMinimize: false,
   autoMinimizeDelay: 10,
   autoMinimizeExpand: 'play', // 'play' | 'hover'
+  autoMinimizeRehide: true, // re-minimize when cursor leaves after a hover expansion without playback
+  hoverExpandedWhilePaused: false,
   isAutoMinimized: false,
   preAutoMinMode: null,
   visualizerStyle: 'spectrum', // 'spectrum' | 'wave' | 'pulse' | 'minimal'
@@ -161,17 +163,24 @@ const OPTIMISTIC_STATUS_TIMEOUT = 1200;
 let autoMinimizeTimer = null;
 let isMouseOverOverlay = false;
 
+function getAutoMinimizeDelaySeconds() {
+  const n = Number(state.autoMinimizeDelay);
+  return Number.isFinite(n) && n >= 0 ? n : 10;
+}
+
 function startAutoMinimizeTimer() {
   cancelAutoMinimizeTimer();
   if (!state.autoMinimize) return;
   if (state.mode === 'minimized' || state.isAutoMinimized || isMouseOverOverlay) return;
   const isPlaying = (state.hasMedia && state.status === 'Playing');
   if (isPlaying) return;
+  // Window was expanded by hovering while still paused: only re-minimize if the user allows it
+  if (state.hoverExpandedWhilePaused && !state.autoMinimizeRehide) return;
 
-  const delaySeconds = Math.max(2, (Number(state.autoMinimizeDelay) || 10));
+  const delayMs = getAutoMinimizeDelaySeconds() * 1000;
   autoMinimizeTimer = setTimeout(() => {
     triggerAutoMinimize();
-  }, delaySeconds * 1000);
+  }, delayMs);
 }
 
 function cancelAutoMinimizeTimer() {
@@ -199,10 +208,12 @@ function triggerAutoMinimize() {
   applyAutoMinimizeExpandUI();
 }
 
-function restoreFromAutoMinimize() {
+function restoreFromAutoMinimize(viaHover = false) {
   cancelAutoMinimizeTimer();
   if (!state.isAutoMinimized) return;
   const targetMode = state.preAutoMinMode || 'card';
+  const isPlaying = (state.hasMedia && state.status === 'Playing');
+  state.hoverExpandedWhilePaused = Boolean(viaHover && !isPlaying);
   state.isAutoMinimized = false;
   state.preAutoMinMode = null;
   applyAutoMinimizeExpandUI();
@@ -254,6 +265,9 @@ async function init() {
         }
         if (saved.autoMinimizeExpand) {
           state.autoMinimizeExpand = saved.autoMinimizeExpand === 'hover' ? 'hover' : 'play';
+        }
+        if (typeof saved.autoMinimizeRehide === 'boolean') {
+          state.autoMinimizeRehide = saved.autoMinimizeRehide;
         }
         if (saved.visualizerStyle) {
           state.visualizerStyle = saved.visualizerStyle;
@@ -325,10 +339,14 @@ async function init() {
           }
         }
         if (key === 'autoMinimizeDelay') {
-          state.autoMinimizeDelay = Number(value) || 10;
+          const n = Number(value);
+          state.autoMinimizeDelay = Number.isFinite(n) && n >= 0 ? n : 10;
           if (state.autoMinimize && !state.isAutoMinimized) {
             startAutoMinimizeTimer();
           }
+        }
+        if (key === 'autoMinimizeRehide') {
+          state.autoMinimizeRehide = Boolean(value);
         }
         if (key === 'autoMinimizeExpand') {
           state.autoMinimizeExpand = value === 'hover' ? 'hover' : 'play';
@@ -391,7 +409,8 @@ function persistSettings() {
       alwaysOnTop: state.isPinned,
       autoMinimize: state.autoMinimize,
       autoMinimizeDelay: state.autoMinimizeDelay,
-      autoMinimizeExpand: state.autoMinimizeExpand
+      autoMinimizeExpand: state.autoMinimizeExpand,
+      autoMinimizeRehide: state.autoMinimizeRehide
     });
   }
 }
@@ -713,8 +732,10 @@ function setupEventListeners() {
       isMouseOverOverlay = true;
       cancelAutoMinimizeTimer();
       if (state.isAutoMinimized) {
-        if (state.mode !== 'minimized' || state.autoMinimizeExpand === 'hover') {
+        if (state.mode !== 'minimized') {
           restoreFromAutoMinimize();
+        } else if (state.autoMinimizeExpand === 'hover') {
+          restoreFromAutoMinimize(true);
         }
       }
     });
@@ -722,8 +743,10 @@ function setupEventListeners() {
     overlayContainer.addEventListener('mousemove', () => {
       isMouseOverOverlay = true;
       if (state.isAutoMinimized) {
-        if (state.mode !== 'minimized' || state.autoMinimizeExpand === 'hover') {
+        if (state.mode !== 'minimized') {
           restoreFromAutoMinimize();
+        } else if (state.autoMinimizeExpand === 'hover') {
+          restoreFromAutoMinimize(true);
         }
       }
     });
@@ -892,7 +915,7 @@ function setupEventListeners() {
     artContainer.addEventListener('click', (e) => {
       if (state.mode === 'minimized') {
         if (state.isAutoMinimized && state.autoMinimizeExpand === 'hover') {
-          restoreFromAutoMinimize();
+          restoreFromAutoMinimize(true);
         } else {
           handleMinimizedPlay(e);
         }
@@ -900,7 +923,7 @@ function setupEventListeners() {
     });
     artContainer.addEventListener('mouseenter', () => {
       if (state.mode === 'minimized' && state.isAutoMinimized && state.autoMinimizeExpand === 'hover') {
-        restoreFromAutoMinimize();
+        restoreFromAutoMinimize(true);
       }
     });
   }
@@ -1655,6 +1678,7 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
 
   if (!isInternalAutoAction) {
     state.committedMode = mode;
+    state.hoverExpandedWhilePaused = false;
     if (state.isAutoMinimized) {
       state.isAutoMinimized = false;
       state.preAutoMinMode = null;
@@ -2218,6 +2242,7 @@ function handleMediaUpdate(data) {
     iconMiniPause.classList.toggle('hidden', !isPlaying);
   }
   playingIndicator.classList.toggle('active', isPlaying);
+  if (isPlaying) state.hoverExpandedWhilePaused = false;
 
   // Auto-minimize handling based on playback status
   if (isPlaying) {

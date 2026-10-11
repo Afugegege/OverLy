@@ -1133,9 +1133,12 @@ body.mode-collapsed .pill-lyric-container {
 
 body.mode-pill .overlay-container:hover .pill-lyric-container,
 body.mode-collapsed .overlay-container:hover .pill-lyric-container,
+body.mode-pill .overlay-container.is-hovered .pill-lyric-container,
+body.mode-collapsed .overlay-container.is-hovered .pill-lyric-container,
 body.mode-pill.no-lyrics-collapsed .overlay-container:hover .pill-lyric-container,
 body.mode-collapsed.no-lyrics-collapsed .overlay-container:hover .pill-lyric-container {
-  padding-right: 118px !important;
+  /* Reserve space for the hover controls: prev(28) + play(32) + next(28) + more(28) + 3 gaps(18) = 134px, plus 14px breathing room */
+  padding-right: 148px !important;
 }
 
 /* ==========================================================================

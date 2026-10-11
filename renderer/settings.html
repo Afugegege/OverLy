@@ -461,6 +461,8 @@
             </div>
             <div class="custom-select-wrapper">
               <select id="selectAutoMinimizeDelay" class="custom-select">
+                <option value="0">Instantly on mouse leave</option>
+                <option value="1">1 second</option>
                 <option value="3">3 seconds (Fast)</option>
                 <option value="5">5 seconds</option>
                 <option value="10">10 seconds (Default)</option>
@@ -496,6 +498,18 @@
                 <span>Hover to Expand</span>
               </button>
             </div>
+          </div>
+
+          <!-- Re-minimize after hover expansion without playback -->
+          <div class="delay-row" id="autoMinimizeRehideRow" style="display: none;">
+            <div class="delay-info">
+              <label for="checkAutoMinimizeRehide" class="delay-label">Re-minimize on Hover Out</label>
+              <p class="section-hint">If expanded by hovering and still paused, shrink again when the cursor leaves</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="checkAutoMinimizeRehide" checked>
+              <span class="toggle-slider"></span>
+            </label>
           </div>
         </div>
       </section>

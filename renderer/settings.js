@@ -25,6 +25,36 @@ let lastExtractedAccentColor = null;
 let currentThemeSetting = 'system';
 let currentOffset = 0.0;
 let committedMode = 'card';
+let autoMinimizeEnabled = false;
+let autoMinimizeExpandMethod = 'play';
+
+// Show/hide the auto-minimize sub-option rows based on current state
+function syncAutoMinimizeRows() {
+  const show = (id, visible) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visible ? 'flex' : 'none';
+  };
+  show('autoMinimizeDelayRow', autoMinimizeEnabled);
+  show('autoMinimizeExpandRow', autoMinimizeEnabled);
+  show('autoMinimizeRehideRow', autoMinimizeEnabled && autoMinimizeExpandMethod === 'hover');
+}
+
+function updateActiveAutoMinimizeExpand(method) {
+  autoMinimizeExpandMethod = (method === 'hover' ? 'hover' : 'play');
+  document.querySelectorAll('#autoMinimizeExpandSwitch .segment-btn').forEach((btn) => {
+    const active = btn.dataset.expand === autoMinimizeExpandMethod;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', active ? 'true' : 'false');
+  });
+  syncAutoMinimizeRows();
+}
+
+function setAutoMinimizeEnabledUI(enabled) {
+  autoMinimizeEnabled = Boolean(enabled);
+  const check = document.getElementById('checkAutoMinimize');
+  if (check) check.checked = autoMinimizeEnabled;
+  syncAutoMinimizeRows();
+}
 
 function updateActiveVisStyle(activeStyle) {
   if (!activeStyle) return;
@@ -300,6 +330,17 @@ function updateAllSliderProgress() {
 }
 
 async function initSettings() {
+  try {
+    await loadSettingsIntoUI();
+  } catch (err) {
+    console.error('Settings init error:', err);
+  } finally {
+    try { updateAllSliderProgress(); } catch (e) { console.error(e); }
+    setupEventListeners();
+  }
+}
+
+async function loadSettingsIntoUI() {
   if (window.overlyAPI) {
     const saved = await window.overlyAPI.getSettings();
     if (saved) {
@@ -343,21 +384,14 @@ async function initSettings() {
         applyThemeUI(saved.theme);
       }
       if (typeof saved.autoMinimize === 'boolean') {
-        const checkAutoMinimize = document.getElementById('checkAutoMinimize');
-        const autoMinimizeDelayRow = document.getElementById('autoMinimizeDelayRow');
-        const autoMinimizeExpandRow = document.getElementById('autoMinimizeExpandRow');
-        if (checkAutoMinimize) {
-          checkAutoMinimize.checked = saved.autoMinimize;
-          if (autoMinimizeDelayRow) {
-            autoMinimizeDelayRow.style.display = saved.autoMinimize ? 'flex' : 'none';
-          }
-          if (autoMinimizeExpandRow) {
-            autoMinimizeExpandRow.style.display = saved.autoMinimize ? 'flex' : 'none';
-          }
-        }
+        setAutoMinimizeEnabledUI(saved.autoMinimize);
       }
       if (saved.autoMinimizeExpand) {
         updateActiveAutoMinimizeExpand(saved.autoMinimizeExpand);
+      }
+      if (typeof saved.autoMinimizeRehide === 'boolean') {
+        const checkRehide = document.getElementById('checkAutoMinimizeRehide');
+        if (checkRehide) checkRehide.checked = saved.autoMinimizeRehide;
       }
       if (typeof saved.autoMinimizeDelay === 'number') {
         const selectAutoMinimizeDelay = document.getElementById('selectAutoMinimizeDelay');
@@ -434,18 +468,11 @@ async function initSettings() {
           updateThemeTokens(value, lastExtractedAccentColor);
         }
         if (key === 'autoMinimize') {
-          const checkAutoMinimize = document.getElementById('checkAutoMinimize');
-          const autoMinimizeDelayRow = document.getElementById('autoMinimizeDelayRow');
-          const autoMinimizeExpandRow = document.getElementById('autoMinimizeExpandRow');
-          if (checkAutoMinimize) {
-            checkAutoMinimize.checked = Boolean(value);
-            if (autoMinimizeDelayRow) {
-              autoMinimizeDelayRow.style.display = Boolean(value) ? 'flex' : 'none';
-            }
-            if (autoMinimizeExpandRow) {
-              autoMinimizeExpandRow.style.display = Boolean(value) ? 'flex' : 'none';
-            }
-          }
+          setAutoMinimizeEnabledUI(value);
+        }
+        if (key === 'autoMinimizeRehide') {
+          const checkRehide = document.getElementById('checkAutoMinimizeRehide');
+          if (checkRehide) checkRehide.checked = Boolean(value);
         }
         if (key === 'autoMinimizeDelay') {
           const selectAutoMinimizeDelay = document.getElementById('selectAutoMinimizeDelay');
@@ -485,9 +512,6 @@ async function initSettings() {
       }
     });
   }
-
-  updateAllSliderProgress();
-  setupEventListeners();
 }
 
 function setupEventListeners() {
@@ -530,31 +554,15 @@ function setupEventListeners() {
     });
   }
 
-  // Auto minimize checkbox, delay selector & expand trigger switch
+  // Auto minimize checkbox, delay selector, expand trigger switch & re-minimize toggle
   const checkAutoMinimize = document.getElementById('checkAutoMinimize');
-  const autoMinimizeDelayRow = document.getElementById('autoMinimizeDelayRow');
-  const autoMinimizeExpandRow = document.getElementById('autoMinimizeExpandRow');
   const selectAutoMinimizeDelay = document.getElementById('selectAutoMinimizeDelay');
-
-  function updateActiveAutoMinimizeExpand(method) {
-    const val = (method === 'hover' ? 'hover' : 'play');
-    const btns = document.querySelectorAll('#autoMinimizeExpandSwitch .segment-btn');
-    btns.forEach((btn) => {
-      const active = btn.dataset.expand === val;
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-checked', active ? 'true' : 'false');
-    });
-  }
+  const checkAutoMinimizeRehide = document.getElementById('checkAutoMinimizeRehide');
 
   if (checkAutoMinimize) {
     checkAutoMinimize.addEventListener('change', (e) => {
       const isChecked = e.target.checked;
-      if (autoMinimizeDelayRow) {
-        autoMinimizeDelayRow.style.display = isChecked ? 'flex' : 'none';
-      }
-      if (autoMinimizeExpandRow) {
-        autoMinimizeExpandRow.style.display = isChecked ? 'flex' : 'none';
-      }
+      setAutoMinimizeEnabledUI(isChecked);
       if (window.overlyAPI?.updateSetting) {
         window.overlyAPI.updateSetting('autoMinimize', isChecked);
       }
@@ -563,9 +571,18 @@ function setupEventListeners() {
 
   if (selectAutoMinimizeDelay) {
     selectAutoMinimizeDelay.addEventListener('change', (e) => {
-      const delay = parseInt(e.target.value, 10) || 10;
+      const parsed = parseInt(e.target.value, 10);
+      const delay = Number.isFinite(parsed) && parsed >= 0 ? parsed : 10;
       if (window.overlyAPI?.updateSetting) {
         window.overlyAPI.updateSetting('autoMinimizeDelay', delay);
+      }
+    });
+  }
+
+  if (checkAutoMinimizeRehide) {
+    checkAutoMinimizeRehide.addEventListener('change', (e) => {
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('autoMinimizeRehide', e.target.checked);
       }
     });
   }
