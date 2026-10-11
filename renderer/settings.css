@@ -30,7 +30,7 @@
   --radius-pill: 9999px;
 }
 
-body.theme-light {
+body.theme-light:not(.theme-album-auto) {
   --bg-window: #f5f7fb;
   --bg-titlebar: rgba(245, 247, 251, 0.90);
   --bg-card: #ffffff;
@@ -119,27 +119,57 @@ body {
 
 .title-text {
   font-size: 13.5px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: none;
   color: var(--text-primary);
+  line-height: 1;
 }
 
-.settings-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  letter-spacing: 0.02em;
+/* Long Slim Titlebar Audio Visualizer */
+.titlebar-visualizer-container {
+  -webkit-app-region: no-drag;
+  flex: 1;
+  max-width: 240px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  margin: 0 10px;
+  box-shadow: none;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.titlebar-vis-bars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3.5px;
+  width: 100%;
+  height: 18px;
+}
+
+.titlebar-vis-bar {
+  width: 3.2px;
+  height: 18px;
+  border-radius: 9999px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow-subtle);
+  transform: scaleY(0.2);
+  transform-origin: center center;
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+  flex-shrink: 0;
 }
 
 .btn-close-window {
   -webkit-app-region: no-drag;
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   width: 28px;
   height: 28px;
   border-radius: 8px;
@@ -1430,6 +1460,26 @@ body.theme-light kbd {
   background: currentColor;
   border-radius: 999px;
   transition: height 0.2s ease;
+}
+
+.vis-prev-spectrum {
+  gap: 3px;
+}
+.vis-prev-wave {
+  gap: 2.5px;
+}
+.vis-prev-pulse {
+  gap: 3.5px;
+}
+.vis-prev-pulse span:nth-child(3) {
+  box-shadow: 0 0 6px var(--accent, #FF3040);
+}
+.vis-prev-minimal {
+  gap: 5.5px;
+}
+.vis-prev-minimal span {
+  width: 3px;
+  opacity: 0.82;
 }
 
 .vis-style-card.active .vis-preview-bars span {

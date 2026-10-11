@@ -33,7 +33,18 @@
   --card-radius: 24px;
 }
 
-body.theme-light {
+body.theme-dark:not(.theme-album-tinted) {
+  --bg-glass: rgba(14, 16, 24, var(--glass-opacity));
+  --bg-glass-card: rgba(255, 255, 255, 0.08);
+  --border-glass: rgba(255, 255, 255, 0.12);
+  --border-focus: rgba(255, 255, 255, 0.3);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-muted: rgba(255, 255, 255, 0.35);
+  --shadow-overlay: none;
+}
+
+body.theme-light:not(.theme-album-tinted) {
   --bg-glass: rgba(248, 250, 254, var(--glass-opacity));
   --bg-glass-card: rgba(0, 0, 0, 0.05);
   --border-glass: rgba(0, 0, 0, 0.10);
@@ -42,6 +53,66 @@ body.theme-light {
   --text-secondary: rgba(18, 20, 26, 0.70);
   --text-muted: rgba(18, 20, 26, 0.42);
   --shadow-overlay: 0 16px 40px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Untinted Mode: Disable all album art background tinting & auras across every layout and lyrics window */
+body:not(.theme-album-tinted) #ambientAura,
+body:not(.theme-album-tinted) .ambient-aura {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+body:not(.theme-album-tinted) .immersive-bg-art,
+body:not(.theme-album-tinted) .immersive-bg-glow1,
+body:not(.theme-album-tinted) .immersive-bg-glow2 {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+body:not(.theme-album-tinted) .immersive-view {
+  background: #08090d !important;
+}
+
+body.theme-light:not(.theme-album-tinted) .immersive-view {
+  background: #f8fafc !important;
+  color: #11131a !important;
+}
+
+/* Unfetched / Startup Theme: Dull Neutral Grey, Black & White Palette */
+body.is-unfetched {
+  --bg-glass: rgba(18, 19, 23, 0.94) !important;
+  --bg-glass-card: rgba(255, 255, 255, 0.04) !important;
+  --border-glass: rgba(255, 255, 255, 0.08) !important;
+  --border-focus: rgba(255, 255, 255, 0.20) !important;
+  --text-primary: #f4f4f5 !important;
+  --text-secondary: #9ca3af !important;
+  --text-muted: #71717a !important;
+  --accent: #71717a !important;
+  --accent-contrast: #ffffff !important;
+  --accent-play-bg: #71717a !important;
+  --accent-glow: transparent !important;
+  --accent-glow-subtle: transparent !important;
+  --aura-color1: transparent !important;
+  --aura-color2: transparent !important;
+}
+
+body.is-unfetched.theme-light {
+  --bg-glass: rgba(243, 244, 246, 0.96) !important;
+  --bg-glass-card: rgba(0, 0, 0, 0.03) !important;
+  --border-glass: rgba(0, 0, 0, 0.08) !important;
+  --border-focus: rgba(0, 0, 0, 0.18) !important;
+  --text-primary: #18181b !important;
+  --text-secondary: #6b7280 !important;
+  --text-muted: #9ca3af !important;
+  --accent: #6b7280 !important;
+  --accent-contrast: #ffffff !important;
+  --accent-play-bg: #6b7280 !important;
+  --accent-glow: transparent !important;
+  --accent-glow-subtle: transparent !important;
+  --aura-color1: transparent !important;
+  --aura-color2: transparent !important;
 }
 
 * {
@@ -384,11 +455,21 @@ body.is-dragging .top-bar {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, rgba(15, 17, 23, 0.85) 80%);
+  border-radius: inherit;
+  transition: all 0.3s ease;
 }
 
 .album-placeholder svg {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+  transition: color 0.3s ease;
+}
+
+body.fetching-lyrics .album-placeholder svg {
+  animation: vinylGentlePulse 2.5s ease-in-out infinite alternate;
+  color: var(--accent);
 }
 
 /* Playing status dot */
@@ -1228,6 +1309,95 @@ body.mode-collapsed .media-controls .media-btn {
   flex-shrink: 0;
 }
 
+/* ==========================================================================
+   Pill / Collapsed Mode: Hover Album Icon to Reveal Song Title & Hide Others
+   ========================================================================== */
+body.mode-pill .art-container,
+body.mode-collapsed .art-container {
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.mode-pill .art-container:hover,
+body.mode-collapsed .art-container:hover {
+  transform: scale(1.06);
+}
+
+.pill-hover-title {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 0 6px;
+  pointer-events: none;
+}
+
+.pill-hover-title-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+  text-align: center;
+  width: 100%;
+  display: block;
+  animation: pillTitleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pillTitleFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* When album icon is hovered in pill/collapsed mode: hide media controls, visualizer, lyric wrap, and show title */
+body.mode-pill .overlay-container:has(.art-container:hover) .media-controls,
+body.mode-collapsed .overlay-container:has(.art-container:hover) .media-controls,
+body.mode-pill.pill-art-hovered .media-controls,
+body.mode-collapsed.pill-art-hovered .media-controls {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  display: none !important;
+}
+
+body.mode-pill .overlay-container:has(.art-container:hover) .pill-lyric-container,
+body.mode-collapsed .overlay-container:has(.art-container:hover) .pill-lyric-container,
+body.mode-pill.pill-art-hovered .pill-lyric-container,
+body.mode-collapsed.pill-art-hovered .pill-lyric-container {
+  padding-right: 8px !important;
+}
+
+body.mode-pill .overlay-container:has(.art-container:hover) #pillLyricWrap,
+body.mode-collapsed .overlay-container:has(.art-container:hover) #pillLyricWrap,
+body.mode-pill.pill-art-hovered #pillLyricWrap,
+body.mode-collapsed.pill-art-hovered #pillLyricWrap,
+body.mode-pill .overlay-container:has(.art-container:hover) #pillVisualizer,
+body.mode-collapsed .overlay-container:has(.art-container:hover) #pillVisualizer,
+body.mode-pill.pill-art-hovered #pillVisualizer,
+body.mode-collapsed.pill-art-hovered #pillVisualizer {
+  display: none !important;
+}
+
+body.mode-pill .overlay-container:has(.art-container:hover) #pillHoverTitle,
+body.mode-collapsed .overlay-container:has(.art-container:hover) #pillHoverTitle,
+body.mode-pill.pill-art-hovered #pillHoverTitle,
+body.mode-collapsed.pill-art-hovered #pillHoverTitle {
+  display: flex !important;
+}
+
 /* Mode: Only Show Lyrics (Pure Floating Synced Lyrics View) */
 body.mode-lyrics .overlay-container {
   border-radius: 20px;
@@ -1284,14 +1454,19 @@ body.mode-lyrics .lyrics-list {
 
 /* Mode: Minimized (Round Circle Ball with Album Cover) */
 body.mode-minimized {
-  padding: 0 !important;
+  padding: 0 6px !important;
   margin: 0 !important;
   background: transparent !important;
   background-color: transparent !important;
   box-shadow: none !important;
   border: none !important;
-  justify-content: center !important;
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: flex-start !important;
   align-items: center !important;
+  overflow: hidden !important;
+  width: 100vw !important;
+  height: 100vh !important;
 }
 
 body.mode-minimized .ambient-aura {
@@ -1303,13 +1478,13 @@ body.mode-minimized .lock-toast {
 }
 
 body.mode-minimized .overlay-container {
-  width: 56px !important;
+  width: auto !important;
   height: 56px !important;
   min-width: 56px !important;
   min-height: 56px !important;
-  max-width: 56px !important;
+  max-width: none !important;
   max-height: 56px !important;
-  border-radius: 50% !important;
+  border-radius: 28px !important;
   padding: 0 !important;
   border: none !important;
   background: transparent !important;
@@ -1317,14 +1492,16 @@ body.mode-minimized .overlay-container {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   display: flex !important;
+  flex-direction: row !important;
   align-items: center !important;
-  justify-content: center !important;
-  cursor: grab;
+  justify-content: flex-start !important;
+  cursor: default;
   position: relative !important;
   isolation: isolate;
   transform: translateZ(0);
+  gap: 8px;
 }
 
 /* Distinct Tailored Transitions Between Each Layout */
@@ -1337,7 +1514,8 @@ body[class*="-to-minimized"] .top-bar,
 body[class*="-to-minimized"] .pill-lyric-container,
 body[class*="-to-minimized"] .media-controls,
 body[class*="-to-minimized"] .pill-more-container,
-body[class*="-to-minimized"] .pill-border-progress {
+body[class*="-to-minimized"] .pill-border-progress,
+body[class*="-to-minimized"] .mini-more-container {
   opacity: 0 !important;
   transition: opacity 0.16s ease-out !important;
   pointer-events: none !important;
@@ -1580,7 +1758,26 @@ body.mode-minimized .resize-handle {
   display: none !important;
 }
 
-body.mode-minimized .overlay-main,
+body.mode-minimized .overlay-main {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border-glass) !important;
+  background: transparent !important;
+  border-radius: 50% !important;
+  position: relative !important;
+  overflow: hidden !important;
+  display: block !important;
+  flex-shrink: 0 !important;
+  cursor: grab;
+}
+
 body.mode-minimized .track-header,
 body.mode-minimized .art-container,
 body.mode-minimized .art-wrapper {
@@ -1758,12 +1955,147 @@ body.theme-light.mode-minimized .overlay-container {
   -webkit-backdrop-filter: none !important;
 }
 
+body.theme-light.mode-minimized .overlay-main {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.12) !important;
+}
+
 body.theme-light.mode-minimized .art-wrapper {
   border: 1.5px solid rgba(0, 0, 0, 0.16) !important;
 }
 
 body.theme-light.mode-minimized .minimized-play-overlay {
   background: rgba(255, 255, 255, 0.58) !important;
+}
+
+/* ==========================================================================
+   Minimized View Floating Action Drawer (Pops up directly on window hover)
+   ========================================================================== */
+.mini-more-container {
+  display: none;
+}
+
+body.mode-minimized .mini-more-container {
+  display: flex !important;
+  align-items: center !important;
+  position: relative !important;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.88) translateX(-10px);
+  transform-origin: left center;
+  transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0 !important;
+  z-index: 50 !important;
+  padding: 4px 0;
+}
+
+/* Smoothly pop up the drawer whenever user hovers into the window or drawer area */
+body.mode-minimized .overlay-container:hover .mini-more-container,
+body.mode-minimized .overlay-container.is-hovered .mini-more-container,
+body.mode-minimized .mini-more-container:hover,
+body.mode-minimized .mini-more-container.open,
+body.mode-minimized .overlay-container.mini-more-open .mini-more-container {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: scale(1) translateX(0) !important;
+}
+
+/* Drawer tray */
+.mini-more-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: rgba(22, 26, 38, 0.94) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.28) !important;
+  backdrop-filter: blur(28px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
+  border-radius: 999px !important;
+  padding: 3px 6px !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.65), 0 0 14px rgba(0, 0, 0, 0.35) !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.media-btn.mini-sub-btn {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.media-btn.mini-sub-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+  color: #ffffff !important;
+}
+
+.media-btn.mini-sub-btn:hover {
+  background: rgba(255, 255, 255, 0.24) !important;
+  border-color: rgba(255, 255, 255, 0.40) !important;
+  color: #ffffff !important;
+  transform: scale(1.12) !important;
+}
+
+.media-btn.mini-sub-btn.active {
+  background: var(--accent) !important;
+  border-color: var(--accent-light, var(--accent)) !important;
+  color: #ffffff !important;
+}
+
+.media-btn.mini-sub-btn.close-btn:hover {
+  background: rgba(239, 68, 68, 0.7) !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+/* Light Theme Styling for Minimized Drawer */
+body.theme-light .mini-more-actions {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(0, 0, 0, 0.16) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14) !important;
+}
+
+body.theme-light .media-btn.mini-sub-btn {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  color: #12141a !important;
+}
+
+body.theme-light .media-btn.mini-sub-btn svg {
+  color: #12141a !important;
+}
+
+body.theme-light .media-btn.mini-sub-btn:hover {
+  background: rgba(0, 0, 0, 0.12) !important;
+  border-color: rgba(0, 0, 0, 0.22) !important;
+  color: #000000 !important;
+}
+
+body.theme-light .media-btn.mini-sub-btn {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  color: #12141a !important;
+}
+
+body.theme-light .media-btn.mini-sub-btn svg {
+  color: #12141a !important;
+}
+
+body.theme-light .media-btn.mini-sub-btn:hover {
+  background: rgba(0, 0, 0, 0.12) !important;
+  border-color: rgba(0, 0, 0, 0.22) !important;
+  color: #000000 !important;
 }
 
 /* Mode: Normal / Card */
@@ -2244,7 +2576,7 @@ body.mode-lyrics.no-lyrics-collapsed .lyrics-scroll-area {
    ========================================================================== */
 body.theme-light .overlay-container {
   box-shadow: var(--shadow-overlay);
-  border-color: rgba(0, 0, 0, 0.12);
+  border-color: var(--border-glass, rgba(0, 0, 0, 0.12));
 }
 
 body.theme-light .brand-pill {
@@ -2547,7 +2879,7 @@ body.mode-expanded .instrumental-visualizer-container .vis-footer-bar {
   border-radius: 9999px;
   background: linear-gradient(180deg, var(--vis-bar-highlight, #ffffff) 0%, var(--vis-bar-color, var(--accent)) 45%, var(--vis-bar-color, var(--accent)) 100%);
   box-shadow: 0 0 8px var(--vis-bar-glow, var(--accent-glow));
-  transition: height 0.05s linear, opacity 0.2s ease, background-color 0.25s ease;
+  transition: opacity 0.2s ease, background-color 0.25s ease;
   flex-shrink: 0;
   display: block;
   transform-origin: center center;
@@ -2555,40 +2887,47 @@ body.mode-expanded .instrumental-visualizer-container .vis-footer-bar {
 
 /* Visualizer Style Variations */
 /* 1. Spectrum */
+.vis-bars-stage.vis-style-spectrum {
+  gap: 3.5px;
+}
 .vis-bars-stage.vis-style-spectrum .vis-bar {
   width: 3.5px;
   border-radius: 9999px;
+  background: linear-gradient(180deg, var(--vis-bar-highlight, #ffffff) 0%, var(--vis-bar-color, var(--accent)) 45%, var(--vis-bar-color, var(--accent)) 100%);
+  box-shadow: 0 0 8px var(--vis-bar-glow, var(--accent-glow));
 }
 
 /* 2. Wave */
 .vis-bars-stage.vis-style-wave {
-  gap: 3.5px;
+  gap: 2.5px;
 }
 .vis-bars-stage.vis-style-wave .vis-bar {
-  width: 4px;
+  width: 3.5px;
   border-radius: 9999px;
-  background: linear-gradient(180deg, var(--vis-bar-color, var(--accent)) 0%, var(--vis-bar-highlight, #ffffff) 100%);
+  background: linear-gradient(180deg, var(--vis-bar-highlight, #ffffff) 0%, var(--vis-bar-color, var(--accent)) 55%, var(--vis-bar-color, var(--accent)) 100%);
+  box-shadow: 0 0 8px var(--vis-bar-glow, var(--accent-glow));
 }
 
 /* 3. Pulse */
 .vis-bars-stage.vis-style-pulse {
-  gap: 4px;
+  gap: 3.5px;
 }
 .vis-bars-stage.vis-style-pulse .vis-bar {
   width: 3.5px;
   border-radius: 9999px;
-}
-.vis-bars-stage.vis-style-pulse .vis-bar:nth-child(n+10):nth-child(-n+13) {
-  box-shadow: 0 0 14px var(--vis-bar-glow, var(--accent-glow)), 0 0 6px var(--vis-bar-color, var(--accent));
+  background: linear-gradient(180deg, var(--vis-bar-highlight, #ffffff) 0%, var(--vis-bar-color, var(--accent)) 45%, var(--vis-bar-color, var(--accent)) 100%);
+  box-shadow: 0 0 5px var(--vis-bar-glow, var(--accent-glow));
 }
 
-/* 4. Minimal */
+/* 4. Minimal - Clean, elegant, spaced capsule level meter (NOT a wave) */
 .vis-bars-stage.vis-style-minimal {
-  gap: 5px;
+  gap: 6px;
 }
 .vis-bars-stage.vis-style-minimal .vis-bar {
-  width: 2.5px;
-  opacity: 0.95;
+  width: 3px;
+  border-radius: 9999px;
+  background: var(--vis-bar-color, var(--accent));
+  opacity: 0.85;
   box-shadow: 0 0 4px var(--vis-bar-glow, var(--accent-glow));
 }
 
@@ -2940,12 +3279,35 @@ body.mode-immersive #resizeHandle {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 2.2px;
-  color: var(--accent);
-  background: rgba(255, 255, 255, 0.08);
-  padding: 5px 12px;
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 5px 14px;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  text-shadow: 0 0 10px var(--accent-glow);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 16px var(--accent-glow-subtle, rgba(255, 255, 255, 0.15));
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  user-select: none;
+}
+
+body.theme-light .immersive-badge {
+  color: #11141a !important;
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.14);
+  text-shadow: none;
+}
+
+body.theme-light .immersive-btn {
+  color: rgba(17, 20, 26, 0.82);
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+body.theme-light .immersive-btn:hover {
+  background: rgba(0, 0, 0, 0.12);
+  color: #11141a;
+  border-color: rgba(0, 0, 0, 0.24);
 }
 
 .immersive-top-actions {
@@ -3051,22 +3413,98 @@ body.mode-immersive #resizeHandle {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.immersive-art.visible {
   display: block;
+  opacity: 1;
 }
 
 .immersive-art-placeholder {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.3);
+  gap: 16px;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.07) 0%, rgba(14, 16, 22, 0.96) 74%), linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.5) 100%);
+  color: rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.7);
+  user-select: none;
 }
 
-.immersive-art-placeholder svg {
-  width: 68px;
-  height: 68px;
+.immersive-art-placeholder.hidden {
+  display: none !important;
+}
+
+.vinyl-disc-graphic {
+  position: relative;
+  width: clamp(140px, 14vw, 200px);
+  height: clamp(140px, 14vw, 200px);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    #101114 0%, #101114 26%,
+    #2a2c36 27%, #14151a 31%,
+    #2d2f3c 45%, #15161c 49%,
+    #303240 63%, #17181e 67%,
+    #2b2d38 81%, #121318 100%);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 0 20px rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: vinylGentlePulse 4s ease-in-out infinite alternate;
+}
+
+body.fetching-lyrics .vinyl-disc-graphic {
+  animation: vinylSlowSpin 14s linear infinite, vinylGentlePulse 3s ease-in-out infinite alternate;
+}
+
+.vinyl-center-label {
+  width: 34%;
+  height: 34%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent, #FF3040) 0%, rgba(18, 19, 24, 0.95) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 14px var(--accent-glow-subtle, rgba(255, 48, 64, 0.35));
+}
+
+.vinyl-spindle-hole {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #08090c;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.placeholder-status-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+  padding: 4px 14px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+@keyframes vinylGentlePulse {
+  0% { transform: scale(0.98); opacity: 0.9; }
+  100% { transform: scale(1.02); opacity: 1; }
+}
+
+@keyframes vinylSlowSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .immersive-meta {
@@ -3507,16 +3945,270 @@ body.immersive-idle {
 }
 
 body.immersive-idle .immersive-top-bar {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-14px);
+  opacity: 0.42;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.immersive-top-bar:hover,
+body.immersive-idle .immersive-top-bar:hover {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
 }
 
 body.immersive-idle .immersive-controls,
 body.immersive-idle .immersive-timeline-wrap {
+  opacity: 0.22;
+  transition: opacity 0.4s ease;
+}
+
+.immersive-controls:hover,
+.immersive-timeline-wrap:hover,
+body.immersive-idle .immersive-controls:hover,
+body.immersive-idle .immersive-timeline-wrap:hover {
+  opacity: 1 !important;
+  pointer-events: auto;
+}
+
+/* ==========================================================================
+   Unfetched / Startup State: Hide Unfetched Elements & Display Minimal "Searching ..."
+   ========================================================================== */
+body.is-unfetched .overlay-container {
+  background: var(--bg-glass) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.is-unfetched.theme-light .overlay-container {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+}
+
+body.is-unfetched #ambientAura,
+body.is-unfetched .ambient-aura {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Hide all elements that need to be fetched */
+body.is-unfetched .track-header,
+body.is-unfetched .art-container,
+body.is-unfetched .meta-container,
+body.is-unfetched .media-controls,
+body.is-unfetched .progress-container,
+body.is-unfetched .lyrics-scroll-area,
+body.is-unfetched .pill-border-progress,
+body.is-unfetched #pillLyricContainer,
+body.is-unfetched #pillHoverTitle,
+body.is-unfetched #pillVisualizer,
+body.is-unfetched .playing-indicator,
+body.is-unfetched .minimized-play-overlay,
+body.is-unfetched .instrumental-visualizer-container {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Dull header window action icons */
+body.is-unfetched .brand-pill {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #a1a1aa !important;
+  box-shadow: none !important;
+}
+
+body.is-unfetched.theme-light .brand-pill {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #71717a !important;
+  box-shadow: none !important;
+}
+
+body.is-unfetched .icon-btn {
+  color: var(--text-secondary) !important;
+}
+
+body.is-unfetched .icon-btn:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-glass-card) !important;
+}
+
+body.is-unfetched .icon-btn.active {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.20) !important;
+  box-shadow: none !important;
+}
+
+body.is-unfetched.theme-light .icon-btn.active {
+  background: rgba(0, 0, 0, 0.10) !important;
+  color: #18181b !important;
+  border-color: rgba(0, 0, 0, 0.16) !important;
+  box-shadow: none !important;
+}
+
+/* Card / Expanded layout adjustments when unfetched */
+body:not(.mode-pill):not(.mode-collapsed):not(.mode-minimized).is-unfetched .overlay-main {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 130px !important;
+  padding: 16px 20px !important;
+}
+
+/* Pill layout adjustments when unfetched */
+body.mode-pill.is-unfetched .overlay-main,
+body.mode-collapsed.is-unfetched .overlay-main {
+  height: 100% !important;
+  padding: 0 14px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 0 !important;
+}
+
+body.mode-pill.is-unfetched .overlay-container:hover,
+body.mode-collapsed.is-unfetched .overlay-container:hover,
+body.mode-pill.is-unfetched .overlay-container.is-hovered,
+body.mode-collapsed.is-unfetched .overlay-container.is-hovered {
+  padding-right: 10px !important;
+}
+
+/* Minimized 56px mode adjustments when unfetched */
+body.mode-minimized.is-unfetched .overlay-main {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+body.mode-minimized.is-unfetched .searching-label {
+  display: none !important;
+}
+
+body.mode-minimized.is-unfetched .searching-dots {
+  display: inline-flex !important;
+  height: 16px;
+  align-items: center;
+}
+
+/* Searching Stage & Visualizer Wave Dots */
+.unfetched-stage {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
   opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+body.is-unfetched .unfetched-stage {
+  display: flex !important;
+  opacity: 1;
+}
+
+.searching-wrapper {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  user-select: none;
   pointer-events: none;
 }
 
+.searching-label {
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  line-height: 1;
+}
 
+.searching-dots {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 14px;
+  padding-bottom: 1.5px;
+}
 
+.searching-dot {
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  min-height: 3px;
+  border-radius: 99px;
+  background-color: var(--text-secondary);
+  will-change: height, opacity;
+}
+
+.searching-dot:nth-child(1) {
+  animation: searchingWave1 1.25s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+}
+
+.searching-dot:nth-child(2) {
+  animation: searchingWave2 1.25s cubic-bezier(0.42, 0, 0.58, 1) infinite 0.16s;
+}
+
+.searching-dot:nth-child(3) {
+  animation: searchingWave3 1.25s cubic-bezier(0.42, 0, 0.58, 1) infinite 0.32s;
+}
+
+@keyframes searchingWave1 {
+  0%, 100% {
+    height: 3px;
+    opacity: 0.45;
+  }
+  30% {
+    height: 10px;
+    opacity: 0.95;
+  }
+  65% {
+    height: 4.5px;
+    opacity: 0.6;
+  }
+}
+
+@keyframes searchingWave2 {
+  0%, 100% {
+    height: 3.5px;
+    opacity: 0.5;
+  }
+  35% {
+    height: 14px;
+    opacity: 1;
+  }
+  70% {
+    height: 5px;
+    opacity: 0.65;
+  }
+}
+
+@keyframes searchingWave3 {
+  0%, 100% {
+    height: 3px;
+    opacity: 0.45;
+  }
+  25% {
+    height: 5px;
+    opacity: 0.6;
+  }
+  50% {
+    height: 11px;
+    opacity: 0.95;
+  }
+  80% {
+    height: 4px;
+    opacity: 0.55;
+  }
+}

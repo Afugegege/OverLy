@@ -21,7 +21,8 @@ const state = {
   lastNonCardMode: 'collapsed',
   theme: 'system', // 'system' | 'dark' | 'light'
   effectiveTheme: (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark',
-  accentColor: '#FF3040',
+  accentColor: 'auto',
+  adaptAlbumColor: true,
   opacity: 0.85,
   fontSize: 18,
   offset: 0.0,
@@ -73,6 +74,14 @@ const btnSettingsToggle = document.getElementById('btnSettingsToggle');
 const btnMinimize = document.getElementById('btnMinimize');
 const btnClose = document.getElementById('btnClose');
 const lockToast = document.getElementById('lockToast');
+
+// Minimized View Floating More Menu Drawer
+const miniMoreContainer = document.getElementById('miniMoreContainer');
+const miniMoreActions = document.getElementById('miniMoreActions');
+const btnMiniExpand = document.getElementById('btnMiniExpand');
+const btnMiniPin = document.getElementById('btnMiniPin');
+const btnMiniSettings = document.getElementById('btnMiniSettings');
+const btnMiniClose = document.getElementById('btnMiniClose');
 
 // Track Metadata
 const albumArt = document.getElementById('albumArt');
@@ -277,6 +286,9 @@ const resizeHandle = document.getElementById('resizeHandle');
 // ==========================================================================
 
 async function init() {
+  // Start in dull monochrome unfetched state until media metadata is received
+  document.body.classList.add('is-unfetched');
+
   // Always register UI event listeners (close, minimize, controls, dragging) first
   try {
     setupEventListeners();
@@ -294,6 +306,12 @@ async function init() {
 
       const saved = await window.overlyAPI.getSettings?.();
       if (saved) {
+        if (saved.extractedAccentColor) {
+          state.lastExtractedPrimary = saved.extractedAccentColor;
+        }
+        if (typeof saved.adaptAlbumColor === 'boolean') {
+          state.adaptAlbumColor = saved.adaptAlbumColor;
+        }
         if (saved.theme) applyTheme(saved.theme);
         if (saved.mode) setMode(saved.mode, false);
         else setMode(state.mode, false);
@@ -365,6 +383,15 @@ async function init() {
           state.committedMode = value;
           setMode(value, true, false);
         }
+        if (key === 'extractedAccentColor') {
+          if (value) {
+            state.lastExtractedPrimary = value;
+            if (state.accentColor === 'auto') {
+              applyAccentTokens(value);
+            }
+            applyTheme(state.theme);
+          }
+        }
         if (key === 'theme') applyTheme(value);
         if (key === 'accentColor') setAccentColor(value);
         if (key === 'opacity') setOpacity(value);
@@ -401,6 +428,10 @@ async function init() {
           state.autoMinimizeExpand = value === 'hover' ? 'hover' : 'play';
           applyAutoMinimizeExpandUI();
         }
+        if (key === 'adaptAlbumColor') {
+          state.adaptAlbumColor = Boolean(value);
+          applyTheme(state.theme);
+        }
         if (key === 'visualizerStyle') {
           state.visualizerStyle = value || 'spectrum';
           updateInstrumentalVisualizerStyle();
@@ -430,9 +461,14 @@ async function init() {
           state.plainLyrics = trackData.plainLyrics || '';
           state.activeLyricIndex = -1;
           state.isFetchingLyrics = false;
+          document.body.classList.remove('pill-art-hovered');
+          overlayContainer?.classList.remove('pill-more-open');
+          pillMoreContainer?.classList.remove('open');
           updatePillLyricsBadge();
           renderTrackInfo();
           renderLyricsList();
+          updatePillInstrumentalView();
+          realignLyricsToCurrentPosition(true);
         }
       });
 
@@ -506,6 +542,11 @@ function hslToHex(h, s, l) {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
+function rgbToHex(r, g, b) {
+  const toHex = x => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 function getHighContrastVisualizerColor(baseHex, isLight) {
   if (!baseHex) return isLight ? '#4f46e5' : '#818cf8';
   const { h, s, l } = hexToHsl(baseHex);
@@ -536,68 +577,83 @@ function getHighContrastVisualizerColor(baseHex, isLight) {
   }
 }
 
-function applyAlbumArtThemeTokens(hexColor, isLight = false) {
+function applyAlbumArtThemeTokens(hexColor, isLight = false, isAuto = (state.theme === 'auto')) {
+  if (state.adaptAlbumColor === false) return;
   if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return;
   const rgb = hexToRgb(hexColor);
   const norm = (typeof state.opacity === 'number') ? state.opacity : 0.85;
 
-  if (isLight) {
-    // Light mode theme derived from album cover: soft frosted tint with high contrast dark text
-    const bgR = Math.max(236, Math.min(252, Math.round(248 * 0.88 + rgb.r * 0.12)));
-    const bgG = Math.max(238, Math.min(253, Math.round(250 * 0.88 + rgb.g * 0.12)));
-    const bgB = Math.max(242, Math.min(255, Math.round(254 * 0.88 + rgb.b * 0.12)));
+  let bgHex, cardR, cardG, cardB;
 
-    const cardR = Math.min(255, Math.round(bgR + 4));
-    const cardG = Math.min(255, Math.round(bgG + 4));
-    const cardB = Math.min(255, Math.round(bgB + 4));
-
-    const visColor = getHighContrastVisualizerColor(hexColor, true);
-    const visRgb = hexToRgb(visColor);
-
-    document.documentElement.style.setProperty('--bg-glass', `rgba(${bgR}, ${bgG}, ${bgB}, ${norm})`);
-    document.documentElement.style.setProperty('--bg-glass-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.72)`);
-    document.documentElement.style.setProperty('--border-glass', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.22)`);
-    document.documentElement.style.setProperty('--text-primary', '#11131a');
-    document.documentElement.style.setProperty('--text-secondary', 'rgba(17, 19, 26, 0.88)');
-    document.documentElement.style.setProperty('--text-muted', 'rgba(17, 19, 26, 0.62)');
-    document.documentElement.style.setProperty('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.22)`);
-    document.documentElement.style.setProperty('--aura-color2', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.10)`);
-
-    document.documentElement.style.setProperty('--vis-bar-color', visColor);
-    document.documentElement.style.setProperty('--vis-bar-glow', `rgba(${visRgb.r}, ${visRgb.g}, ${visRgb.b}, 0.35)`);
-    document.documentElement.style.setProperty('--vis-bar-highlight', '#11131a');
-    document.documentElement.style.setProperty('--vis-status-bg', 'rgba(0, 0, 0, 0.08)');
-    document.documentElement.style.setProperty('--vis-btn-bg', 'rgba(0, 0, 0, 0.08)');
-    document.documentElement.style.setProperty('--vis-btn-border', 'rgba(0, 0, 0, 0.16)');
-  } else {
-    // Dark mode theme derived from album cover: rich deep atmospheric dark tint
-    const bgR = Math.max(9, Math.min(32, Math.round(rgb.r * 0.16 + 10 * 0.84)));
-    const bgG = Math.max(11, Math.min(34, Math.round(rgb.g * 0.16 + 12 * 0.84)));
-    const bgB = Math.max(16, Math.min(42, Math.round(rgb.b * 0.16 + 18 * 0.84)));
-
-    const cardR = Math.round(bgR + 12);
-    const cardG = Math.round(bgG + 14);
-    const cardB = Math.round(bgB + 20);
-
-    const visColor = getHighContrastVisualizerColor(hexColor, false);
-    const visRgb = hexToRgb(visColor);
-
-    document.documentElement.style.setProperty('--bg-glass', `rgba(${bgR}, ${bgG}, ${bgB}, ${norm})`);
-    document.documentElement.style.setProperty('--bg-glass-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
-    document.documentElement.style.setProperty('--border-glass', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);
-    document.documentElement.style.setProperty('--text-primary', '#ffffff');
-    document.documentElement.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.92)');
-    document.documentElement.style.setProperty('--text-muted', 'rgba(255, 255, 255, 0.70)');
-    document.documentElement.style.setProperty('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);
-    document.documentElement.style.setProperty('--aura-color2', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.14)`);
-
-    document.documentElement.style.setProperty('--vis-bar-color', visColor);
-    document.documentElement.style.setProperty('--vis-bar-glow', `rgba(${visRgb.r}, ${visRgb.g}, ${visRgb.b}, 0.60)`);
-    document.documentElement.style.setProperty('--vis-bar-highlight', '#ffffff');
-    document.documentElement.style.setProperty('--vis-status-bg', 'rgba(255, 255, 255, 0.14)');
-    document.documentElement.style.setProperty('--vis-btn-bg', 'rgba(255, 255, 255, 0.16)');
-    document.documentElement.style.setProperty('--vis-btn-border', 'rgba(255, 255, 255, 0.25)');
+  if (isAuto) {
+    if (typeof state.coverIsDark === 'boolean') {
+      isLight = !state.coverIsDark;
+    } else if (typeof state.coverLuminance === 'number') {
+      isLight = state.coverLuminance >= 0.50;
+    } else {
+      const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+      isLight = lum >= 0.50;
+    }
+    document.body.classList.toggle('theme-light', isLight);
+    document.body.classList.toggle('theme-dark', !isLight);
   }
+
+  if (isLight) {
+    // Light album art: clean soft base mixed with balanced (~20%) tint from the album art
+    const maxC = Math.max(rgb.r, rgb.g, rgb.b);
+    const scale = maxC > 0 && maxC < 170 ? 170 / maxC : 1;
+    const lr = Math.min(255, Math.round(rgb.r * scale));
+    const lg = Math.min(255, Math.round(rgb.g * scale));
+    const lb = Math.min(255, Math.round(rgb.b * scale));
+
+    const bgR = Math.max(215, Math.min(252, Math.round(250 * 0.80 + lr * 0.20)));
+    const bgG = Math.max(218, Math.min(252, Math.round(251 * 0.80 + lg * 0.20)));
+    const bgB = Math.max(222, Math.min(253, Math.round(253 * 0.80 + lb * 0.20)));
+    bgHex = rgbToHex(bgR, bgG, bgB);
+
+    cardR = Math.min(255, Math.round(bgR + 4));
+    cardG = Math.min(255, Math.round(bgG + 4));
+    cardB = Math.min(255, Math.round(bgB + 4));
+  } else {
+    // Dark album art: deep sleek dark base with slight (14%) tint from the album art
+    const bgR = Math.max(10, Math.min(28, Math.round(13 * 0.86 + rgb.r * 0.14)));
+    const bgG = Math.max(12, Math.min(30, Math.round(15 * 0.86 + rgb.g * 0.14)));
+    const bgB = Math.max(16, Math.min(38, Math.round(22 * 0.86 + rgb.b * 0.14)));
+    bgHex = rgbToHex(bgR, bgG, bgB);
+
+    cardR = Math.min(48, Math.round(bgR + 12));
+    cardG = Math.min(50, Math.round(bgG + 14));
+    cardB = Math.min(58, Math.round(bgB + 18));
+  }
+
+  const bgRgb = hexToRgb(bgHex);
+  const visColor = getHighContrastVisualizerColor(hexColor, isLight);
+  const visRgb = hexToRgb(visColor);
+
+  document.body.classList.add('theme-album-tinted');
+
+  const setVar = (prop, val) => {
+    document.documentElement.style.setProperty(prop, val);
+    if (document.body) document.body.style.setProperty(prop, val);
+    const container = document.getElementById('overlayContainer');
+    if (container) container.style.setProperty(prop, val);
+  };
+
+  setVar('--bg-glass', `rgba(${bgRgb.r}, ${bgRgb.g}, ${bgRgb.b}, ${norm})`);
+  setVar('--bg-glass-card', isLight ? `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)` : `rgba(${cardR}, ${cardG}, ${cardB}, 0.50)`);
+  setVar('--border-glass', isLight ? 'rgba(0, 0, 0, 0.09)' : 'rgba(255, 255, 255, 0.14)');
+  setVar('--text-primary', isLight ? '#11131a' : '#ffffff');
+  setVar('--text-secondary', isLight ? 'rgba(17, 19, 26, 0.82)' : 'rgba(255, 255, 255, 0.85)');
+  setVar('--text-muted', isLight ? 'rgba(17, 19, 26, 0.55)' : 'rgba(255, 255, 255, 0.55)');
+  setVar('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${isLight ? 0.22 : 0.28})`);
+  setVar('--aura-color2', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${isLight ? 0.10 : 0.14})`);
+
+  setVar('--vis-bar-color', visColor);
+  setVar('--vis-bar-glow', `rgba(${visRgb.r}, ${visRgb.g}, ${visRgb.b}, ${isLight ? 0.20 : 0.28})`);
+  setVar('--vis-bar-highlight', isLight ? '#11131a' : '#ffffff');
+  setVar('--vis-status-bg', isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.14)');
+  setVar('--vis-btn-bg', isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.14)');
+  setVar('--vis-btn-border', isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.22)');
 }
 
 function applyTheme(themeData) {
@@ -607,29 +663,34 @@ function applyTheme(themeData) {
   let effectiveIsLight = false;
 
   if (setting === 'auto') {
-    // Auto theme: decides dark or light according to the darkness of the album art!
-    if (state.lastExtractedPrimary && typeof state.coverIsDark === 'boolean') {
-      effectiveIsLight = !state.coverIsDark;
-    } else if (state.lastExtractedPrimary) {
-      const rgb = hexToRgb(state.lastExtractedPrimary);
-      const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-      effectiveIsLight = lum >= 0.50;
+    // Auto: Totally adapts to album artwork and luminance
+    if (state.lastExtractedPrimary) {
+      if (typeof state.coverIsDark === 'boolean') {
+        effectiveIsLight = !state.coverIsDark;
+      } else if (typeof state.coverLuminance === 'number') {
+        effectiveIsLight = state.coverLuminance >= 0.50;
+      } else {
+        const rgb = hexToRgb(state.lastExtractedPrimary);
+        const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+        effectiveIsLight = lum >= 0.50;
+      }
     } else {
       effectiveIsLight = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
     }
     state.effectiveTheme = effectiveIsLight ? 'light' : 'dark';
     document.body.classList.add('theme-album-auto');
-    state.accentColor = 'auto';
   } else if (setting === 'light') {
+    // Light: Permanent light appearance, but still adapts to artwork
     effectiveIsLight = true;
     state.effectiveTheme = 'light';
     document.body.classList.remove('theme-album-auto');
   } else if (setting === 'dark') {
+    // Dark: Permanent dark appearance, but still adapts to artwork
     effectiveIsLight = false;
     state.effectiveTheme = 'dark';
     document.body.classList.remove('theme-album-auto');
   } else {
-    // 'system'
+    // System: Follows OS light/dark, adapting to artwork
     effectiveIsLight = (typeof themeData === 'object' && themeData.effective)
       ? themeData.effective === 'light'
       : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
@@ -640,21 +701,91 @@ function applyTheme(themeData) {
   document.body.classList.toggle('theme-light', effectiveIsLight);
   document.body.classList.toggle('theme-dark', !effectiveIsLight);
 
-  // Both dark and light mode themes change according to the album (one darker, one lighter)!
-  if (state.lastExtractedPrimary) {
-    applyAlbumArtThemeTokens(state.lastExtractedPrimary, effectiveIsLight);
+  const isUnfetched = (!state.hasMedia || !state.title);
+  document.body.classList.toggle('is-unfetched', isUnfetched);
+
+  // In all modes (Auto, Dark, Light, System): if artwork is present AND media is fetched AND adaptAlbumColor is enabled, adapt to it!
+  const shouldTintAlbum = (!isUnfetched && Boolean(state.lastExtractedPrimary) && state.adaptAlbumColor !== false);
+
+  if (shouldTintAlbum) {
+    document.body.classList.add('theme-album-tinted');
+    applyAlbumArtThemeTokens(state.lastExtractedPrimary, effectiveIsLight, setting === 'auto');
+    if (immersiveBgArt && state.coverUrl) {
+      immersiveBgArt.style.display = '';
+      immersiveBgArt.classList.add('visible');
+    }
   } else {
-    // Reset standard tokens when no album art is present
-    document.documentElement.style.removeProperty('--text-primary');
-    document.documentElement.style.removeProperty('--text-secondary');
-    document.documentElement.style.removeProperty('--text-muted');
-    setOpacity(state.opacity);
+    document.body.classList.remove('theme-album-tinted');
+    // Reset standard tokens when unfetched or when adaptAlbumColor is turned off
+    const removeVar = (prop) => {
+      document.documentElement.style.removeProperty(prop);
+      if (document.body) document.body.style.removeProperty(prop);
+      const container = document.getElementById('overlayContainer');
+      if (container) container.style.removeProperty(prop);
+    };
+    removeVar('--bg-glass');
+    removeVar('--bg-glass-card');
+    removeVar('--border-glass');
+    removeVar('--text-primary');
+    removeVar('--text-secondary');
+    removeVar('--text-muted');
+    removeVar('--aura-color1');
+    removeVar('--aura-color2');
+    removeVar('--vis-bar-color');
+    removeVar('--vis-bar-glow');
+    removeVar('--vis-bar-highlight');
+    removeVar('--vis-status-bg');
+    removeVar('--vis-btn-bg');
+    removeVar('--vis-btn-border');
+
+    const norm = (typeof state.opacity === 'number') ? state.opacity : 0.85;
+    const defaultBg = effectiveIsLight
+      ? `rgba(248, 250, 254, ${norm})`
+      : `rgba(14, 16, 24, ${norm})`;
+    const defaultCard = effectiveIsLight
+      ? 'rgba(0, 0, 0, 0.05)'
+      : 'rgba(255, 255, 255, 0.08)';
+    const defaultBorder = effectiveIsLight
+      ? 'rgba(0, 0, 0, 0.10)'
+      : 'rgba(255, 255, 255, 0.12)';
+    const defaultTextPrimary = effectiveIsLight ? '#12141a' : '#ffffff';
+    const defaultTextSecondary = effectiveIsLight ? 'rgba(18, 20, 26, 0.70)' : 'rgba(255, 255, 255, 0.65)';
+    const defaultTextMuted = effectiveIsLight ? 'rgba(18, 20, 26, 0.42)' : 'rgba(255, 255, 255, 0.35)';
+
+    const setPureVar = (prop, val) => {
+      document.documentElement.style.setProperty(prop, val);
+      if (document.body) document.body.style.setProperty(prop, val);
+      const container = document.getElementById('overlayContainer');
+      if (container) container.style.setProperty(prop, val);
+    };
+
+    setPureVar('--bg-glass', defaultBg);
+    setPureVar('--bg-glass-card', defaultCard);
+    setPureVar('--border-glass', defaultBorder);
+    setPureVar('--text-primary', defaultTextPrimary);
+    setPureVar('--text-secondary', defaultTextSecondary);
+    setPureVar('--text-muted', defaultTextMuted);
+    setPureVar('--aura-color1', 'transparent');
+    setPureVar('--aura-color2', 'transparent');
+    document.documentElement.style.setProperty('--glass-opacity', norm);
+    if (ambientAura) ambientAura.style.opacity = '0';
+
+    if (immersiveBgArt) {
+      immersiveBgArt.style.display = 'none';
+      immersiveBgArt.classList.remove('visible');
+    }
   }
 
-  const activeAccent = (state.accentColor === 'auto')
-    ? (state.lastExtractedPrimary || getNeutralAccentColor())
-    : (state.accentColor || getNeutralAccentColor());
-  applyAccentTokens(activeAccent);
+  if (isUnfetched) {
+    // Enforce dull neutral grey accent and disable ambient aura when unfetched
+    applyAccentTokens(effectiveIsLight ? '#6b7280' : '#71717a');
+    if (ambientAura) ambientAura.style.opacity = '0';
+  } else {
+    const activeAccent = (state.accentColor === 'auto' || setting === 'auto')
+      ? (state.lastExtractedPrimary || getNeutralAccentColor())
+      : (state.accentColor || getNeutralAccentColor());
+    applyAccentTokens(activeAccent);
+  }
 }
 
 // ==========================================================================
@@ -666,6 +797,7 @@ function setupEventListeners() {
   const interactiveBtns = [
     btnModeToggle, btnLockToggle, btnPinToggle, btnResizeToggle, btnSettingsToggle,
     btnPillMore, btnPillPin, btnPillResize, btnPillLock, btnPillSettings, btnPillMinimize, btnPillClose,
+    btnMiniExpand, btnMiniPin, btnMiniSettings, btnMiniClose,
     btnMinimize, btnClose, btnPlayPause, btnPrev, btnNext, btnPillExpand, btnPillRetry, btnPillSearch,
     btnMinimizedPlay, minimizedPlayOverlay,
     btnImmersiveToggle, btnPillImmersive, btnImmersiveExit, btnImmersiveLayoutToggle,
@@ -778,6 +910,57 @@ function setupEventListeners() {
     });
   }
 
+  // Minimized View Floating Action Drawer Sub-Buttons
+  if (miniMoreContainer) {
+    miniMoreContainer.addEventListener('mouseenter', () => {
+      overlayContainer?.classList.add('mini-more-open');
+    });
+    miniMoreContainer.addEventListener('mouseleave', () => {
+      if (!miniMoreContainer.classList.contains('open')) {
+        overlayContainer?.classList.remove('mini-more-open');
+      }
+    });
+  }
+
+  if (btnMiniExpand) {
+    btnMiniExpand.addEventListener('click', (e) => {
+      e.stopPropagation();
+      miniMoreContainer?.classList.remove('open');
+      overlayContainer?.classList.remove('mini-more-open');
+      // Intuitively exit minimized layout back to previous mode (or card layout)
+      const targetMode = (state.lastNonCardMode && state.lastNonCardMode !== 'minimized') ? state.lastNonCardMode : 'card';
+      setMode(targetMode, true);
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('mode', targetMode);
+      }
+    });
+  }
+
+  if (btnMiniPin) {
+    btnMiniPin.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setPinState(!state.isPinned);
+    });
+  }
+
+  if (btnMiniSettings) {
+    btnMiniSettings.addEventListener('click', (e) => {
+      e.stopPropagation();
+      miniMoreContainer?.classList.remove('open');
+      overlayContainer?.classList.remove('mini-more-open');
+      if (window.overlyAPI?.openSettings) {
+        window.overlyAPI.openSettings(state.title, state.artist);
+      }
+    });
+  }
+
+  if (btnMiniClose) {
+    btnMiniClose.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.overlyAPI) window.overlyAPI.closeApp();
+    });
+  }
+
   if (btnPillLock) {
     btnPillLock.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -810,18 +993,24 @@ function setupEventListeners() {
     });
   }
 
-  // Close pill more actions tray if clicking outside
+  // Close pill and mini more actions trays if clicking outside
   document.addEventListener('click', (e) => {
     if (pillMoreContainer && !pillMoreContainer.contains(e.target)) {
       pillMoreContainer.classList.remove('open');
       overlayContainer?.classList.remove('pill-more-open');
     }
+    if (miniMoreContainer && !miniMoreContainer.contains(e.target)) {
+      miniMoreContainer.classList.remove('open');
+      overlayContainer?.classList.remove('mini-more-open');
+    }
   });
 
-  // Also close pill more actions when window blurs or mouse leaves overlay
+  // Also close trays when window blurs
   window.addEventListener('blur', () => {
     pillMoreContainer?.classList.remove('open');
     overlayContainer?.classList.remove('pill-more-open');
+    miniMoreContainer?.classList.remove('open');
+    overlayContainer?.classList.remove('mini-more-open');
   });
 
   if (overlayContainer) {
@@ -839,8 +1028,11 @@ function setupEventListeners() {
 
     overlayContainer.addEventListener('mouseleave', () => {
       isMouseOverOverlay = false;
+      document.body.classList.remove('pill-art-hovered');
       pillMoreContainer?.classList.remove('open');
       overlayContainer.classList.remove('pill-more-open');
+      miniMoreContainer?.classList.remove('open');
+      overlayContainer.classList.remove('mini-more-open');
       if (state.autoMinimize && !state.isAutoMinimized && state.mode !== 'minimized') {
         const isPlaying = (state.hasMedia && state.status === 'Playing');
         if (!isPlaying) {
@@ -1015,6 +1207,13 @@ function setupEventListeners() {
       if (state.mode === 'minimized' && state.isAutoMinimized && state.autoMinimizeExpand === 'hover' && !isAutoMinimizeTransitioning) {
         restoreFromAutoMinimize(true);
       }
+      if (state.mode === 'pill' || state.mode === 'collapsed') {
+        updatePillHoverTitle();
+        document.body.classList.add('pill-art-hovered');
+      }
+    });
+    artContainer.addEventListener('mouseleave', () => {
+      document.body.classList.remove('pill-art-hovered');
     });
   }
 
@@ -1187,7 +1386,11 @@ function setupEventListeners() {
     btnImmersivePrev.addEventListener('click', (e) => {
       e.stopPropagation();
       resetImmersiveIdleTimer();
-      btnPrev?.click();
+      if (window.overlyAPI?.prevTrack) {
+        window.overlyAPI.prevTrack();
+      } else {
+        btnPrev?.click();
+      }
     });
   }
 
@@ -1195,7 +1398,11 @@ function setupEventListeners() {
     btnImmersiveNext.addEventListener('click', (e) => {
       e.stopPropagation();
       resetImmersiveIdleTimer();
-      btnNext?.click();
+      if (window.overlyAPI?.nextTrack) {
+        window.overlyAPI.nextTrack();
+      } else {
+        btnNext?.click();
+      }
     });
   }
 
@@ -1415,7 +1622,7 @@ function resetImmersiveIdleTimer() {
     if (state.isImmersive) {
       body.classList.add('immersive-idle');
     }
-  }, 2500);
+  }, 4500);
 }
 
 function stopImmersiveIdleTimer() {
@@ -1427,7 +1634,8 @@ function stopImmersiveIdleTimer() {
 }
 
 function enterImmersiveMode(isRestore = false) {
-  if (state.isImmersive) return;
+  // If already in immersive mode and window is truly full screen, do nothing
+  if (state.isImmersive && window.innerWidth > 600 && window.innerHeight > 500) return;
   state.isImmersive = true;
   if (!isRestore || !state.preImmersiveMode) {
     state.preImmersiveMode = state.mode;
@@ -1579,6 +1787,7 @@ function setupWindowDrag(element) {
     const interactive = e.target.closest(
       'button, input, select, textarea, .media-btn, .icon-btn, .pill-action-btn, ' +
       '.no-lyrics-btn, .progress-container, .resize-handle, .pill-more-actions, ' +
+      '.mini-more-actions, .mini-sub-btn, ' +
       '.lyric-line'
     );
     if (interactive) {
@@ -1773,7 +1982,7 @@ function setupCornerResize() {
 
 function getTargetWindowDimensions(mode = state.mode) {
   if (mode === 'minimized' || mode === 'mini') {
-    return { width: 64, height: 64 };
+    return { width: 230, height: 68 };
   } else if (mode === 'collapsed' || mode === 'pill') {
     return { width: 440, height: 104 };
   } else if (mode === 'lyrics') {
@@ -1785,7 +1994,7 @@ function getTargetWindowDimensions(mode = state.mode) {
 }
 
 function updateWindowDimensionsForLyrics() {
-  if (!window.overlyAPI) return;
+  if (!window.overlyAPI || state.isImmersive) return;
   const target = getTargetWindowDimensions(state.mode);
   window.overlyAPI.setWindowSize?.(target.width, target.height, state.mode);
   if (state.isPinned) {
@@ -1850,6 +2059,9 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
 
   overlayContainer?.classList.remove('pill-more-open');
   pillMoreContainer?.classList.remove('open');
+  overlayContainer?.classList.remove('mini-more-open');
+  miniMoreContainer?.classList.remove('open');
+  body.classList.remove('pill-art-hovered');
 
   updateModeButtonUI(mode);
 
@@ -1858,8 +2070,17 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
   }
 
   updatePillInstrumentalView();
+  if (mode === 'collapsed' || mode === 'pill') {
+    if (state.hasSynced && state.lyrics && state.lyrics.length > 0) {
+      const idx = state.activeLyricIndex >= 0 ? state.activeLyricIndex : 0;
+      updatePillLyric(state.lyrics[idx]?.text || state.title);
+    } else if (state.plainLyrics) {
+      const firstLine = state.plainLyrics.split(/\r?\n/).find(l => l.trim().length > 0);
+      if (firstLine) updatePillLyric(firstLine);
+    }
+  }
 
-  if (updateSize && window.overlyAPI) {
+  if (updateSize && window.overlyAPI && !state.isImmersive) {
     const target = getTargetWindowDimensions(mode);
     window.overlyAPI.setWindowSize?.(target.width, target.height, mode);
     // Re-assert topmost state on mode size transition
@@ -2033,7 +2254,7 @@ function applyAccentTokens(color, customSecondary = null) {
   const visColor = getHighContrastVisualizerColor(color, isLight);
   const visRgb = hexToRgb(visColor);
   document.documentElement.style.setProperty('--vis-bar-color', visColor);
-  document.documentElement.style.setProperty('--vis-bar-glow', `rgba(${visRgb.r}, ${visRgb.g}, ${visRgb.b}, 0.55)`);
+  document.documentElement.style.setProperty('--vis-bar-glow', `rgba(${visRgb.r}, ${visRgb.g}, ${visRgb.b}, ${isLight ? 0.20 : 0.28})`);
   document.documentElement.style.setProperty('--vis-bar-highlight', isLight ? 'rgba(0, 0, 0, 0.45)' : '#ffffff');
   document.documentElement.style.setProperty('--vis-status-bg', isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.14)');
   document.documentElement.style.setProperty('--vis-btn-bg', isLight ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.15)');
@@ -2048,28 +2269,6 @@ function applyAccentTokens(color, customSecondary = null) {
   if (gradStop2) {
     const grad2 = (luminance < 0.25 && !isLight) ? '#b0b5c5' : (luminance > 0.70 && isLight ? '#3a3f50' : lighterColor);
     gradStop2.setAttribute('stop-color', grad2);
-  }
-
-  if (state.accentColor === 'auto' && color !== getNeutralAccentColor()) {
-    state.lastExtractedPrimary = color;
-  }
-
-  const isAutoMode = (state.accentColor === 'auto');
-  if (isAutoMode && color !== getNeutralAccentColor()) {
-    const norm = (typeof state.opacity === 'number') ? state.opacity : 0.85;
-    if (isLight) {
-      const br = Math.round(248 * 0.90 + rgb.r * 0.10);
-      const bg = Math.round(250 * 0.90 + rgb.g * 0.10);
-      const bb = Math.round(254 * 0.90 + rgb.b * 0.10);
-      document.documentElement.style.setProperty('--bg-glass', `rgba(${br}, ${bg}, ${bb}, ${norm})`);
-    } else {
-      const br = Math.round(14 * 0.86 + rgb.r * 0.14);
-      const bg = Math.round(16 * 0.86 + rgb.g * 0.14);
-      const bb = Math.round(24 * 0.86 + rgb.b * 0.14);
-      document.documentElement.style.setProperty('--bg-glass', `rgba(${br}, ${bg}, ${bb}, ${norm})`);
-    }
-  } else {
-    setOpacity(state.opacity ?? 0.85);
   }
 }
 
@@ -2096,32 +2295,39 @@ function extractColorsFromCanvas(img) {
       const l = (max + min) / 510;
       const d = max - min;
       const s = max === 0 ? 0 : d / max;
-      if (l > 0.15 && l < 0.88 && s > 0.18) {
-        buckets.push({ r, g, b, score: s * 2.5 + (1 - Math.abs(l - 0.55)) * 1.5 });
+      if (l > 0.04 && l < 0.96 && s > 0.06) {
+        buckets.push({ r, g, b, score: s * 2.5 + (1 - Math.abs(l - 0.50)) * 1.5 });
       }
     }
 
     const avgLuminance = pixelCount > 0 ? (totalLum / pixelCount) : 0.5;
-    const isDark = (avgLuminance < 0.48);
+    const isDark = (avgLuminance < 0.46);
 
+    if (!buckets.length) {
+      for (let i = 0; i < data.length; i += 16) {
+        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+        if (a < 128) continue;
+        buckets.push({ r, g, b, score: 1 });
+      }
+    }
     if (!buckets.length) return null;
+
     buckets.sort((a, b) => b.score - a.score);
     const primary = buckets[0];
     let secondary = buckets.find(c => Math.abs(c.r - primary.r) + Math.abs(c.g - primary.g) + Math.abs(c.b - primary.b) > 70);
 
-    let pr = primary.r, pg = primary.g, pb = primary.b;
-    const lum = (0.299 * pr + 0.587 * pg + 0.114 * pb) / 255;
-    if (lum < 0.42) {
-      const boost = Math.max(1.7, 0.55 / Math.max(0.08, lum));
-      pr = Math.min(255, Math.round(pr * boost + 75));
-      pg = Math.min(255, Math.round(pg * boost + 75));
-      pb = Math.min(255, Math.round(pb * boost + 75));
+    const authenticPrimary = rgbToHex(primary.r, primary.g, primary.b);
+    let accent = authenticPrimary;
+    const lum = (0.299 * primary.r + 0.587 * primary.g + 0.114 * primary.b) / 255;
+    if (lum < 0.40) {
+      const hVal = hexToHsl(authenticPrimary);
+      accent = hslToHex(hVal.h, Math.max(0.45, hVal.s), 0.60);
     }
 
-    const toHex = n => n.toString(16).padStart(2, '0');
     return {
-      primary: `#${toHex(pr)}${toHex(pg)}${toHex(pb)}`,
-      secondary: secondary ? `#${toHex(secondary.r)}${toHex(secondary.g)}${toHex(secondary.b)}` : null,
+      primary: authenticPrimary,
+      accent,
+      secondary: secondary ? rgbToHex(secondary.r, secondary.g, secondary.b) : null,
       isDark,
       luminance: avgLuminance
     };
@@ -2143,20 +2349,18 @@ async function applyExtractedAlbumColors() {
 
   try {
     if (!state.coverUrl) {
-      state.lastExtractedPrimary = null;
-      state.coverIsDark = true;
-      if (state.accentColor === 'auto') {
-        applyAccentTokens(getNeutralAccentColor(), null);
-      }
-      applyTheme(state.theme);
-      if (window.overlyAPI?.updateSetting) {
-        window.overlyAPI.updateSetting('extractedAccentColor', null);
+      if (!state.hasMedia || !state.title) {
+        state.lastExtractedPrimary = null;
+        state.coverIsDark = true;
+        if (state.accentColor === 'auto') {
+          applyAccentTokens(getNeutralAccentColor(), null);
+        }
+        applyTheme(state.theme);
+        if (window.overlyAPI?.updateSetting) {
+          window.overlyAPI.updateSetting('extractedAccentColor', null);
+        }
       }
       return;
-    }
-
-    if (state.accentColor === 'auto' && !state.lastExtractedPrimary) {
-      applyAccentTokens(getNeutralAccentColor(), null);
     }
 
     let colors = null;
@@ -2178,27 +2382,11 @@ async function applyExtractedAlbumColors() {
       if (window.overlyAPI?.updateSetting) {
         window.overlyAPI.updateSetting('extractedAccentColor', colors.primary);
       }
-    } else {
-      state.lastExtractedPrimary = null;
-      state.coverIsDark = true;
-      if (state.accentColor === 'auto') {
-        applyAccentTokens(getNeutralAccentColor(), null);
-      }
-      applyTheme(state.theme);
-      if (window.overlyAPI?.updateSetting) {
-        window.overlyAPI.updateSetting('extractedAccentColor', null);
-      }
     }
+    // If colors are still fetching or not found, keep using current active colors so UI never switches twice!
   } catch (err) {
-    state.lastExtractedPrimary = null;
-    state.coverIsDark = true;
-    if (state.accentColor === 'auto') {
-      applyAccentTokens(getNeutralAccentColor(), null);
-    }
-    applyTheme(state.theme);
-    if (window.overlyAPI?.updateSetting) {
-      window.overlyAPI.updateSetting('extractedAccentColor', null);
-    }
+    console.warn('Cover color extraction error:', err);
+    // Keep current colors
   } finally {
     isExtractingAlbumColors = false;
   }
@@ -2224,14 +2412,14 @@ function setOpacity(val) {
 
   const isLight = document.body.classList.contains('theme-light');
   document.documentElement.style.setProperty('--glass-opacity', norm);
-  if (state.lastExtractedPrimary) {
-    applyAlbumArtThemeTokens(state.lastExtractedPrimary, isLight);
+  if (state.lastExtractedPrimary && state.adaptAlbumColor !== false) {
+    applyAlbumArtThemeTokens(state.lastExtractedPrimary, isLight, state.theme === 'auto');
   } else {
-    if (isLight) {
-      document.documentElement.style.setProperty('--bg-glass', `rgba(248, 250, 254, ${norm})`);
-    } else {
-      document.documentElement.style.setProperty('--bg-glass', `rgba(14, 16, 24, ${norm})`);
-    }
+    const defaultBg = isLight ? `rgba(248, 250, 254, ${norm})` : `rgba(14, 16, 24, ${norm})`;
+    document.documentElement.style.setProperty('--bg-glass', defaultBg);
+    if (document.body) document.body.style.setProperty('--bg-glass', defaultBg);
+    const container = document.getElementById('overlayContainer');
+    if (container) container.style.setProperty('--bg-glass', defaultBg);
   }
 }
 
@@ -2282,6 +2470,10 @@ function setPinState(pinned) {
     btnPillPin.classList.toggle('active', state.isPinned);
     btnPillPin.title = state.isPinned ? 'Always on Top (Enabled, P)' : 'Always on Top (Disabled, P)';
   }
+  if (btnMiniPin) {
+    btnMiniPin.classList.toggle('active', state.isPinned);
+    btnMiniPin.title = state.isPinned ? 'Always on Top (Enabled, P)' : 'Always on Top (Disabled, P)';
+  }
   if (window.overlyAPI?.setAlwaysOnTop) {
     window.overlyAPI.setAlwaysOnTop(state.isPinned);
   }
@@ -2294,10 +2486,19 @@ function setPinState(pinned) {
 
 function handleMediaUpdate(data) {
   const isDifferentTrack = (state.title !== (data.title || '') || state.artist !== (data.artist || ''));
-  const hadNoLyrics = (state.lyrics.length === 0 && !state.plainLyrics);
-  const hasNowLyrics = Boolean((data.lyrics && data.lyrics.length > 0) || data.plainLyrics);
-  const hasNewLyrics = (hadNoLyrics && hasNowLyrics) || (data.lyrics && data.lyrics.length !== state.lyrics.length);
+  if (isDifferentTrack) {
+    updateVisSongProfile(data.title, data.artist);
+  }
+  const hadNoLyrics = (!state.lyrics || state.lyrics.length === 0) && !state.plainLyrics;
+  const hasNowLyrics = Boolean((data.lyrics && data.lyrics.length > 0) || (data.plainLyrics && data.plainLyrics.trim()));
+  const hasNewLyrics = (hadNoLyrics && hasNowLyrics) ||
+    Boolean(data.lyrics && (!state.lyrics || data.lyrics.length !== state.lyrics.length)) ||
+    Boolean(data.plainLyrics && data.plainLyrics !== state.plainLyrics) ||
+    Boolean(data.hasSynced !== state.hasSynced && hasNowLyrics);
   const hasNewCover = Boolean(data.coverUrl && data.coverUrl !== state.coverUrl);
+
+  const wasUnfetched = !state.hasMedia || !state.title;
+  const isNowUnfetched = !data.hasMedia || !data.title;
 
   state.hasMedia = Boolean(data.hasMedia);
   state.title = data.title || '';
@@ -2305,6 +2506,11 @@ function handleMediaUpdate(data) {
   state.album = data.album || '';
   state.duration = data.duration || 0;
   state.isFetchingLyrics = Boolean(data.isFetchingLyrics);
+
+  document.body.classList.toggle('is-unfetched', isNowUnfetched);
+  if (wasUnfetched !== isNowUnfetched) {
+    applyTheme(state.theme);
+  }
 
   const incomingStatus = data.status || 'Stopped';
   const now = Date.now();
@@ -2329,6 +2535,7 @@ function handleMediaUpdate(data) {
   if (isDifferentTrack) {
     state.position = data.position || 0;
     state.lastPositionTime = now;
+    state.trackSwitchTime = now;
   } else if (!isDraggingProgress) {
     // If user recently scrubbed/seeked manually, ignore stale incoming updates for 1s
     const timeSinceSeek = now - lastSeekTime;
@@ -2338,14 +2545,18 @@ function handleMediaUpdate(data) {
         const currentEstimated = Math.min(state.duration, state.position + (now - state.lastPositionTime) / 1000);
         const drift = incomingPos - currentEstimated;
 
-        // If drift is significant (> 1.2s), it's a real seek in the external player
-        if (Math.abs(drift) > 1.2) {
+        // At track start (first 8s) or within 8s of track switch:
+        // Snap rapidly so lyrics lock in on-beat right from the start
+        const isTrackStart = (currentEstimated < 8.0 || (now - (state.trackSwitchTime || 0)) < 8000);
+        const snapThreshold = isTrackStart ? 0.20 : 0.50;
+
+        if (Math.abs(drift) > snapThreshold) {
           state.position = incomingPos;
           state.lastPositionTime = now;
           syncLyrics(incomingPos, true);
-        } else if (Math.abs(drift) > 0.04) {
-          // Smooth continuous time nudge: adjust from currentEstimated to prevent clock stutter
-          state.position = currentEstimated + (drift * 0.35);
+        } else if (Math.abs(drift) > 0.02) {
+          const convergenceRate = isTrackStart ? 0.80 : 0.45;
+          state.position = currentEstimated + (drift * convergenceRate);
           state.lastPositionTime = now;
         } else {
           // Micro-drift is negligible: keep smooth continuous progress
@@ -2367,8 +2578,31 @@ function handleMediaUpdate(data) {
     state.plainLyrics = data.plainLyrics || '';
     state.activeLyricIndex = -1;
 
+    document.body.classList.remove('pill-art-hovered');
+    overlayContainer?.classList.remove('pill-more-open');
+    pillMoreContainer?.classList.remove('open');
+
+    if (data.coverColors && data.coverColors.primary) {
+      state.lastExtractedPrimary = data.coverColors.primary;
+      state.coverIsDark = typeof data.coverColors.isDark === 'boolean' ? data.coverColors.isDark : true;
+      state.coverLuminance = typeof data.coverColors.luminance === 'number' ? data.coverColors.luminance : 0.5;
+      if (state.accentColor === 'auto') {
+        applyAccentTokens(data.coverColors.primary, data.coverColors.secondary);
+      }
+      applyTheme(state.theme);
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('extractedAccentColor', data.coverColors.primary);
+      }
+    } else if (data.coverUrl && (!state.lastExtractedPrimary || hasNewCover)) {
+      applyExtractedAlbumColors();
+    }
+
     renderTrackInfo();
     renderLyricsList();
+    updatePillInstrumentalView();
+    realignLyricsToCurrentPosition(true);
+    setTimeout(() => realignLyricsToCurrentPosition(true), 60);
+    setTimeout(() => realignLyricsToCurrentPosition(true), 180);
   }
 
   // Update play/pause icon & pulse
@@ -2419,26 +2653,46 @@ function updatePillLyricsBadge() {
   btnPillSearch?.classList.add('hidden');
 }
 
+function updatePillHoverTitle() {
+  const hoverTitleEl = document.getElementById('pillHoverTitleText');
+  if (!hoverTitleEl) return;
+  if (state.hasMedia && state.title) {
+    const fullText = state.artist ? `${state.title} — ${state.artist}` : state.title;
+    hoverTitleEl.textContent = fullText;
+    hoverTitleEl.title = fullText;
+  } else {
+    hoverTitleEl.textContent = 'Waiting for music...';
+    hoverTitleEl.title = 'Waiting for music...';
+  }
+}
+
 function renderTrackInfo() {
   if (state.mode === 'minimized') {
     updateMinimizedDisplay();
   }
 
+  updatePillHoverTitle();
+
   if (!state.hasMedia || !state.title) {
-    trackTitle.textContent = 'Waiting for music...';
-    trackArtist.textContent = 'Spotify • Apple Music • Any Player';
+    document.body.classList.add('is-unfetched');
+    trackTitle.textContent = 'Searching';
+    trackArtist.textContent = '';
     albumArt.classList.remove('visible');
     albumPlaceholder.classList.remove('hidden');
     updatePillLyricsBadge();
     if (state.mode !== 'minimized') {
-      updatePillLyric('Listening for playback');
+      updatePillLyric('');
     }
-    if (state.accentColor === 'auto') {
-      applyAccentTokens(getNeutralAccentColor(), null);
+    if (state.lastExtractedPrimary) {
+      state.lastExtractedPrimary = null;
+      if (state.accentColor === 'auto') {
+        applyAccentTokens(getNeutralAccentColor(), null);
+      }
+      applyTheme(state.theme);
     }
     // Update Immersive Mode Elements
-    if (immersiveTitle) immersiveTitle.textContent = 'Waiting for music...';
-    if (immersiveArtist) immersiveArtist.textContent = 'Spotify • Apple Music • Any Player';
+    if (immersiveTitle) immersiveTitle.textContent = 'Searching...';
+    if (immersiveArtist) immersiveArtist.textContent = '';
     if (immersiveArt) {
       immersiveArt.src = '';
       immersiveArt.classList.remove('visible');
@@ -2450,6 +2704,8 @@ function renderTrackInfo() {
     }
     return;
   }
+
+  document.body.classList.remove('is-unfetched');
 
   trackTitle.textContent = state.title;
   trackArtist.textContent = state.artist || 'Unknown Artist';
@@ -2471,23 +2727,18 @@ function renderTrackInfo() {
   updatePillInstrumentalView();
 
   if (state.coverUrl) {
-    if (state.accentColor === 'auto') {
-      applyAccentTokens(getNeutralAccentColor(), null);
-    }
-    albumArt.crossOrigin = 'anonymous';
     const onArtLoaded = () => {
       albumArt.classList.add('visible');
       albumPlaceholder.classList.add('hidden');
-      applyExtractedAlbumColors();
+      if (!state.lastExtractedPrimary) {
+        applyExtractedAlbumColors();
+      }
     };
     albumArt.onload = onArtLoaded;
     albumArt.onerror = () => {
+      albumArt.removeAttribute('src');
       albumArt.classList.remove('visible');
       albumPlaceholder.classList.remove('hidden');
-      if (state.accentColor === 'auto') {
-        applyAccentTokens(getNeutralAccentColor(), null);
-      }
-      applyTheme(state.theme);
     };
 
     if (albumArt.src !== state.coverUrl) {
@@ -2498,78 +2749,110 @@ function renderTrackInfo() {
     }
 
     if (immersiveArt) {
-      immersiveArt.src = state.coverUrl;
-      immersiveArt.classList.add('visible');
+      immersiveArt.onload = () => {
+        immersiveArt.classList.add('visible');
+        immersiveArtPlaceholder?.classList.add('hidden');
+      };
+      immersiveArt.onerror = () => {
+        immersiveArt.removeAttribute('src');
+        immersiveArt.classList.remove('visible');
+        immersiveArtPlaceholder?.classList.remove('hidden');
+      };
+      if (immersiveArt.src !== state.coverUrl) {
+        immersiveArt.src = state.coverUrl;
+      }
+      if (immersiveArt.complete && immersiveArt.naturalWidth > 0) {
+        immersiveArt.classList.add('visible');
+        immersiveArtPlaceholder?.classList.add('hidden');
+      }
     }
-    if (immersiveArtPlaceholder) immersiveArtPlaceholder.classList.add('hidden');
     if (immersiveBgArt) {
-      immersiveBgArt.src = state.coverUrl;
-      immersiveBgArt.classList.add('visible');
+      if (state.adaptAlbumColor !== false) {
+        if (immersiveBgArt.src !== state.coverUrl) {
+          immersiveBgArt.src = state.coverUrl;
+        }
+        immersiveBgArt.style.display = '';
+        immersiveBgArt.classList.add('visible');
+      } else {
+        immersiveBgArt.style.display = 'none';
+        immersiveBgArt.classList.remove('visible');
+      }
     }
   } else {
+    albumArt.removeAttribute('src');
     albumArt.classList.remove('visible');
     albumPlaceholder.classList.remove('hidden');
     applyExtractedAlbumColors();
     if (immersiveArt) {
-      immersiveArt.src = '';
+      immersiveArt.removeAttribute('src');
       immersiveArt.classList.remove('visible');
     }
     if (immersiveArtPlaceholder) immersiveArtPlaceholder.classList.remove('hidden');
     if (immersiveBgArt) {
-      immersiveBgArt.src = '';
+      immersiveBgArt.removeAttribute('src');
+      immersiveBgArt.style.display = 'none';
       immersiveBgArt.classList.remove('visible');
+    }
+  }
+
+  // Update dynamic fetching status on body & placeholder tag
+  document.body.classList.toggle('fetching-lyrics', state.isFetchingLyrics);
+  const placeholderLabel = document.getElementById('immersivePlaceholderLabel');
+  if (placeholderLabel) {
+    if (state.isFetchingLyrics) {
+      placeholderLabel.textContent = 'Searching...';
+    } else if (!state.hasMedia || !state.title) {
+      placeholderLabel.textContent = 'Idle';
+    } else {
+      placeholderLabel.textContent = 'No Artwork';
     }
   }
 }
 
+function hasAnyLyrics() {
+  if (state.hasSynced && state.lyrics && state.lyrics.length > 0) return true;
+  if (state.plainLyrics && state.plainLyrics.trim().length > 0) return true;
+  return false;
+}
+
 function isInstrumentalOrNoLyrics() {
   if (!state.hasMedia) return false;
+  // If actively fetching lyrics, do NOT treat as instrumental yet
+  if (state.isFetchingLyrics) return false;
 
-  // 1. If 0 lyrics at all
-  const hasNoSynced = !state.hasSynced || !state.lyrics || state.lyrics.length === 0;
-  const hasNoPlain = !state.plainLyrics || !state.plainLyrics.trim();
-  if (hasNoSynced && hasNoPlain) return true;
+  const hasSynced = Boolean(state.hasSynced && state.lyrics && state.lyrics.length > 0);
+  const hasPlain = Boolean(state.plainLyrics && state.plainLyrics.trim().length > 0);
 
-  // 2. Collect all non-empty text lines
+  // If literally 0 lyrics found after fetching completed
+  if (!hasSynced && !hasPlain) return true;
+
+  // Collect text lines
   const allTexts = [];
-  if (state.lyrics && state.lyrics.length > 0) {
+  if (hasSynced) {
     state.lyrics.forEach(l => {
-      if (l && l.text) {
-        const t = l.text.trim();
-        if (t) allTexts.push(t);
-      }
+      const t = (l?.text || '').trim();
+      if (t) allTexts.push(t);
     });
-  } else if (state.plainLyrics) {
+  } else if (hasPlain) {
     state.plainLyrics.split(/\r?\n/).forEach(l => {
       const t = l.trim();
       if (t) allTexts.push(t);
     });
   }
 
-  // 0 or 1 line is always instrumental / pure music
-  if (allTexts.length <= 1) return true;
+  // 0 lines is instrumental / no lyrics
+  if (allTexts.length === 0) return true;
 
-  // 3. Known instrumental keywords & pure music markers across languages
+  // If song has more than 2 lines, it has real lyrics — NEVER treat as instrumental!
+  if (allTexts.length > 2) return false;
+
+  // If only 1 or 2 lines exist, check if they explicitly denote an instrumental track
   const combined = allTexts.join(' ').toLowerCase();
-  const isInstrumentalPhrase =
-    combined.includes('纯音乐') ||
-    combined.includes('请欣赏') ||
-    combined.includes('instrumental') ||
-    combined.includes('pure music') ||
-    combined.includes('no lyrics') ||
-    combined.includes('没有歌词') ||
-    combined.includes('无歌词') ||
-    combined.includes('(music)') ||
-    combined.includes('♪') ||
-    combined.includes('作词 : 无') ||
-    combined.includes('作词：无') ||
-    combined.includes('作词:无');
-
-  if (isInstrumentalPhrase && allTexts.length <= 6) {
-    return true;
-  }
-
-  return false;
+  const pureInstMarkers = [
+    '纯音乐', '请欣赏', 'instrumental', 'pure music', 'no lyrics',
+    '没有歌词', '无歌词', '作词 : 无', '作词：无', '作词:无', 'instrumental track'
+  ];
+  return pureInstMarkers.some(marker => combined.includes(marker));
 }
 
 function getInstrumentalTag() {
@@ -2601,14 +2884,37 @@ function getInstrumentalTag() {
 }
 
 function updatePillInstrumentalView() {
-  const isInst = isInstrumentalOrNoLyrics();
   const pillVisWrap = document.getElementById('pillVisualizer');
   const pillLyricWrap = document.getElementById('pillLyricWrap');
   const pillText = document.getElementById('pillLyricText');
   const pillEqualizer = document.getElementById('pillLyricEqualizer');
   if (!pillVisWrap || !pillText) return;
 
+  const hasLyrics = hasAnyLyrics();
+  const isInst = !hasLyrics && isInstrumentalOrNoLyrics();
+
+  if (hasLyrics) {
+    // If lyrics are available, STRICTLY show lyrics row and NEVER audio visualizer
+    pillVisWrap.style.display = 'none';
+    if (pillLyricWrap) pillLyricWrap.style.display = 'flex';
+    pillText.style.display = '';
+
+    // Hide any mini-equalizer visualizer when lyrics are present
+    if (pillEqualizer) pillEqualizer.classList.add('hidden');
+
+    // Ensure pill text shows lyrics immediately
+    if (!pillText.textContent || pillText.textContent === 'Searching lyrics...' || pillText.textContent === 'No lyrics' || pillText.textContent === 'Listening for playback') {
+      if (state.hasSynced && state.lyrics.length > 0) {
+        const idx = state.activeLyricIndex >= 0 ? state.activeLyricIndex : 0;
+        pillText.textContent = state.lyrics[idx]?.text || state.title;
+      }
+      realignLyricsToCurrentPosition(true);
+    }
+    return;
+  }
+
   if (isInst) {
+    // Confirmed pure instrumental or 0 lyrics: show visualizer
     if (pillLyricWrap) pillLyricWrap.style.display = 'none';
     pillText.style.display = 'none';
     pillVisWrap.style.display = 'flex';
@@ -2621,15 +2927,38 @@ function updatePillInstrumentalView() {
       stage.className = `vis-bars-stage pill-vis-bars vis-style-${state.visualizerStyle || 'spectrum'}`;
     }
   } else {
+    // Searching or loading: show text without visualizer
+    pillVisWrap.style.display = 'none';
     if (pillLyricWrap) pillLyricWrap.style.display = 'flex';
     pillText.style.display = '';
-    pillVisWrap.style.display = 'none';
-    if (pillEqualizer) {
-      const isPlaying = (state.hasMedia && state.status === 'Playing');
-      pillEqualizer.classList.toggle('hidden', !isPlaying);
-      pillEqualizer.className = `vis-bars-stage pill-mini-equalizer vis-style-${state.visualizerStyle || 'spectrum'}${isPlaying ? '' : ' hidden'}`;
+    if (pillEqualizer) pillEqualizer.classList.add('hidden');
+    if (state.isFetchingLyrics) {
+      pillText.textContent = 'Searching lyrics...';
+    } else if (state.hasMedia && state.title) {
+      pillText.textContent = `${state.title} — ${state.artist}`;
     }
   }
+}
+
+// ==========================================================================
+// Instrumental Audio Visualizer Engine (Organic Audio Dynamics & Ballistics)
+// ==========================================================================
+
+let visSongHash = 0;
+let visBpm = 118;
+let visTimeOffset = 0;
+let visLastFrameTime = 0;
+const visPhysicsBuffers = new WeakMap();
+
+function updateVisSongProfile(title, artist) {
+  const str = `${title || 'overLy'}|${artist || 'Instrumental'}`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  visSongHash = Math.abs(hash);
+  // Derive song-specific tempo between 92 and 136 BPM
+  visBpm = 92 + (visSongHash % 45);
 }
 
 function updateInstrumentalVisualizerStyle() {
@@ -2646,6 +2975,10 @@ function updateInstrumentalVisualizerStyle() {
     const isPlaying = (state.hasMedia && state.status === 'Playing');
     pillEqualizer.className = `vis-bars-stage pill-mini-equalizer vis-style-${state.visualizerStyle || 'spectrum'}${isPlaying ? '' : ' hidden'}`;
   }
+  const immersiveStage = document.getElementById('immersiveVisBarsStage');
+  if (immersiveStage) {
+    immersiveStage.className = `vis-bars-stage immersive-vis-bars vis-style-${state.visualizerStyle || 'spectrum'}`;
+  }
 }
 
 function updateInstrumentalVisualizer() {
@@ -2656,9 +2989,43 @@ function updateInstrumentalVisualizer() {
     { el: document.getElementById('immersiveVisBarsStage'), maxH: 80 }
   ];
 
-  const isPlaying = (state.hasMedia && state.status === 'Playing');
-  const t = performance.now() / 1000;
+  const isPlaying = Boolean(state.hasMedia && state.status === 'Playing');
+  const now = performance.now();
+  if (!visLastFrameTime) visLastFrameTime = now;
+  const dt = Math.min(0.1, (now - visLastFrameTime) / 1000);
+  visLastFrameTime = now;
+
+  if (isPlaying) {
+    visTimeOffset += dt;
+  }
+
+  // Use song elapsed position plus continuous local time offset for non-repeating continuous clock
+  const t = (state.hasMedia && state.position > 0)
+    ? (state.position + visTimeOffset)
+    : visTimeOffset;
+
   const style = state.visualizerStyle || 'spectrum';
+  const bpm = visBpm || 116;
+  const bps = bpm / 60; // beats per second
+
+  // Multi-tier musical rhythm components
+  const beatClock = t * bps;
+  const beatFrac = beatClock % 1; // 0..1 in current beat
+  const kick = Math.pow(Math.max(0, 1 - beatFrac), 3.2); // Punchy kick transient on quarter notes
+
+  // Snare/clap on beats 2 & 4
+  const snareFrac = ((beatClock + 1) % 2) / 2;
+  const snare = Math.pow(Math.max(0, 1 - snareFrac * 2), 4.2);
+
+  // Hi-hat micro-rhythm on 16th notes
+  const hihatFrac = (beatClock * 4) % 1;
+  const hihat = Math.pow(Math.max(0, 1 - hihatFrac), 5.5) * 0.4;
+
+  // Organic non-repeating multi-octave harmonic modulation (using irrational frequency multipliers)
+  const drift1 = Math.sin(t * 1.414 + (visSongHash % 17));
+  const drift2 = Math.cos(t * 2.236 + (visSongHash % 29));
+  const drift3 = Math.sin(t * 3.605);
+  const macroEnergy = 0.58 + 0.38 * Math.sin(t * 0.28 + drift1 * 0.45); // Dynamic musical verse/chorus swells
 
   stages.forEach(({ el, maxH }) => {
     if (!el || el.offsetParent === null) return;
@@ -2666,38 +3033,96 @@ function updateInstrumentalVisualizer() {
     const numBars = bars.length;
     if (!numBars) return;
 
+    let heights = visPhysicsBuffers.get(el);
+    if (!heights || heights.length !== numBars) {
+      heights = new Float32Array(numBars).fill(3);
+      visPhysicsBuffers.set(el, heights);
+    }
+
+    const midPoint = (numBars - 1) / 2;
+
     for (let i = 0; i < numBars; i++) {
       const bar = bars[i];
-      let h = 3;
+      const normI = numBars > 1 ? (i / (numBars - 1)) : 0.5;
+      let targetNorm = 0;
 
       if (isPlaying) {
         if (style === 'wave') {
-          const w1 = Math.sin(t * 4.6 + i * 0.38);
-          const w2 = Math.cos(t * 2.2 - i * 0.22) * 0.35;
-          const norm = (w1 + w2 + 1.35) / 2.7;
-          h = 4 + Math.max(0, Math.min(1, norm)) * maxH;
+          // Smooth, continuous undulating liquid wave ribbon
+          // Coherent traveling wave superposition (forward, backward, micro-ripple)
+          const phi1 = t * 4.2 - i * 0.32;
+          const phi2 = t * 2.1 + i * 0.22;
+          const phi3 = t * 6.5 - i * 0.55;
+          const waveInterference = Math.sin(phi1) * 0.52 + Math.cos(phi2) * 0.34 + Math.sin(phi3) * 0.14;
+          // Smooth arch envelope so the wave tapers gracefully at the edges
+          const edgeEnvelope = Math.sin(normI * Math.PI);
+          const waveAmp = (0.42 + 0.38 * kick + 0.2 * snare) * macroEnergy;
+          targetNorm = 0.48 + waveInterference * (0.32 + 0.18 * edgeEnvelope) * waveAmp;
         } else if (style === 'pulse') {
-          const centerDist = Math.abs(i - (numBars - 1) / 2) / ((numBars - 1) / 2);
-          const centerWeight = Math.max(0.12, Math.cos(centerDist * (Math.PI / 2) * 0.92));
-          const beat = Math.pow(Math.sin(t * 4.8), 2) * 0.5 + Math.sin(t * 2.4 + centerDist * 2) * 0.3 + 0.3;
-          h = 4 + centerWeight * Math.max(0.15, beat) * (maxH + 4);
+          // Symmetric center heartbeat shockwave (propagates outward from the core)
+          const centerDist = Math.abs(i - midPoint) / (midPoint || 1);
+          const centerCore = Math.pow(Math.max(0, 1 - centerDist), 1.4);
+          const coreHit = kick * 0.72 + snare * 0.28;
+          // Traveling shockwave ripple moving outward to both edges
+          const shockwave = Math.sin(t * 8.5 - centerDist * 6.8);
+          targetNorm = (centerCore * (0.3 + 0.7 * coreHit) + Math.max(0, shockwave) * (0.18 + 0.32 * snare) * (1 - centerDist * 0.35)) * macroEnergy;
         } else if (style === 'minimal') {
-          const m = (Math.sin(t * 3.2 + i * 0.45) + 1) / 2;
-          h = 4 + m * (maxH * 0.55);
+          // Clean, modern studio level meter (NOT a traveling wave!)
+          // Damped acoustic level channels reflecting musical volume envelope and frequency gradient
+          const bandTilt = 0.88 - normI * 0.32;
+          const breath = 0.42 + 0.36 * kick + 0.22 * snare;
+          const subtleHarmonic = (Math.sin(t * 1.9 + normI * 1.5) * 0.08);
+          targetNorm = Math.min(0.62, Math.max(0.14, (breath * bandTilt + subtleHarmonic) * macroEnergy * 0.65));
         } else {
-          // spectrum
-          const freqTilt = 1 - (i / numBars) * 0.42;
-          const n1 = Math.sin(t * 7.2 + i * 1.4);
-          const n2 = Math.cos(t * 11.5 + i * 0.85) * 0.4;
-          const n3 = Math.sin(t * 3.8 + i * 2.6) * 0.3;
-          const combo = (n1 + n2 + n3 + 1.7) / 3.4;
-          h = 4 + Math.max(0, Math.min(1, combo)) * maxH * freqTilt;
+          // Default: 'spectrum' (Realistic multi-band Graphic EQ Analyzer)
+          // Lows/Bass on left, Mids in center, Highs/Treble on right
+          let bandEnergy = 0;
+          if (normI < 0.3) {
+            // Bass: heavy kick thump & sub-drone
+            const sub = Math.sin(t * 5.8 + i * 1.6) * 0.3 + 0.7;
+            bandEnergy = kick * 0.8 + sub * 0.4;
+          } else if (normI < 0.7) {
+            // Mids: snare snap & vocal flutter
+            const midFlutter = Math.sin(t * 9.2 + i * 2.8) * 0.4 + 0.6;
+            bandEnergy = snare * 0.65 + midFlutter * 0.45;
+          } else {
+            // Treble: hi-hat ticks & sparkling fast transients
+            const shimmer = Math.sin(t * 16.5 + i * 4.9) * 0.5 + 0.5;
+            bandEnergy = hihat * 0.7 + shimmer * 0.45;
+          }
+          // Individual bar fractional noise so adjacent bars don't lock together
+          const barHash = (((visSongHash + i * 107) % 31) / 30) * 0.25;
+          const irrationalNoise = Math.sin(t * 3.1415 + i * 2.718) * Math.cos(t * 4.472 - i * 1.414) * 0.2;
+          const freqTilt = 1.0 - normI * 0.28;
+          targetNorm = (bandEnergy + barHash + irrationalNoise) * macroEnergy * freqTilt;
         }
-      } else {
-        h = 3;
       }
 
-      bar.style.height = `${Math.round(h)}px`;
+      // Ballistic physics calculation
+      let curH = heights[i] || 3;
+      if (isPlaying) {
+        const clampedTarget = Math.max(0.05, Math.min(1.0, targetNorm));
+        const targetH = 4 + clampedTarget * (maxH - 4);
+        if (targetH > curH) {
+          // Snappy attack: jump fast toward transient peaks
+          const attackSpeed = (style === 'minimal') ? 0.38 : (style === 'wave' ? 0.5 : 0.68);
+          curH += (targetH - curH) * attackSpeed;
+        } else {
+          // Exponential gravity decay
+          const decayRate = (style === 'minimal') ? 0.92 : (style === 'wave' ? 0.88 : 0.84);
+          curH = Math.max(targetH, curH * decayRate - 0.22);
+        }
+      } else {
+        // Paused/stopped: smoothly decay down to rest height 3px
+        if (curH > 3.1) {
+          curH = Math.max(3, curH * 0.84 - 0.25);
+        } else {
+          curH = 3;
+        }
+      }
+
+      heights[i] = curH;
+      bar.style.height = `${Math.round(curH)}px`;
     }
   });
 }
@@ -2707,7 +3132,7 @@ function renderLyricsList() {
 
   if (!state.hasMedia) {
     body.classList.remove('no-lyrics-collapsed');
-    updateWindowDimensionsForLyrics();
+    if (!state.isImmersive) updateWindowDimensionsForLyrics();
     updatePillLyricsBadge();
     updatePillInstrumentalView();
     const el = document.createElement('div');
@@ -2721,7 +3146,7 @@ function renderLyricsList() {
   // Pure instrumental or no lyrics condition
   if (isInstrumentalOrNoLyrics()) {
     body.classList.add('no-lyrics-collapsed');
-    updateWindowDimensionsForLyrics();
+    if (!state.isImmersive) updateWindowDimensionsForLyrics();
     updatePillLyricsBadge();
     updatePillInstrumentalView();
 
@@ -2794,11 +3219,11 @@ function renderLyricsList() {
 
   // Full lyrics available: normal lyrics rendering
   body.classList.remove('no-lyrics-collapsed');
-  updateWindowDimensionsForLyrics();
+  if (!state.isImmersive) updateWindowDimensionsForLyrics();
   updatePillLyricsBadge();
   updatePillInstrumentalView();
 
-  if (state.hasSynced && state.lyrics.length > 1) {
+  if (state.hasSynced && state.lyrics.length > 0) {
     state.lyrics.forEach((line, idx) => {
       const el = document.createElement('div');
       el.className = 'lyric-line';
@@ -2832,7 +3257,10 @@ function renderLyricsList() {
     });
 
     requestAnimationFrame(() => {
-      const adjustedPos = state.position + state.offset;
+      const isPlaying = state.status === 'Playing';
+      const elapsed = isPlaying ? (Date.now() - state.lastPositionTime) / 1000 : 0;
+      const currentPos = Math.min(state.duration, state.position + elapsed);
+      const adjustedPos = currentPos + state.offset + 0.10;
       let snapIdx = -1;
       for (let i = 0; i < state.lyrics.length; i++) {
         if (state.lyrics[i].time <= adjustedPos) snapIdx = i;
@@ -2842,7 +3270,11 @@ function renderLyricsList() {
       if (snapIdx >= 0) {
         setActiveLyric(snapIdx, true);
       } else {
-        updatePillLyric(`${state.title} — ${state.artist}`);
+        if (state.lyrics.length > 0 && state.lyrics[0]?.text) {
+          updatePillLyric(state.lyrics[0].text);
+        } else {
+          updatePillLyric(`${state.title} — ${state.artist}`);
+        }
       }
     });
   } else if (state.plainLyrics) {
@@ -2916,7 +3348,7 @@ function updateProgress(currSec) {
 }
 
 function updatePillBorderDimensions() {
-  if (!pillBorderRect || !overlayContainer) return;
+  if (state.isImmersive || !pillBorderRect || !overlayContainer) return;
   const rect = overlayContainer.getBoundingClientRect();
   const w = Math.round(rect.width);
   const h = Math.round(rect.height);
@@ -2984,10 +3416,50 @@ function formatTime(sec) {
 }
 
 function updatePillLyric(text) {
+  const pillLyricWrap = document.getElementById('pillLyricWrap');
+  const pillVisWrap = document.getElementById('pillVisualizer');
+  const pillEqualizer = document.getElementById('pillLyricEqualizer');
+
+  if (hasAnyLyrics()) {
+    // There ARE lyrics: strictly display lyric text, NEVER visualizer
+    if (pillVisWrap && pillVisWrap.style.display !== 'none') {
+      pillVisWrap.style.display = 'none';
+    }
+    if (pillLyricWrap && pillLyricWrap.style.display !== 'flex') {
+      pillLyricWrap.style.display = 'flex';
+    }
+    if (pillLyricText && pillLyricText.style.display !== '') {
+      pillLyricText.style.display = '';
+    }
+    if (pillEqualizer) pillEqualizer.classList.add('hidden');
+
+    if (!pillLyricText) return;
+    const newText = text || '';
+    if (pillLyricText.textContent === newText) return;
+    pillLyricText.textContent = newText;
+    pillLyricText.classList.remove('anim-change');
+    void pillLyricText.offsetWidth; // Force reflow to re-trigger pop-in animation
+    pillLyricText.classList.add('anim-change');
+    return;
+  }
+
   if (isInstrumentalOrNoLyrics()) {
     updatePillInstrumentalView();
     return;
   }
+
+  // Ensure pill lyric container and wrap are visible and visualizer is hidden
+  if (pillVisWrap && pillVisWrap.style.display !== 'none') {
+    pillVisWrap.style.display = 'none';
+  }
+  if (pillLyricWrap && pillLyricWrap.style.display !== 'flex') {
+    pillLyricWrap.style.display = 'flex';
+  }
+  if (pillLyricText && pillLyricText.style.display !== '') {
+    pillLyricText.style.display = '';
+  }
+  if (pillEqualizer) pillEqualizer.classList.add('hidden');
+
   if (!pillLyricText) return;
   const newText = text || '';
   if (pillLyricText.textContent === newText) return;
@@ -3027,8 +3499,13 @@ async function triggerRetryLyrics() {
       state.hasSynced = Boolean(res.hasSynced);
       state.plainLyrics = res.plainLyrics || '';
       state.activeLyricIndex = -1;
+      document.body.classList.remove('pill-art-hovered');
+      overlayContainer?.classList.remove('pill-more-open');
+      pillMoreContainer?.classList.remove('open');
       renderTrackInfo();
       renderLyricsList();
+      updatePillInstrumentalView();
+      realignLyricsToCurrentPosition(true);
     }
   } catch (err) {
     console.error('Error retrying lyrics:', err);
@@ -3090,11 +3567,16 @@ function syncLyrics(currentPos, force = false) {
     }
   }
 
-  // If before first lyric (song intro/instrumental), display track info instead of "No lyrics"
+  // If before first lyric (song intro/instrumental)
   if (targetIdx === -1) {
-    if (state.activeLyricIndex !== -1 || force) {
+    const pillTextEl = document.getElementById('pillLyricText');
+    const isUninitialized = !pillTextEl || !pillTextEl.textContent || pillTextEl.textContent === 'Listening for playback' || pillTextEl.textContent === 'Searching lyrics...';
+    if (state.activeLyricIndex !== -1 || force || isUninitialized) {
       state.activeLyricIndex = -1;
-      updatePillLyric(`${state.title} — ${state.artist}`);
+      const introText = (state.lyrics && state.lyrics.length > 0 && state.lyrics[0]?.text)
+        ? state.lyrics[0].text
+        : `${state.title} — ${state.artist}`;
+      updatePillLyric(introText);
       const lineEls = lyricsList.querySelectorAll('.lyric-line');
       lineEls.forEach(el => el.classList.remove('active', 'near-active'));
       if (immersiveLyricsList) {
@@ -3188,7 +3670,10 @@ function realignLyricsToCurrentPosition(instant = true) {
       }
     } else {
       state.activeLyricIndex = -1;
-      updatePillLyric(`${state.title} — ${state.artist}`);
+      const introText = (state.lyrics && state.lyrics.length > 0 && state.lyrics[0]?.text)
+        ? state.lyrics[0].text
+        : `${state.title} — ${state.artist}`;
+      updatePillLyric(introText);
       const lineEls = lyricsList?.querySelectorAll('.lyric-line');
       lineEls?.forEach(el => el.classList.remove('active', 'near-active'));
       if (immersiveLyricsList) {

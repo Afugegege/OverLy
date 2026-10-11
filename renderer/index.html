@@ -118,6 +118,18 @@
     <!-- Content Body -->
     <main class="overlay-main">
 
+      <!-- Unfetched Searching Stage (Visible on startup or when no media is fetched) -->
+      <div id="unfetchedStage" class="unfetched-stage" aria-live="polite">
+        <div class="searching-wrapper">
+          <span class="searching-label">Searching</span>
+          <span class="searching-dots" aria-hidden="true">
+            <span class="searching-dot"></span>
+            <span class="searching-dot"></span>
+            <span class="searching-dot"></span>
+          </span>
+        </div>
+      </div>
+
       <!-- Track Info Row (Album Art, Title, Artist, Playback Wave) -->
       <div class="track-header">
         <div class="art-container no-drag">
@@ -268,6 +280,11 @@
 
       <!-- Pill View Single Lyric Line or Instrumental Visualizer (Used in Pill Mode) -->
       <div id="pillLyricContainer" class="pill-lyric-container">
+        <!-- Hover Song Title in Pill Mode (shown when hovering album icon) -->
+        <div id="pillHoverTitle" class="pill-hover-title" aria-hidden="true">
+          <span id="pillHoverTitleText" class="pill-hover-title-text">Waiting for music...</span>
+        </div>
+
         <!-- Normal Lyric Row with optional mini equalizer -->
         <div id="pillLyricWrap" class="pill-lyric-wrap">
           <div class="vis-bars-stage pill-mini-equalizer vis-style-spectrum hidden" id="pillLyricEqualizer" aria-hidden="true">
@@ -310,6 +327,42 @@
       </div>
 
     </main>
+
+    <!-- Minimized View Floating Action Drawer (Pops up on window hover) -->
+    <div id="miniMoreContainer" class="mini-more-container" title="Options">
+      <div id="miniMoreActions" class="mini-more-actions">
+        <!-- Exit Minimized Mode / Restore Layout -->
+        <button id="btnMiniExpand" class="media-btn mini-sub-btn" title="Exit Minimized Mode (M)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+          </svg>
+        </button>
+
+        <!-- Always on Top Pin -->
+        <button id="btnMiniPin" class="media-btn mini-sub-btn active" title="Always on Top (P)">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="17" x2="12" y2="22"/>
+            <path d="M5 17h14l-2-7V4h1V2H6v2h1v6L5 17z"/>
+          </svg>
+        </button>
+
+        <!-- Settings & Styling -->
+        <button id="btnMiniSettings" class="media-btn mini-sub-btn" title="Settings & Styling">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+
+        <!-- Exit / Close App -->
+        <button id="btnMiniClose" class="media-btn mini-sub-btn close-btn" title="Exit">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
 
     <!-- Corner resize handle (interactive when resize mode is toggled ON) -->
     <div id="resizeHandle" class="resize-handle no-drag" role="button" aria-label="Resize window" title="Drag to resize • Double-click to reset size">
@@ -362,11 +415,14 @@
       <section class="immersive-left" id="immersiveLeft">
         <div class="immersive-art-container">
           <div class="immersive-art-wrapper" id="immersiveArtWrapper">
-            <img id="immersiveArt" class="immersive-art" src="" alt="Album Art">
-            <div id="immersiveArtPlaceholder" class="immersive-art-placeholder hidden">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
-              </svg>
+            <img id="immersiveArt" class="immersive-art" alt="">
+            <div id="immersiveArtPlaceholder" class="immersive-art-placeholder">
+              <div class="vinyl-disc-graphic" aria-hidden="true">
+                <div class="vinyl-center-label">
+                  <div class="vinyl-spindle-hole"></div>
+                </div>
+              </div>
+              <span id="immersivePlaceholderLabel" class="placeholder-status-tag">No Artwork</span>
             </div>
           </div>
         </div>

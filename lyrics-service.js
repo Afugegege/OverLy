@@ -5,23 +5,110 @@
  */
 
 const cache = new Map();
+const coverArtCache = new Map();
+
+function normalizeText(s) {
+  if (!s) return '';
+  return s.replace(/[–—－―]/g, '-').trim();
+}
+
+function parseTrackFeatures(title, artist) {
+  const normTitle = normalizeText(title || '');
+  const normArtist = normalizeText(artist || '');
+  const combined = (normArtist + ' ' + normTitle).toLowerCase();
+
+  // Extract base title: strip parentheses/brackets and trailing dash version
+  const baseTitle = normTitle
+    .replace(/\s*[（(【\[［「『《][^)\]】）］」』》]*[）)】\]］」』》]/g, '')
+    .replace(/\s*-\s*.*$/g, '')
+    .trim() || normTitle;
+
+  // Extract featured artists from feat./ft./with/featuring
+  const featMatches = [];
+  const featRegex = /(?:feat\.|ft\.|featuring|with|合作演出[：:]|x|vs\.)\s*([^\(\)\[\]–—\-/,]+)/gi;
+  let m;
+  while ((m = featRegex.exec(combined)) !== null) {
+    const name = m[1].trim().toLowerCase();
+    if (name.length > 1 && !['a', 'the', 'an', 'official', 'lyrics', 'video', 'audio'].includes(name)) {
+      featMatches.push(name);
+    }
+  }
+
+  // Detect remix / alternative version indicators
+  const isRemix = /(?:remix|mix\b|club|acoustic|live|slowed|speed|sped|vip|edit|rework|flip|dub\b|extended|instrumental|version|cover)/i.test(combined);
+
+  // Extract specific remixer in parens/brackets e.g. (Boehm Remix), [Cahill Remix]
+  let remixer = '';
+  const remMatch = normTitle.match(/[\(\[\{]([^\)\]\}]+?)(?:\s+remix|\s+mix|\s+edit)[\)\]\}]/i);
+  if (remMatch) {
+    remixer = remMatch[1].replace(/(?:feat\.|ft\.).*$/i, '').trim().toLowerCase();
+  }
+
+  // Primary artist without featured collabs
+  const primaryArtist = normArtist.split(/[;,/&]|feat\.|ft\./i)[0].trim();
+
+  // Generate specialized queries for remixes & versions
+  const remixQueries = [];
+  if (isRemix || featMatches.length > 0) {
+    if (featMatches.length > 0) {
+      remixQueries.push(`${primaryArtist} ${baseTitle} ${featMatches.join(' ')} remix`.trim());
+      remixQueries.push(`${primaryArtist} ${baseTitle} ${featMatches.join(' ')}`.trim());
+    }
+    if (remixer) {
+      remixQueries.push(`${primaryArtist} ${baseTitle} ${remixer} remix`.trim());
+      remixQueries.push(`${primaryArtist} ${baseTitle} ${remixer}`.trim());
+    }
+    const unbracketed = normTitle.replace(/[()[\]{}]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (unbracketed && unbracketed !== normTitle) {
+      remixQueries.push(`${primaryArtist} ${unbracketed}`.trim());
+    }
+    if (isRemix) {
+      remixQueries.push(`${primaryArtist} ${baseTitle} remix`.trim());
+    }
+  }
+
+  return {
+    normTitle,
+    normArtist,
+    baseTitle,
+    primaryArtist,
+    featMatches,
+    isRemix,
+    remixer,
+    remixQueries: [...new Set(remixQueries)]
+  };
+}
 
 function cleanTitle(title) {
   if (!title) return '';
-  let cleaned = title
-    // Remove features: (feat. ...), [ft. ...], (with ...)
-    .replace(/\s*\([^)]*(?:feat\.|ft\.|with\b|remaster|official|audio|video|lyric|visualizer|version|deluxe|edition|mix|explicit|clean|extended|slowed|reverb)[^)]*\)/gi, '')
-    .replace(/\s*\[[^\]]*(?:feat\.|ft\.|with\b|remaster|official|audio|video|lyric|visualizer|version|deluxe|edition|mix|explicit|clean|extended|slowed|reverb)[^\]]*\]/gi, '')
-    // Remove trailing dash info: - Remastered, - Official Audio, - Radio Edit, - Live
-    .replace(/\s*-\s*(?:feat\.|ft\.|with\b|remaster|official|audio|video|lyric|visualizer|version|deluxe|edition|mix|live|radio\s*edit|single\s*version|extended|slowed).*$/gi, '')
+  let cleaned = normalizeText(title)
+    // Strip bracketed extras (both half-width () [] and full-width （） 【】 ［］ 「」 『』 《》)
+    .replace(/\s*[（(【\[［「『《][^)\]】）］」』》]*(?:feat\.|ft\.|with\b|remaster|official|audio|video|lyric|visualizer|version|deluxe|edition|mix|remix|explicit|clean|extended|slowed|reverb|live|instrumental|piano|acoustic|cover|mv|伴奏|钢琴|纯音乐|超清|无损|原声|现场|独唱|重温)[^)\]】）］」』》]*[）)】\]］」』》]/gi, '')
+    // Strip trailing video/MV tags: | Official Video, // MV
+    .replace(/\s*[|/／]\s*(?:official|video|audio|mv|lyrics?).*$/gi, '')
+    // Strip trailing dash suffixes
+    .replace(/\s*-\s*(?:feat\.|ft\.|with\b|remaster|official|audio|video|lyric|visualizer|version|deluxe|edition|mix|remix|live|radio\s*edit|single|single\s*version|ep|extended|slowed|instrumental|piano).*$/gi, '')
     .replace(/\s*-\s*\d{4}\s*remaster.*$/gi, '')
+    .replace(/\s*-\s*(?:single|ep)$/gi, '')
     .trim();
   return cleaned || title;
 }
 
+function cleanArtist(artist) {
+  if (!artist) return '';
+  let cleaned = normalizeText(artist)
+    .replace(/\s*-\s*Topic$/i, '')
+    .replace(/\s*[（(【\[［「『《].*?[）)】\]］」』》]/g, '')
+    .split(/\s*(?:,|&|\/|feat\.|ft\.|with|x|vs\.)\s*/i)[0]
+    .trim();
+  return cleaned || artist;
+}
+
+const isCJK = s => /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f\uac00-\ud7af]/.test(s || '');
+
 function extractTrackAndArtist(rawArtist, rawTitle) {
-  let artist = (rawArtist || '').trim();
-  let title = (rawTitle || '').trim();
+  let artist = normalizeText(rawArtist || '');
+  let title = normalizeText(rawTitle || '');
 
   // Strip YouTube Topic suffix
   if (artist.endsWith(' - Topic')) {
@@ -50,6 +137,16 @@ function parseLrc(lrcString) {
   const result = [];
   const timeRegex = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
 
+  // Extract optional global LRC [offset:+/-ms] tag (standard LRC specification)
+  let globalOffsetSec = 0;
+  const offsetMatch = lrcString.match(/\[offset:\s*([+-]?\d+)\s*\]/i);
+  if (offsetMatch) {
+    const offsetMs = parseInt(offsetMatch[1], 10);
+    if (!isNaN(offsetMs)) {
+      globalOffsetSec = offsetMs / 1000;
+    }
+  }
+
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -61,7 +158,8 @@ function parseLrc(lrcString) {
       const min = parseInt(match[1], 10);
       const sec = parseInt(match[2], 10);
       const ms = match[3] ? parseFloat('0.' + match[3]) : 0;
-      timestamps.push(min * 60 + sec + ms);
+      const rawTime = min * 60 + sec + ms + globalOffsetSec;
+      timestamps.push(Math.max(0, Math.round(rawTime * 1000) / 1000));
     }
 
     const text = trimmed.replace(timeRegex, '').trim();
@@ -89,25 +187,24 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 4500) {
   }
 }
 
-async function fetchCoverArt(artist, title) {
-  const cleaned = cleanTitle(title);
-  const query = encodeURIComponent(`${artist} ${cleaned || title}`);
-
-  // 1. Try Deezer API (super fast, high-res)
+async function fetchFromDeezer(query) {
   try {
-    const res = await fetchWithTimeout(`https://api.deezer.com/search?q=${query}&limit=1`);
+    const res = await fetchWithTimeout('https://api.deezer.com/search?q=' + encodeURIComponent(query) + '&limit=1', {}, 3500);
     if (res.ok) {
       const data = await res.json();
       if (data?.data?.[0]?.album) {
         const alb = data.data[0].album;
-        return alb.cover_xl || alb.cover_big || alb.cover_medium || alb.cover;
+        return alb.cover_xl || alb.cover_big || alb.cover_medium || alb.cover || null;
       }
     }
   } catch (err) {}
+  return null;
+}
 
-  // 2. Try iTunes API
+async function fetchFromITunes(query, country = '') {
   try {
-    const res = await fetchWithTimeout(`https://itunes.apple.com/search?term=${query}&entity=song&limit=1`);
+    const countryParam = country ? `&country=${country}` : '';
+    const res = await fetchWithTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1${countryParam}`, {}, 3500);
     if (res.ok) {
       const data = await res.json();
       if (data?.results?.[0]?.artworkUrl100) {
@@ -115,20 +212,108 @@ async function fetchCoverArt(artist, title) {
       }
     }
   } catch (err) {}
+  return null;
+}
+
+async function fetchFromKugou(query) {
+  try {
+    const sRes = await fetchWithTimeout(`http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=${encodeURIComponent(query)}&page=1&pagesize=1`, {}, 3500);
+    if (!sRes.ok) return null;
+    const sData = await sRes.json();
+    const hash = sData?.data?.info?.[0]?.hash;
+    if (!hash) return null;
+    const infoRes = await fetchWithTimeout(`http://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=${hash}`, {}, 3500);
+    if (!infoRes.ok) return null;
+    const info = await infoRes.json();
+    const rawUrl = info.album_img || info.imgUrl;
+    if (rawUrl) {
+      return rawUrl.replace('{size}', '400');
+    }
+  } catch (err) {}
+  return null;
+}
+
+async function fetchCoverArt(artist, title, album = '') {
+  const cTitle = cleanTitle(title);
+  const cArtist = cleanArtist(artist);
+  const cacheKey = `${(cArtist || '').toLowerCase()}:::${(cTitle || title || '').toLowerCase()}`;
+
+  if (coverArtCache.has(cacheKey)) {
+    return coverArtCache.get(cacheKey);
+  }
+
+  const hasCJK = isCJK(`${artist} ${title}`);
+
+  // Tier 1: Clean artist + Clean title across providers
+  const q1 = `${cArtist} ${cTitle}`.trim();
+  if (q1) {
+    let cover = await fetchFromDeezer(q1);
+    if (!cover) {
+      cover = await fetchFromITunes(q1, hasCJK ? 'TW' : '');
+      if (!cover && hasCJK) cover = await fetchFromITunes(q1, 'JP');
+      if (!cover) cover = await fetchFromITunes(q1);
+    }
+    if (!cover) {
+      cover = await fetchFromKugou(q1);
+    }
+    if (cover) {
+      coverArtCache.set(cacheKey, cover);
+      return cover;
+    }
+  }
+
+  // Tier 2: Raw artist + Raw title if different from cleaned
+  const qRaw = `${artist} ${title}`.trim();
+  if (qRaw && qRaw !== q1) {
+    let cover = await fetchFromDeezer(qRaw);
+    if (!cover) cover = await fetchFromITunes(qRaw, hasCJK ? 'TW' : '');
+    if (!cover) cover = await fetchFromITunes(qRaw);
+    if (!cover) cover = await fetchFromKugou(qRaw);
+    if (cover) {
+      coverArtCache.set(cacheKey, cover);
+      return cover;
+    }
+  }
+
+  // Tier 3: Clean title only (critical for localized / bilingual titles)
+  if (cTitle && cTitle !== q1) {
+    let cover = await fetchFromDeezer(cTitle);
+    if (!cover) cover = await fetchFromITunes(cTitle, hasCJK ? 'TW' : '');
+    if (!cover) cover = await fetchFromITunes(cTitle);
+    if (!cover) cover = await fetchFromKugou(cTitle);
+    if (cover) {
+      coverArtCache.set(cacheKey, cover);
+      return cover;
+    }
+  }
+
+  // Tier 4: Clean artist + Album if album is provided
+  if (album) {
+    const qAlbum = `${cArtist} ${cleanTitle(album)}`.trim();
+    if (qAlbum) {
+      let cover = await fetchFromDeezer(qAlbum);
+      if (!cover) cover = await fetchFromITunes(qAlbum);
+      if (cover) {
+        coverArtCache.set(cacheKey, cover);
+        return cover;
+      }
+    }
+  }
 
   return null;
 }
 
 /**
- * Accurately scores an LRCLIB candidate against the expected track to prevent false positives.
+ * Accurately scores a lyrics candidate against the expected track to prevent false positives,
+ * with specialized awareness of remixes, featured artists, and duration alignment.
  */
 function scoreCandidate(item, targetArtist, targetTitle, targetDuration) {
   if (!item || (!item.syncedLyrics && !item.plainLyrics)) return -1;
 
-  const candArtist = (item.artistName || '').toLowerCase().trim();
-  const candTitle = (item.trackName || '').toLowerCase().trim();
-  const expArtist = (targetArtist || '').toLowerCase().trim();
-  const expTitle = (targetTitle || '').toLowerCase().trim();
+  const candArtist = normalizeText(item.artistName || '').toLowerCase().trim();
+  const candTitle = normalizeText(item.trackName || '').toLowerCase().trim();
+  const expArtist = normalizeText(targetArtist || '').toLowerCase().trim();
+  const expTitle = normalizeText(targetTitle || '').toLowerCase().trim();
   const expCleanedTitle = cleanTitle(targetTitle).toLowerCase().trim();
 
   const tokenize = s => s.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 1);
@@ -150,9 +335,9 @@ function scoreCandidate(item, targetArtist, targetTitle, targetDuration) {
         artistScore = 35;
       }
     }
-    // Strict guard: if artist was specified, candidate MUST have artist overlap!
+    // Strict guard: candidate MUST have artist overlap if artist was specified
     if (artistScore === 0 && expArtistTokens.length > 0) {
-      return -1; // Completely different artist -> reject
+      return -1;
     }
   } else {
     artistScore = 20;
@@ -172,22 +357,72 @@ function scoreCandidate(item, targetArtist, targetTitle, targetDuration) {
   }
 
   if (titleScore === 0) {
-    return -1; // Different title -> reject
+    return -1;
   }
 
-  // 3. Lyrics Quality (Favor synced)
-  let lyricsScore = item.syncedLyrics ? 25 : 5;
+  // 3. Version / Remix & Featured Artist Compatibility Check
+  const targetFeat = parseTrackFeatures(targetTitle, targetArtist);
+  const candFeat = parseTrackFeatures(item.trackName, item.artistName);
 
-  // 4. Duration Check (Prevent covers / live versions / wrong tracks)
+  let versionScore = 0;
+
+  // A. Check featured artists (e.g. Wale, DaBaby, Ice Spice)
+  if (targetFeat.featMatches.length > 0) {
+    const candAll = (candArtist + ' ' + candTitle).toLowerCase();
+    const hasTargetFeat = targetFeat.featMatches.some(f => candAll.includes(f));
+    if (hasTargetFeat) {
+      versionScore += 50; // Decisive bonus for matching the guest/remix artist
+    } else {
+      versionScore -= 30; // Candidate lacks target's featured collaborator
+    }
+  }
+
+  // B. Check specific remixer (e.g. Boehm, Cahill, Tiësto)
+  if (targetFeat.remixer) {
+    if (candFeat.remixer === targetFeat.remixer || candTitle.includes(targetFeat.remixer)) {
+      versionScore += 40;
+    } else if (candFeat.remixer && candFeat.remixer !== targetFeat.remixer) {
+      return -1; // Wrong remixer altogether! Discard immediately
+    }
+  } else if (candFeat.remixer) {
+    // Target had no specific remixer, candidate specifies one (e.g. Boehm when playing Wale or original)
+    if (targetFeat.featMatches.length > 0 && !candFeat.remixer.includes(targetFeat.featMatches[0])) {
+      versionScore -= 45;
+    }
+  }
+
+  // C. Remix status consistency
+  if (targetFeat.isRemix) {
+    if (candFeat.isRemix) {
+      versionScore += 25;
+    } else {
+      versionScore -= 35; // Target is remix, candidate is plain original -> heavy penalty
+    }
+  } else if (candFeat.isRemix) {
+    versionScore -= 30; // Target is original, candidate is remix -> downrank
+  }
+
+  // 4. Lyrics Quality (Favor synced)
+  let lyricsScore = item.syncedLyrics ? 30 : 5;
+
+  // 5. Duration Check (Stricter for remixes where different mixes have distinct lengths)
   let durationScore = 0;
   if (targetDuration && targetDuration > 10 && item.duration && item.duration > 10) {
     const diff = Math.abs(item.duration - targetDuration);
-    if (diff <= 3) durationScore = 25;
-    else if (diff <= 8) durationScore = 12;
-    else if (diff > 18) durationScore = -40; // Heavy penalty if track durations deviate greatly
+    if (targetFeat.isRemix) {
+      if (diff <= 2) durationScore = 35;
+      else if (diff <= 4) durationScore = 18;
+      else if (diff <= 7) durationScore = 5;
+      else if (diff > 12) durationScore = -55;
+      else durationScore = -35;
+    } else {
+      if (diff <= 3) durationScore = 25;
+      else if (diff <= 8) durationScore = 12;
+      else if (diff > 18) durationScore = -40;
+    }
   }
 
-  return artistScore + titleScore + lyricsScore + durationScore;
+  return artistScore + titleScore + versionScore + lyricsScore + durationScore;
 }
 
 function findBestMatch(list, artist, title, duration) {
@@ -207,14 +442,15 @@ function findBestMatch(list, artist, title, duration) {
 
 async function getLyricsFromLrclib(rawArtist, rawTitle, album, duration) {
   const { artist, title } = extractTrackAndArtist(rawArtist, rawTitle);
+  const targetFeat = parseTrackFeatures(title, artist);
   const cleaned = cleanTitle(title);
   const artistParam = encodeURIComponent(artist || '');
   const trackParam = encodeURIComponent(title || '');
   const cleanTrackParam = encodeURIComponent(cleaned || title || '');
-  const primaryArtist = (artist || '').split(/[;,/&]|feat\.|ft\./i)[0].trim();
+  const primaryArtist = targetFeat.primaryArtist || (artist || '').split(/[;,/&]|feat\.|ft\./i)[0].trim();
   const primaryArtistParam = encodeURIComponent(primaryArtist);
 
-  // Attempt 1: Exact query with duration
+  // Attempt 1: Exact query with duration on /api/get
   try {
     let url = `https://lrclib.net/api/get?artist_name=${artistParam}&track_name=${trackParam}`;
     if (duration && duration > 0) {
@@ -227,8 +463,26 @@ async function getLyricsFromLrclib(rawArtist, rawTitle, album, duration) {
     }
   } catch (e) {}
 
-  // Attempt 2: Cleaned title query
-  if (cleaned && cleaned !== title) {
+  // Attempt 2: High-Priority Targeted Remix & Feature Search
+  // If track is a remix or has featured artists, search specialized queries first
+  if (targetFeat.isRemix || targetFeat.featMatches.length > 0) {
+    for (const remQuery of targetFeat.remixQueries) {
+      try {
+        const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(remQuery)}`;
+        const res = await fetchWithTimeout(searchUrl, {}, 3500);
+        if (res.ok) {
+          const list = await res.json();
+          const best = findBestMatch(list, artist, title, duration);
+          if (best && best.syncedLyrics && scoreCandidate(best, artist, title, duration) >= 65) {
+            return best;
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
+  // Attempt 3: Cleaned title query on /api/get
+  if (cleaned && cleaned !== title && !targetFeat.isRemix) {
     try {
       let url = `https://lrclib.net/api/get?artist_name=${artistParam}&track_name=${cleanTrackParam}`;
       if (duration && duration > 0) {
@@ -242,8 +496,8 @@ async function getLyricsFromLrclib(rawArtist, rawTitle, album, duration) {
     } catch (e) {}
   }
 
-  // Attempt 3: Primary artist query (if multi-artist collaboration)
-  if (primaryArtist && primaryArtist !== artist) {
+  // Attempt 4: Primary artist query on /api/get
+  if (primaryArtist && primaryArtist !== artist && !targetFeat.isRemix) {
     try {
       let url = `https://lrclib.net/api/get?artist_name=${primaryArtistParam}&track_name=${cleanTrackParam}`;
       if (duration && duration > 0) {
@@ -257,11 +511,11 @@ async function getLyricsFromLrclib(rawArtist, rawTitle, album, duration) {
     } catch (e) {}
   }
 
-  // Attempt 4: Search endpoint with strict scoring
+  // Attempt 5: Search endpoint with primary artist + title / cleaned
   try {
     const query = encodeURIComponent(`${primaryArtist || artist} ${cleaned || title}`.trim());
     const searchUrl = `https://lrclib.net/api/search?q=${query}`;
-    const res = await fetchWithTimeout(searchUrl);
+    const res = await fetchWithTimeout(searchUrl, {}, 3500);
     if (res.ok) {
       const list = await res.json();
       const best = findBestMatch(list, artist, title, duration);
@@ -269,12 +523,12 @@ async function getLyricsFromLrclib(rawArtist, rawTitle, album, duration) {
     }
   } catch (e) {}
 
-  // Attempt 5: Search cleaned title only, but strictly enforce artist match in scorer
+  // Attempt 6: Search cleaned title only, with strict candidate scoring
   if (artist && cleaned) {
     try {
       const query = encodeURIComponent(cleaned);
       const searchUrl = `https://lrclib.net/api/search?q=${query}`;
-      const res = await fetchWithTimeout(searchUrl);
+      const res = await fetchWithTimeout(searchUrl, {}, 3500);
       if (res.ok) {
         const list = await res.json();
         const best = findBestMatch(list, artist, title, duration);
@@ -292,16 +546,22 @@ async function getLyricsFromLrclib(rawArtist, rawTitle, album, duration) {
  */
 async function getLyricsFromKugou(rawArtist, rawTitle, album, duration) {
   const { artist, title } = extractTrackAndArtist(rawArtist, rawTitle);
+  const targetFeat = parseTrackFeatures(title, artist);
   const cleaned = cleanTitle(title);
-  const primaryArtist = (artist || '').split(/[;,/&]|feat\.|ft\./i)[0].trim();
+  const primaryArtist = targetFeat.primaryArtist || (artist || '').split(/[;,/&]|feat\.|ft\./i)[0].trim();
 
   const searchQueries = [];
+  if (targetFeat.isRemix || targetFeat.featMatches.length > 0) {
+    searchQueries.push(...targetFeat.remixQueries);
+  }
   if (artist && cleaned) searchQueries.push(`${artist} ${cleaned}`);
   if (primaryArtist && primaryArtist !== artist && cleaned) searchQueries.push(`${primaryArtist} ${cleaned}`);
   if (artist && title && title !== cleaned) searchQueries.push(`${artist} ${title}`);
   if (cleaned) searchQueries.push(cleaned);
 
-  for (const query of searchQueries) {
+  const uniqueQueries = [...new Set(searchQueries)];
+
+  for (const query of uniqueQueries) {
     try {
       const searchUrl = `http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=${encodeURIComponent(query)}&page=1&pagesize=6`;
       const sRes = await fetchWithTimeout(searchUrl, {}, 4000);
@@ -310,12 +570,16 @@ async function getLyricsFromKugou(rawArtist, rawTitle, album, duration) {
       const songs = sData?.data?.info;
       if (!Array.isArray(songs) || songs.length === 0) continue;
 
-      // Pick best matching song based on duration if duration is available
+      // Pick best matching song based on duration & remix status
       let selectedSong = songs[0];
       if (duration && duration > 0) {
-        const matched = songs.find(s => typeof s.duration === 'number' && Math.abs(s.duration - duration) <= 6);
+        const maxDelta = targetFeat.isRemix ? 4 : 6;
+        const matched = songs.find(s => typeof s.duration === 'number' && Math.abs(s.duration - duration) <= maxDelta);
         if (matched) {
           selectedSong = matched;
+        } else if (targetFeat.isRemix) {
+          // If playing a remix and no song matches duration, don't blindly accept original song with wrong duration
+          continue;
         }
       }
 
@@ -359,31 +623,51 @@ async function getLyricsFromKugou(rawArtist, rawTitle, album, duration) {
  */
 async function getLyricsFromQQ(rawArtist, rawTitle, album, duration) {
   const { artist, title } = extractTrackAndArtist(rawArtist, rawTitle);
+  const targetFeat = parseTrackFeatures(title, artist);
   const cleaned = cleanTitle(title);
-  const query = `${artist} ${cleaned || title}`.trim();
 
-  try {
-    const sUrl = `https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=${encodeURIComponent(query)}&format=json&n=3`;
-    const sRes = await fetchWithTimeout(sUrl, {}, 3500);
-    if (!sRes.ok) return null;
-    const sData = await sRes.json();
-    const song = sData?.data?.song?.list?.[0];
-    if (!song?.songmid) return null;
+  const searchQueries = [];
+  if (targetFeat.isRemix || targetFeat.featMatches.length > 0) {
+    searchQueries.push(...targetFeat.remixQueries);
+  }
+  searchQueries.push(`${artist} ${cleaned || title}`.trim());
 
-    const lUrl = `https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=${song.songmid}&format=json&nobase64=1`;
-    const lRes = await fetchWithTimeout(lUrl, { headers: { Referer: 'https://y.qq.com' } }, 3500);
-    if (!lRes.ok) return null;
-    const lText = await lRes.text();
-    const cleanText = lText.replace(/^MusicJsonCallback\(/, '').replace(/\)$/, '');
-    const lData = JSON.parse(cleanText);
-    const lrc = lData?.lyric;
-    if (lrc && lrc.includes('[')) {
-      return {
-        syncedLyrics: lrc,
-        plainLyrics: ''
-      };
-    }
-  } catch (err) {}
+  const uniqueQueries = [...new Set(searchQueries)];
+
+  for (const query of uniqueQueries) {
+    try {
+      const sUrl = `https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=${encodeURIComponent(query)}&format=json&n=3`;
+      const sRes = await fetchWithTimeout(sUrl, {}, 3500);
+      if (!sRes.ok) continue;
+      const sData = await sRes.json();
+      const songs = sData?.data?.song?.list;
+      if (!Array.isArray(songs) || songs.length === 0) continue;
+
+      let song = songs[0];
+      if (duration && duration > 0) {
+        const maxDelta = targetFeat.isRemix ? 4 : 8;
+        const matched = songs.find(s => typeof s.interval === 'number' && Math.abs(s.interval - duration) <= maxDelta);
+        if (matched) song = matched;
+        else if (targetFeat.isRemix) continue;
+      }
+
+      if (!song?.songmid) continue;
+
+      const lUrl = `https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=${song.songmid}&format=json&nobase64=1`;
+      const lRes = await fetchWithTimeout(lUrl, { headers: { Referer: 'https://y.qq.com' } }, 3500);
+      if (!lRes.ok) continue;
+      const lText = await lRes.text();
+      const cleanText = lText.replace(/^MusicJsonCallback\(/, '').replace(/\)$/, '');
+      const lData = JSON.parse(cleanText);
+      const lrc = lData?.lyric;
+      if (lrc && lrc.includes('[')) {
+        return {
+          syncedLyrics: lrc,
+          plainLyrics: ''
+        };
+      }
+    } catch (err) {}
+  }
 
   return null;
 }
@@ -415,27 +699,42 @@ async function fetchLyricsMultiSource(artist, title, album, duration) {
   return null;
 }
 
-async function getTrackData(rawArtist, rawTitle, album = '', duration = 0, forceRefresh = false) {
+async function getTrackData(rawArtist, rawTitle, album = '', duration = 0, forceRefresh = false, existingCoverUrl = null) {
   if (!rawTitle) return null;
   const { artist, title } = extractTrackAndArtist(rawArtist, rawTitle);
   const key = `${(artist || '').toLowerCase()}:::${title.toLowerCase()}`;
+  const coverKey = `${cleanArtist(artist).toLowerCase()}:::${cleanTitle(title).toLowerCase()}`;
+
+  if (existingCoverUrl) {
+    coverArtCache.set(coverKey, existingCoverUrl);
+  }
 
   if (forceRefresh) {
     cache.delete(key);
+    if (!existingCoverUrl) coverArtCache.delete(coverKey);
   } else if (cache.has(key)) {
     const cached = cache.get(key);
-    // Only return cached if it actually found lyrics or plain lyrics.
-    // If it was empty, allow subsequent attempts to re-fetch!
     if (cached && ((cached.lyrics && cached.lyrics.length > 0) || cached.plainLyrics)) {
+      if (!cached.coverUrl && (existingCoverUrl || coverArtCache.has(coverKey))) {
+        cached.coverUrl = existingCoverUrl || coverArtCache.get(coverKey);
+      }
       return cached;
     }
   }
 
   // Parallel fetch lyrics (concurrent across sources) and artwork
+  const artworkPromise = existingCoverUrl
+    ? Promise.resolve(existingCoverUrl)
+    : (coverArtCache.has(coverKey) ? Promise.resolve(coverArtCache.get(coverKey)) : fetchCoverArt(artist, title, album));
+
   const [lyricsData, coverUrl] = await Promise.all([
     fetchLyricsMultiSource(artist, title, album, duration),
-    fetchCoverArt(artist, title)
+    artworkPromise
   ]);
+
+  if (coverUrl) {
+    coverArtCache.set(coverKey, coverUrl);
+  }
 
   let parsedLyrics = [];
   let hasSynced = false;
@@ -453,7 +752,7 @@ async function getTrackData(rawArtist, rawTitle, album = '', duration = 0, force
     title,
     artist: artist || 'Unknown Artist',
     album: album || '',
-    coverUrl,
+    coverUrl: coverUrl || null,
     hasSynced,
     lyrics: parsedLyrics,
     plainLyrics
@@ -473,6 +772,8 @@ async function getTrackData(rawArtist, rawTitle, album = '', duration = 0, force
 
 module.exports = {
   getTrackData,
+  fetchCoverArt,
   cleanTitle,
+  cleanArtist,
   parseLrc
 };

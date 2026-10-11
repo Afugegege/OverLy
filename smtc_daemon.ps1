@@ -61,6 +61,11 @@ try {
 $asyncOp = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()
 $global:manager = Await $asyncOp ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
 
+[Windows.Storage.Streams.IRandomAccessStreamWithContentType, Windows.Storage.Streams, ContentType=WindowsRuntime] | Out-Null
+$global:asStreamMethod = [System.IO.WindowsRuntimeStreamExtensions].GetMethods() | ? { $_.Name -eq 'AsStream' -and $_.GetParameters().Count -eq 1 }
+$global:tempThumbFile = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "overLy_smtc_thumb.jpg")
+$global:lastThumbTrack = ""
+
 [Console]::Out.WriteLine("READY")
 [Console]::Out.Flush()
 
@@ -206,15 +211,36 @@ while ($true) {
                 $status = $info.PlaybackStatus.ToString()
             }
 
+            $trackKey = "$($props.Artist):::$($props.Title)"
+            $isTrackChanged = ($global:lastTrackKey -and $trackKey -ne $global:lastTrackKey)
+            if ($trackKey -ne $global:lastTrackKey) {
+                $global:lastTrackKey = $trackKey
+                $global:trackChangeUtc = [DateTimeOffset]::UtcNow
+            }
+
             $pos = 0.0
             $dur = 0.0
             if ($timeline) {
-                $pos = [Math]::Round($timeline.Position.TotalSeconds, 2)
+                $rawPos = [Math]::Round($timeline.Position.TotalSeconds, 2)
                 $dur = [Math]::Round($timeline.EndTime.TotalSeconds, 2)
+
+                # If track just switched and WinRT still returns the previous song's high position, reset to 0.0
+                if ($isTrackChanged -and $rawPos -gt 3.5) {
+                    $rawPos = 0.0
+                }
+
+                $pos = $rawPos
                 if ($status -eq "Playing" -and $timeline.LastUpdatedTime -and $timeline.LastUpdatedTime.Year -gt 2000) {
                     $timeDiff = ([DateTimeOffset]::UtcNow - $timeline.LastUpdatedTime).TotalSeconds
+                    
+                    # Prevent stale LastUpdatedTime from creating false forward jumps at track start:
+                    # When position is near 0s (< 2.0s), timeDiff cannot realistically exceed 1.5s
+                    if ($rawPos -lt 2.0 -and $timeDiff -gt 1.5) {
+                        $timeDiff = [Math]::Min($timeDiff, 0.8)
+                    }
+
                     if ($timeDiff -gt 0 -and $timeDiff -lt 180) {
-                        $interpolatedPos = $timeline.Position.TotalSeconds + $timeDiff
+                        $interpolatedPos = $rawPos + $timeDiff
                         if ($dur -gt 0) {
                             $pos = [Math]::Round([Math]::Min($dur, $interpolatedPos), 2)
                         } else {
@@ -222,6 +248,32 @@ while ($true) {
                         }
                     }
                 }
+            }
+
+            $thumbFileAvailable = $null
+
+            if ($props.Thumbnail -and ($trackKey -ne $global:lastThumbTrack -or (-not (Test-Path $global:tempThumbFile)))) {
+                try {
+                    $stream = Await ($props.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
+                    if ($stream -and $stream.Size -gt 0 -and $global:asStreamMethod) {
+                        $netStream = $global:asStreamMethod.Invoke($null, @($stream))
+                        $fileStream = [System.IO.File]::Create($global:tempThumbFile)
+                        $netStream.CopyTo($fileStream)
+                        $fileStream.Dispose()
+                        $netStream.Dispose()
+                        $global:lastThumbTrack = $trackKey
+                    }
+                } catch {}
+            } elseif ($trackKey -ne $global:lastThumbTrack) {
+                # New track without native thumbnail - reset tracking so old thumb is not reused
+                $global:lastThumbTrack = $trackKey
+                if (Test-Path $global:tempThumbFile) {
+                    try { Remove-Item -Force $global:tempThumbFile } catch {}
+                }
+            }
+
+            if ($global:lastThumbTrack -eq $trackKey -and (Test-Path $global:tempThumbFile)) {
+                $thumbFileAvailable = $global:tempThumbFile
             }
 
             $res = @{
@@ -233,6 +285,7 @@ while ($true) {
                 position = $pos
                 duration = $dur
                 status = $status
+                thumbnailPath = $thumbFileAvailable
             }
             $json = ConvertTo-Json -InputObject $res -Compress
             [Console]::Out.WriteLine("DATA:$json")

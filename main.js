@@ -45,7 +45,7 @@ function applyTheme(theme) {
 
 const defaultSettings = {
   mode: 'card', // 'pill' | 'card' | 'expanded'
-  accentColor: '#FF3040',
+  accentColor: 'auto',
   opacity: 0.85,
   fontSize: 18,
   offset: 0,
@@ -53,6 +53,7 @@ const defaultSettings = {
   alwaysOnTop: true,
   startOnBoot: false,
   theme: 'system', // 'system' | 'dark' | 'light' | 'auto'
+  adaptAlbumColor: true,
   autoMinimize: false,
   autoMinimizeDelay: 10,
   autoMinimizeExpand: 'play', // 'play' | 'hover'
@@ -113,8 +114,8 @@ function createWindow() {
     normal: { width: 460, height: 274 },
     collapsed: { width: 440, height: 104 },
     pill: { width: 440, height: 104 },
-    minimized: { width: 64, height: 64 },
-    mini: { width: 64, height: 64 },
+    minimized: { width: 230, height: 68 },
+    mini: { width: 230, height: 68 },
     lyrics: { width: 460, height: 164 },
     expanded: { width: 460, height: 504 }
   };
@@ -216,18 +217,22 @@ function createWindow() {
     }
   });
 
+  mainWindow.on('enter-full-screen', () => {
+    isImmersiveMode = true;
+    mainWindow.webContents.send('immersive-mode-changed', true);
+  });
+
   mainWindow.on('leave-full-screen', () => {
-    if (isImmersiveMode) {
-      isImmersiveMode = false;
-      mainWindow.webContents.send('immersive-mode-changed', false);
-      if (preImmersiveBounds) {
-        setTimeout(() => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.setBounds(preImmersiveBounds);
-            mainWindow.setResizable(false);
-          }
-        }, 60);
-      }
+    isImmersiveMode = false;
+    mainWindow.setMaximizable(false);
+    mainWindow.webContents.send('immersive-mode-changed', false);
+    if (preImmersiveBounds) {
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.setBounds(preImmersiveBounds);
+          mainWindow.setResizable(false);
+        }
+      }, 60);
     }
   });
 
@@ -382,7 +387,12 @@ app.whenReady().then(() => {
   // Start SMTC background service
   smtcService.start();
 
-  function broadcastMediaUpdate(payload) {
+  async function broadcastMediaUpdate(payload) {
+    if (payload && payload.coverUrl && !payload.coverColors) {
+      try {
+        payload.coverColors = await extractCoverColorsInternal(payload.coverUrl);
+      } catch (_) {}
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('media-update', payload);
     }
@@ -392,6 +402,22 @@ app.whenReady().then(() => {
   }
 
   let mediaAbsentGraceTimer = null;
+
+  function resolveThumbnailDataUrl(thumbPath) {
+    if (!thumbPath) return null;
+    try {
+      if (fs.existsSync(thumbPath)) {
+        const buf = fs.readFileSync(thumbPath);
+        if (buf && buf.length > 0) {
+          const mime = buf[0] === 0x89 ? 'image/png' : 'image/jpeg';
+          return `data:${mime};base64,${buf.toString('base64')}`;
+        }
+      }
+    } catch (e) {
+      console.error('Error reading native SMTC thumbnail:', e);
+    }
+    return null;
+  }
 
   smtcService.on('update', async (mediaData) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -441,17 +467,19 @@ app.whenReady().then(() => {
     // If song changed, IMMEDIATELY clear previous song's lyrics so they never bleed into new track
     if (trackKey !== currentTrackKey) {
       currentTrackKey = trackKey;
+      const initialCover = resolveThumbnailDataUrl(mediaData.thumbnailPath);
+
       currentTrackData = {
         title: mediaData.title,
         artist: mediaData.artist,
         lyrics: [],
         hasSynced: false,
         plainLyrics: '',
-        coverUrl: null,
+        coverUrl: initialCover,
         isFetchingLyrics: true
       };
 
-      // Notify renderers at once so previous lyrics vanish without delay
+      // Notify renderers at once so previous lyrics vanish without delay and native album art appears instantly
       broadcastMediaUpdate({
         ...mediaData,
         ...currentTrackData
@@ -465,19 +493,21 @@ app.whenReady().then(() => {
             mediaData.artist,
             mediaData.title,
             mediaData.album,
-            mediaData.duration
+            mediaData.duration,
+            false,
+            initialCover
           );
           // Only apply if the user is still listening to this track
           if (currentTrackKey === fetchKey) {
             currentTrackData = freshData
-              ? { ...freshData, isFetchingLyrics: false }
+              ? { ...freshData, coverUrl: freshData.coverUrl || initialCover, isFetchingLyrics: false }
               : {
                   title: mediaData.title,
                   artist: mediaData.artist,
                   lyrics: [],
                   hasSynced: false,
                   plainLyrics: '',
-                  coverUrl: null,
+                  coverUrl: initialCover,
                   isFetchingLyrics: false
                 };
             broadcastMediaUpdate({
@@ -499,6 +529,14 @@ app.whenReady().then(() => {
       return;
     }
 
+    // If native thumbnail arrived slightly after initial track load and we don't have cover art yet
+    if (!currentTrackData?.coverUrl && mediaData.thumbnailPath) {
+      const lateCover = resolveThumbnailDataUrl(mediaData.thumbnailPath);
+      if (lateCover && currentTrackData) {
+        currentTrackData.coverUrl = lateCover;
+      }
+    }
+
     // Regular position / playback updates for currently playing track
     const payload = {
       ...mediaData,
@@ -517,11 +555,12 @@ app.whenReady().then(() => {
 let settingsWindow = null;
 
 function openSettingsWindow(searchQuery) {
+  const effectiveQuery = searchQuery || (lastMediaData && lastMediaData.title ? { title: lastMediaData.title, artist: lastMediaData.artist } : null);
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.show();
     settingsWindow.focus();
-    if (searchQuery) {
-      settingsWindow.webContents.send('init-search-query', searchQuery);
+    if (effectiveQuery) {
+      settingsWindow.webContents.send('init-search-query', effectiveQuery);
     }
     return;
   }
@@ -583,8 +622,8 @@ function openSettingsWindow(searchQuery) {
   settingsWindow.loadFile(path.join(__dirname, 'renderer', 'settings.html'));
 
   settingsWindow.webContents.once('did-finish-load', () => {
-    if (searchQuery) {
-      settingsWindow.webContents.send('init-search-query', searchQuery);
+    if (effectiveQuery) {
+      settingsWindow.webContents.send('init-search-query', effectiveQuery);
     }
     if (lastMediaData) {
       settingsWindow.webContents.send('media-update', {
@@ -628,16 +667,30 @@ let preImmersiveBounds = null;
 let isImmersiveMode = false;
 
 ipcMain.on('enter-immersive', (_event, fromAutoMinRestore) => {
-  if (!mainWindow || mainWindow.isDestroyed() || isImmersiveMode) return;
-  isImmersiveMode = true;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  const currentBounds = mainWindow.getBounds();
+  const display = screen.getDisplayMatching(currentBounds);
+
   if (!fromAutoMinRestore || !preImmersiveBounds) {
-    preImmersiveBounds = mainWindow.getBounds();
+    if (
+      currentBounds.width < display.bounds.width - 20 ||
+      currentBounds.height < display.bounds.height - 20
+    ) {
+      preImmersiveBounds = currentBounds;
+    }
   }
 
+  isImmersiveMode = true;
   mainWindow.setResizable(true);
-  mainWindow.setMinimumSize(400, 300);
+  mainWindow.setMaximizable(true);
+  mainWindow.setMinimumSize(60, 60);
   mainWindow.setMaximumSize(10000, 10000);
+
+  // Explicitly resize the transparent frameless surface buffer to display size, then enter fullscreen
+  mainWindow.setBounds(display.bounds);
   mainWindow.setFullScreen(true);
+
   if (isAlwaysOnTop) {
     mainWindow.setAlwaysOnTop(true, 'screen-saver');
   }
@@ -645,10 +698,11 @@ ipcMain.on('enter-immersive', (_event, fromAutoMinRestore) => {
 });
 
 ipcMain.on('exit-immersive', (_event, restoreBounds) => {
-  if (!mainWindow || mainWindow.isDestroyed() || !isImmersiveMode) return;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
   isImmersiveMode = false;
 
   mainWindow.setFullScreen(false);
+  mainWindow.setMaximizable(false);
   if (restoreBounds === false) {
     mainWindow.setResizable(false);
     mainWindow.webContents.send('immersive-mode-changed', false);
@@ -823,8 +877,8 @@ function animateWindowBounds(targetBounds, duration = 320, onComplete) {
 
 ipcMain.on('set-window-size', (_event, arg1, arg2) => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (mainWindow.isFullScreen()) {
-    mainWindow.setFullScreen(false);
+  if (isImmersiveMode || mainWindow.isFullScreen()) {
+    return; // Never exit fullscreen or shrink window while in immersive mode
   }
 
   let width, height, targetMode;
@@ -974,6 +1028,49 @@ ipcMain.on('restore-layout-mode', () => {
   }
 });
 
+function rgbToHslMain(r, g, b) {
+  const rNorm = r / 255, gNorm = g / 255, bNorm = b / 255;
+  const max = Math.max(rNorm, gNorm, bNorm), min = Math.min(rNorm, gNorm, bNorm);
+  let h = 0, s = 0, l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case rNorm: h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0); break;
+      case gNorm: h = (bNorm - rNorm) / d + 2; break;
+      case bNorm: h = (rNorm - gNorm) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h, s, l };
+}
+
+function hslToRgbMain(h, s, l) {
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  return {
+    r: Math.round(r * 255),
+    g: Math.round(g * 255),
+    b: Math.round(b * 255)
+  };
+}
+
 function analyzeBitmapColors(buffer) {
   if (!buffer || buffer.length < 16) return null;
   const buckets = [];
@@ -998,14 +1095,14 @@ function analyzeBitmapColors(buffer) {
     const d = max - min;
     const s = max === 0 ? 0 : d / max;
 
-    if (l > 0.15 && l < 0.88 && s > 0.18) {
-      const score = s * 2.5 + (1 - Math.abs(l - 0.55)) * 1.5;
+    if (l > 0.04 && l < 0.96 && s > 0.06) {
+      const score = s * 2.5 + (1 - Math.abs(l - 0.50)) * 1.5;
       buckets.push({ r, g, b, score });
     }
   }
 
   const avgLuminance = pixelCount > 0 ? (totalLum / pixelCount) : 0.5;
-  const isDark = (avgLuminance < 0.48);
+  const isDark = (avgLuminance < 0.46);
 
   if (buckets.length === 0) {
     for (let i = 0; i < buffer.length; i += 16) {
@@ -1039,19 +1136,19 @@ function analyzeBitmapColors(buffer) {
     };
   }
 
-  // Guarantee vibrant, visible accent color (prevent dark/muddy accents from dark cover art)
-  let pr = primary.r, pg = primary.g, pb = primary.b;
-  const lum = (0.299 * pr + 0.587 * pg + 0.114 * pb) / 255;
-  if (lum < 0.42) {
-    const boost = Math.max(1.7, 0.55 / Math.max(0.08, lum));
-    pr = Math.min(255, Math.round(pr * boost + 75));
-    pg = Math.min(255, Math.round(pg * boost + 75));
-    pb = Math.min(255, Math.round(pb * boost + 75));
+  const toHex = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  const authenticPrimary = `#${toHex(primary.r)}${toHex(primary.g)}${toHex(primary.b)}`;
+  let accent = authenticPrimary;
+  const lum = (0.299 * primary.r + 0.587 * primary.g + 0.114 * primary.b) / 255;
+  if (lum < 0.40) {
+    const hsl = rgbToHslMain(primary.r, primary.g, primary.b);
+    const boosted = hslToRgbMain(hsl.h, Math.max(0.45, hsl.s), 0.60);
+    accent = `#${toHex(boosted.r)}${toHex(boosted.g)}${toHex(boosted.b)}`;
   }
 
-  const toHex = (n) => n.toString(16).padStart(2, '0');
   return {
-    primary: `#${toHex(pr)}${toHex(pg)}${toHex(pb)}`,
+    primary: authenticPrimary,
+    accent,
     secondary: `#${toHex(secondary.r)}${toHex(secondary.g)}${toHex(secondary.b)}`,
     isDark,
     luminance: avgLuminance
@@ -1060,7 +1157,7 @@ function analyzeBitmapColors(buffer) {
 
 const coverColorsCache = new Map();
 
-ipcMain.handle('extract-cover-colors', async (_event, urlOrPath) => {
+async function extractCoverColorsInternal(urlOrPath) {
   try {
     if (!urlOrPath) return null;
     if (coverColorsCache.has(urlOrPath)) {
@@ -1092,6 +1189,10 @@ ipcMain.handle('extract-cover-colors', async (_event, urlOrPath) => {
     console.error('Failed to extract cover colors in main:', e);
     return null;
   }
+}
+
+ipcMain.handle('extract-cover-colors', async (_event, urlOrPath) => {
+  return extractCoverColorsInternal(urlOrPath);
 });
 
 ipcMain.handle('get-startup', () => {
@@ -1201,16 +1302,17 @@ ipcMain.handle('retry-lyrics', async () => {
   }
 
   try {
-    const freshData = await lyricsService.getTrackData(artist, title, album, duration, true);
+    const existingCover = currentTrackData?.coverUrl || resolveThumbnailDataUrl(lastMediaData?.thumbnailPath);
+    const freshData = await lyricsService.getTrackData(artist, title, album, duration, true, existingCover);
     if (currentTrackKey === trackKey && freshData) {
-      currentTrackData = { ...freshData, isFetchingLyrics: false };
+      currentTrackData = { ...freshData, coverUrl: freshData.coverUrl || existingCover, isFetchingLyrics: false };
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('media-update', {
           ...lastMediaData,
           ...currentTrackData
         });
       }
-      return freshData;
+      return currentTrackData;
     }
   } catch (err) {
     console.error('Retry lyrics error:', err);

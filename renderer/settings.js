@@ -11,8 +11,10 @@ const sliderFontSize = document.getElementById('sliderFontSize');
 const fontSizeVal = document.getElementById('fontSizeVal');
 const sliderOffset = document.getElementById('sliderOffset');
 const offsetVal = document.getElementById('offsetVal');
+const btnOffsetMinusOne = document.getElementById('btnOffsetMinusOne');
 const btnOffsetMinus = document.getElementById('btnOffsetMinus');
 const btnOffsetPlus = document.getElementById('btnOffsetPlus');
+const btnOffsetPlusOne = document.getElementById('btnOffsetPlusOne');
 const btnOffsetReset = document.getElementById('btnOffsetReset');
 const inputSearchTrack = document.getElementById('inputSearchTrack');
 const btnSearch = document.getElementById('btnSearch');
@@ -40,6 +42,68 @@ let currentOffset = 0.0;
 let committedMode = 'card';
 let autoMinimizeEnabled = false;
 let autoMinimizeExpandMethod = 'play';
+let adaptAlbumColorSetting = true;
+
+let isMediaPlaying = false;
+let currentTrackKey = '';
+let visTime = 0;
+let visSongHash = 54321;
+const titlebarBars = [];
+
+function setupTitlebarVisualizer() {
+  const container = document.getElementById('titlebarVisBars');
+  if (!container) return;
+  container.innerHTML = '';
+  titlebarBars.length = 0;
+
+  const BAR_COUNT = 30;
+  for (let i = 0; i < BAR_COUNT; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'titlebar-vis-bar';
+    container.appendChild(bar);
+    titlebarBars.push(bar);
+  }
+
+  requestAnimationFrame(titlebarVisualizerLoop);
+}
+
+function titlebarVisualizerLoop() {
+  requestAnimationFrame(titlebarVisualizerLoop);
+  visTime += isMediaPlaying ? 0.018 : 0.007;
+  const t = visTime;
+
+  const beatClock = (t * 1.1) % 4;
+  const kick = Math.pow(Math.max(0, 1 - (beatClock % 1) * 2), 3.5);
+  const snare = Math.pow(Math.max(0, 1 - ((beatClock + 1) % 2)), 3.8);
+
+  const numBars = titlebarBars.length;
+  if (!numBars) return;
+
+  for (let i = 0; i < numBars; i++) {
+    const bar = titlebarBars[i];
+    const normI = i / (numBars - 1);
+    let scale = 0.2;
+
+    if (isMediaPlaying) {
+      const phi1 = t * 1.6 - i * 0.20;
+      const phi2 = t * 0.85 + i * 0.16;
+      const wave = Math.sin(phi1) * 0.38 + Math.cos(phi2) * 0.28;
+      const arch = Math.sin(normI * Math.PI);
+
+      const bassEnergy = (1 - normI) * kick * 0.45;
+      const midEnergy = arch * snare * 0.35;
+      const flutter = Math.sin(t * 3.2 + i * 1.2) * 0.08;
+
+      const raw = 0.32 + wave * 0.24 + bassEnergy + midEnergy + flutter;
+      scale = Math.max(0.18, Math.min(1.0, raw));
+    } else {
+      const breathe = Math.sin(t * 0.8 + i * 0.18) * 0.06 + 0.18;
+      scale = Math.max(0.14, Math.min(0.28, breathe));
+    }
+
+    bar.style.transform = `scaleY(${scale.toFixed(3)})`;
+  }
+}
 
 // Show/hide the auto-minimize sub-option rows based on current state
 function syncAutoMinimizeRows() {
@@ -77,45 +141,66 @@ function updateActiveVisStyle(activeStyle) {
   });
 }
 
-function applyAlbumArtThemeTokens(hexColor, isLight = false) {
+function applyAlbumArtThemeTokens(hexColor, isLight = false, isAuto = false) {
   if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return;
   const rgb = hexToRgb(hexColor);
 
-  if (isLight) {
-    const bgR = Math.max(236, Math.min(252, Math.round(248 * 0.88 + rgb.r * 0.12)));
-    const bgG = Math.max(238, Math.min(253, Math.round(250 * 0.88 + rgb.g * 0.12)));
-    const bgB = Math.max(242, Math.min(255, Math.round(254 * 0.88 + rgb.b * 0.12)));
+  let bgHex, cardR, cardG, cardB;
 
-    const cardR = Math.min(255, Math.round(bgR + 4));
-    const cardG = Math.min(255, Math.round(bgG + 4));
-    const cardB = Math.min(255, Math.round(bgB + 4));
-
-    document.documentElement.style.setProperty('--bg-window', `rgb(${bgR}, ${bgG}, ${bgB})`);
-    document.documentElement.style.setProperty('--bg-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.80)`);
-    document.documentElement.style.setProperty('--bg-subtle', `rgba(0, 0, 0, 0.05)`);
-    document.documentElement.style.setProperty('--border-color', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.20)`);
-    document.documentElement.style.setProperty('--text-primary', '#11131a');
-    document.documentElement.style.setProperty('--text-secondary', 'rgba(17, 19, 26, 0.85)');
-    document.documentElement.style.setProperty('--text-muted', 'rgba(17, 19, 26, 0.60)');
-    document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)`);
-  } else {
-    const bgR = Math.max(9, Math.min(26, Math.round(rgb.r * 0.12 + 10 * 0.88)));
-    const bgG = Math.max(11, Math.min(28, Math.round(rgb.g * 0.12 + 12 * 0.88)));
-    const bgB = Math.max(16, Math.min(36, Math.round(rgb.b * 0.12 + 18 * 0.88)));
-
-    const cardR = Math.round(bgR + 10);
-    const cardG = Math.round(bgG + 12);
-    const cardB = Math.round(bgB + 16);
-
-    document.documentElement.style.setProperty('--bg-window', `rgb(${bgR}, ${bgG}, ${bgB})`);
-    document.documentElement.style.setProperty('--bg-card', `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
-    document.documentElement.style.setProperty('--bg-subtle', `rgba(255, 255, 255, 0.08)`);
-    document.documentElement.style.setProperty('--border-color', `rgba(255, 255, 255, 0.14)`);
-    document.documentElement.style.setProperty('--text-primary', '#ffffff');
-    document.documentElement.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.86)');
-    document.documentElement.style.setProperty('--text-muted', 'rgba(255, 255, 255, 0.62)');
-    document.documentElement.style.setProperty('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.20)`);
+  if (isAuto) {
+    if (typeof lastCoverIsDark === 'boolean') {
+      isLight = !lastCoverIsDark;
+    } else {
+      const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+      isLight = lum >= 0.50;
+    }
+    document.body.classList.toggle('theme-light', isLight);
+    document.body.classList.toggle('theme-dark', !isLight);
   }
+
+  if (isLight) {
+    // Light album art: clean soft base mixed with balanced (~20%) tint from the album art
+    const maxC = Math.max(rgb.r, rgb.g, rgb.b);
+    const scale = maxC > 0 && maxC < 170 ? 170 / maxC : 1;
+    const lr = Math.min(255, Math.round(rgb.r * scale));
+    const lg = Math.min(255, Math.round(rgb.g * scale));
+    const lb = Math.min(255, Math.round(rgb.b * scale));
+
+    const bgR = Math.max(215, Math.min(252, Math.round(250 * 0.80 + lr * 0.20)));
+    const bgG = Math.max(218, Math.min(252, Math.round(251 * 0.80 + lg * 0.20)));
+    const bgB = Math.max(222, Math.min(253, Math.round(253 * 0.80 + lb * 0.20)));
+    bgHex = `#${bgR.toString(16).padStart(2, '0')}${bgG.toString(16).padStart(2, '0')}${bgB.toString(16).padStart(2, '0')}`;
+
+    cardR = Math.min(255, Math.round(bgR + 4));
+    cardG = Math.min(255, Math.round(bgG + 4));
+    cardB = Math.min(255, Math.round(bgB + 4));
+  } else {
+    // Dark album art: deep sleek dark base with slight (14%) tint from the album art
+    const bgR = Math.max(10, Math.min(28, Math.round(13 * 0.86 + rgb.r * 0.14)));
+    const bgG = Math.max(12, Math.min(30, Math.round(15 * 0.86 + rgb.g * 0.14)));
+    const bgB = Math.max(16, Math.min(38, Math.round(22 * 0.86 + rgb.b * 0.14)));
+    bgHex = `#${bgR.toString(16).padStart(2, '0')}${bgG.toString(16).padStart(2, '0')}${bgB.toString(16).padStart(2, '0')}`;
+
+    cardR = Math.min(48, Math.round(bgR + 12));
+    cardG = Math.min(50, Math.round(bgG + 14));
+    cardB = Math.min(58, Math.round(bgB + 18));
+  }
+
+  const bgRgb = hexToRgb(bgHex);
+  const setVar = (prop, val) => {
+    document.documentElement.style.setProperty(prop, val);
+    if (document.body) document.body.style.setProperty(prop, val);
+  };
+
+  setVar('--bg-window', `rgb(${bgRgb.r}, ${bgRgb.g}, ${bgRgb.b})`);
+  setVar('--bg-titlebar', isLight ? `rgba(${cardR}, ${cardG}, ${cardB}, 0.95)` : `rgba(${cardR}, ${cardG}, ${cardB}, 0.85)`);
+  setVar('--bg-card', isLight ? `rgba(${cardR}, ${cardG}, ${cardB}, 0.85)` : `rgba(${cardR}, ${cardG}, ${cardB}, 0.65)`);
+  setVar('--bg-subtle', isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.08)');
+  setVar('--border-color', isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.10)');
+  setVar('--text-primary', isLight ? '#11131a' : '#ffffff');
+  setVar('--text-secondary', isLight ? 'rgba(17, 19, 26, 0.80)' : 'rgba(255, 255, 255, 0.82)');
+  setVar('--text-muted', isLight ? 'rgba(17, 19, 26, 0.52)' : 'rgba(255, 255, 255, 0.52)');
+  setVar('--accent-glow-subtle', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${isLight ? 0.16 : 0.22})`);
 }
 
 function hexToRgb(hex) {
@@ -316,7 +401,7 @@ function applyThemeUI(themeData) {
     } else if (lastExtractedAccentColor) {
       const rgb = hexToRgb(lastExtractedAccentColor);
       const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-      effectiveIsLight = lum >= 0.50;
+      effectiveIsLight = lum >= 0.48;
     } else {
       effectiveIsLight = window.matchMedia('(prefers-color-scheme: light)').matches;
     }
@@ -338,17 +423,22 @@ function applyThemeUI(themeData) {
   document.body.classList.toggle('theme-light', effectiveIsLight);
   document.body.classList.toggle('theme-dark', !effectiveIsLight);
 
-  if (lastExtractedAccentColor) {
-    applyAlbumArtThemeTokens(lastExtractedAccentColor, effectiveIsLight);
+  if (lastExtractedAccentColor && adaptAlbumColorSetting !== false) {
+    applyAlbumArtThemeTokens(lastExtractedAccentColor, effectiveIsLight, setting === 'auto');
   } else {
     // Reset standard background and text tokens
-    document.documentElement.style.removeProperty('--bg-window');
-    document.documentElement.style.removeProperty('--bg-card');
-    document.documentElement.style.removeProperty('--bg-subtle');
-    document.documentElement.style.removeProperty('--border-color');
-    document.documentElement.style.removeProperty('--text-primary');
-    document.documentElement.style.removeProperty('--text-secondary');
-    document.documentElement.style.removeProperty('--text-muted');
+    const removeVar = (prop) => {
+      document.documentElement.style.removeProperty(prop);
+      if (document.body) document.body.style.removeProperty(prop);
+    };
+    removeVar('--bg-window');
+    removeVar('--bg-titlebar');
+    removeVar('--bg-card');
+    removeVar('--bg-subtle');
+    removeVar('--border-color');
+    removeVar('--text-primary');
+    removeVar('--text-secondary');
+    removeVar('--text-muted');
   }
 
   updateThemeTokens(currentAccent, lastExtractedAccentColor);
@@ -381,6 +471,11 @@ async function initSettings() {
     setupEventListeners();
   } catch (err) {
     console.error('Settings setupEventListeners error:', err);
+  }
+  try {
+    setupTitlebarVisualizer();
+  } catch (err) {
+    console.error('Settings titlebar visualizer error:', err);
   }
   try {
     await loadSettingsIntoUI();
@@ -431,6 +526,14 @@ async function loadSettingsIntoUI() {
         sliderOffset.value = saved.offset;
         offsetVal.textContent = (saved.offset > 0 ? `+${saved.offset.toFixed(1)}s` : `${saved.offset.toFixed(1)}s`);
       }
+      if (typeof saved.adaptAlbumColor === 'boolean') {
+        adaptAlbumColorSetting = saved.adaptAlbumColor;
+      } else {
+        adaptAlbumColorSetting = true;
+      }
+      const checkAdaptAlbumColor = document.getElementById('checkAdaptAlbumColor');
+      if (checkAdaptAlbumColor) checkAdaptAlbumColor.checked = adaptAlbumColorSetting;
+
       if (saved.theme) {
         applyThemeUI(saved.theme);
       }
@@ -465,16 +568,39 @@ async function loadSettingsIntoUI() {
       });
     }
 
-    // Real-time track artwork color extraction while Settings window is open
+    // Real-time track artwork color extraction and search sync while Settings window is open
     let lastProcessedCoverUrl = null;
     if (window.overlyAPI.onMediaUpdate) {
       window.overlyAPI.onMediaUpdate(async (media) => {
         if (!media) return;
+
+        // Sync playing status with titlebar visualizer
+        if (typeof media.status === 'string') {
+          isMediaPlaying = (media.status === 'Playing');
+        }
+
+        // Auto-update manual search input when song changes while settings window is open
+        if (media.title) {
+          const trackKey = `${(media.title || '').trim().toLowerCase()}:::${(media.artist || '').trim().toLowerCase()}`;
+          if (trackKey !== currentTrackKey) {
+            currentTrackKey = trackKey;
+            visSongHash = Math.abs(trackKey.split('').reduce((acc, c) => ((acc << 5) - acc) + c.charCodeAt(0), 0));
+            const newQuery = media.artist ? `${media.title} — ${media.artist}` : media.title;
+            if (inputSearchTrack) {
+              inputSearchTrack.value = newQuery;
+            }
+            const searchFeedback = document.getElementById('searchFeedback');
+            if (searchFeedback) {
+              searchFeedback.innerHTML = '';
+            }
+          }
+        }
+
         if (media.coverUrl) {
           if (media.coverUrl === lastProcessedCoverUrl) return;
           lastProcessedCoverUrl = media.coverUrl;
           try {
-            const colors = await window.overlyAPI.extractCoverColors(media.coverUrl);
+            const colors = media.coverColors || (await window.overlyAPI.extractCoverColors(media.coverUrl));
             if (colors && colors.primary) {
               lastExtractedAccentColor = colors.primary;
               lastCoverIsDark = typeof colors.isDark === 'boolean' ? colors.isDark : true;
@@ -486,7 +612,7 @@ async function loadSettingsIntoUI() {
           } catch (err) {
             console.error('Settings cover color extraction error:', err);
           }
-        } else {
+        } else if (!media.hasMedia || !media.title) {
           lastProcessedCoverUrl = null;
           lastExtractedAccentColor = null;
           lastCoverIsDark = true;
@@ -519,6 +645,12 @@ async function loadSettingsIntoUI() {
         }
         if (key === 'accentColor') {
           updateThemeTokens(value, lastExtractedAccentColor);
+        }
+        if (key === 'adaptAlbumColor') {
+          adaptAlbumColorSetting = Boolean(value);
+          const checkAdapt = document.getElementById('checkAdaptAlbumColor');
+          if (checkAdapt) checkAdapt.checked = adaptAlbumColorSetting;
+          applyThemeUI(currentThemeSetting);
         }
         if (key === 'autoMinimize') {
           setAutoMinimizeEnabledUI(value);
@@ -554,13 +686,22 @@ async function loadSettingsIntoUI() {
       });
     }
 
-    // Pre-fill search query if opened with one
+    // Pre-fill search query if opened with one (or scroll to and focus search card)
     window.overlyAPI.onInitSearchQuery?.((query) => {
       if (query) {
+        let val = '';
         if (typeof query === 'string') {
-          inputSearchTrack.value = query;
+          val = query;
         } else if (query.title) {
-          inputSearchTrack.value = query.artist ? `${query.title} - ${query.artist}` : query.title;
+          val = query.artist ? `${query.title} — ${query.artist}` : query.title;
+        }
+        if (val && inputSearchTrack) {
+          inputSearchTrack.value = val;
+          currentTrackKey = val.toLowerCase();
+          const searchSection = inputSearchTrack.closest('.settings-card');
+          searchSection?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          inputSearchTrack.focus();
+          inputSearchTrack.select();
         }
       }
     });
@@ -603,6 +744,18 @@ function setupEventListeners() {
     checkStartup.addEventListener('change', (e) => {
       if (window.overlyAPI?.setStartup) {
         window.overlyAPI.setStartup(e.target.checked);
+      }
+    });
+  }
+
+  // Adapt background to album art color checkbox
+  const checkAdaptAlbumColor = document.getElementById('checkAdaptAlbumColor');
+  if (checkAdaptAlbumColor) {
+    checkAdaptAlbumColor.addEventListener('change', (e) => {
+      adaptAlbumColorSetting = e.target.checked;
+      applyThemeUI(currentThemeSetting);
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('adaptAlbumColor', e.target.checked);
       }
     });
   }
@@ -828,8 +981,20 @@ function setupEventListeners() {
     }
   });
 
+  if (btnOffsetMinusOne) {
+    btnOffsetMinusOne.addEventListener('click', () => {
+      currentOffset = Math.max(-10, Math.round((currentOffset - 1.0) * 10) / 10);
+      sliderOffset.value = currentOffset;
+      offsetVal.textContent = (currentOffset > 0 ? `+${currentOffset.toFixed(1)}s` : `${currentOffset.toFixed(1)}s`);
+      updateSliderProgress(sliderOffset);
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('offset', currentOffset);
+      }
+    });
+  }
+
   btnOffsetMinus.addEventListener('click', () => {
-    currentOffset = Math.max(-3, Math.round((currentOffset - 0.2) * 10) / 10);
+    currentOffset = Math.max(-10, Math.round((currentOffset - 0.2) * 10) / 10);
     sliderOffset.value = currentOffset;
     offsetVal.textContent = (currentOffset > 0 ? `+${currentOffset.toFixed(1)}s` : `${currentOffset.toFixed(1)}s`);
     updateSliderProgress(sliderOffset);
@@ -839,7 +1004,7 @@ function setupEventListeners() {
   });
 
   btnOffsetPlus.addEventListener('click', () => {
-    currentOffset = Math.min(3, Math.round((currentOffset + 0.2) * 10) / 10);
+    currentOffset = Math.min(10, Math.round((currentOffset + 0.2) * 10) / 10);
     sliderOffset.value = currentOffset;
     offsetVal.textContent = (currentOffset > 0 ? `+${currentOffset.toFixed(1)}s` : `${currentOffset.toFixed(1)}s`);
     updateSliderProgress(sliderOffset);
@@ -847,6 +1012,18 @@ function setupEventListeners() {
       window.overlyAPI.updateSetting('offset', currentOffset);
     }
   });
+
+  if (btnOffsetPlusOne) {
+    btnOffsetPlusOne.addEventListener('click', () => {
+      currentOffset = Math.min(10, Math.round((currentOffset + 1.0) * 10) / 10);
+      sliderOffset.value = currentOffset;
+      offsetVal.textContent = (currentOffset > 0 ? `+${currentOffset.toFixed(1)}s` : `${currentOffset.toFixed(1)}s`);
+      updateSliderProgress(sliderOffset);
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('offset', currentOffset);
+      }
+    });
+  }
 
   if (btnOffsetReset) {
     btnOffsetReset.addEventListener('click', () => {

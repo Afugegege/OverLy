@@ -21,8 +21,11 @@
         </div>
         <div class="title-text-group">
           <span class="title-text">overLy</span>
-          <span class="settings-badge">Preferences</span>
         </div>
+      </div>
+      <!-- Center Long Slim Audio Visualizer -->
+      <div class="titlebar-visualizer-container" id="titlebarVisualizer" title="overLy Audio Visualizer">
+        <div class="titlebar-vis-bars" id="titlebarVisBars"></div>
       </div>
       <button id="btnCloseSettingsWindow" class="btn-close-window" title="Close Settings (Esc)" aria-label="Close Settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -150,26 +153,24 @@
             </svg>
             <div>
               <h3>Interface Theme</h3>
-              <p class="section-subtitle">Match your Windows style or choose dark/light</p>
+              <p class="section-subtitle">Auto adapts luminance to artwork; Dark & Light keep fixed base while adapting to artwork</p>
             </div>
           </div>
         </div>
         <div class="theme-mode-grid">
-          <button class="theme-mode-btn active" data-theme="system" title="Follow Windows System Theme">
-            <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-              <line x1="8" y1="21" x2="16" y2="21"/>
-              <line x1="12" y1="17" x2="12" y2="21"/>
+          <button class="theme-mode-btn" data-theme="auto" title="Auto — Totally adapts to album artwork and luminance">
+            <svg class="theme-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.5C12 6.9 8.4 10.5 4 10.5C8.4 10.5 12 14.1 12 18.5C12 14.1 15.6 10.5 20 10.5C15.6 10.5 12 6.9 12 2.5Z"/>
             </svg>
-            <span>System</span>
+            <span>Auto</span>
           </button>
-          <button class="theme-mode-btn" data-theme="dark" title="Always Dark Mode">
+          <button class="theme-mode-btn" data-theme="dark" title="Dark — Permanent dark appearance, but still adapts to artwork">
             <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
             </svg>
             <span>Dark</span>
           </button>
-          <button class="theme-mode-btn" data-theme="light" title="Always Light Mode">
+          <button class="theme-mode-btn" data-theme="light" title="Light — Permanent light appearance, but still adapts to artwork">
             <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="5"/>
               <line x1="12" y1="1" x2="12" y2="3"/>
@@ -183,12 +184,24 @@
             </svg>
             <span>Light</span>
           </button>
-          <button class="theme-mode-btn" data-theme="auto" title="Dynamic Album Theme (Colors and background follow album art)">
-            <svg class="theme-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2.5C12 6.9 8.4 10.5 4 10.5C8.4 10.5 12 14.1 12 18.5C12 14.1 15.6 10.5 20 10.5C15.6 10.5 12 6.9 12 2.5Z"/>
+          <button class="theme-mode-btn active" data-theme="system" title="System — Follow Windows System Theme">
+            <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
             </svg>
-            <span>Auto</span>
+            <span>System</span>
           </button>
+        </div>
+        <div class="toggle-row" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+          <div class="toggle-info">
+            <label for="checkAdaptAlbumColor">Adapt Background to Album Art</label>
+            <p class="section-hint">Tint the background with album art colors. Turn off for pure dark or pure white background.</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="checkAdaptAlbumColor" checked>
+            <span class="toggle-slider"></span>
+          </label>
         </div>
       </section>
 
@@ -343,43 +356,42 @@
           </div>
         </div>
         <div class="visualizer-style-grid">
-          <button class="vis-style-card active" data-style="spectrum" type="button" title="Dynamic Frequency Spectrum">
+          <button class="vis-style-card active" data-style="spectrum" type="button" title="Dynamic Multi-Band Frequency Spectrum">
             <div class="vis-preview-bars vis-prev-spectrum">
-              <span style="height: 45%;"></span>
-              <span style="height: 80%;"></span>
-              <span style="height: 100%;"></span>
-              <span style="height: 65%;"></span>
-              <span style="height: 35%;"></span>
+              <span style="height: 95%;"></span>
+              <span style="height: 55%;"></span>
+              <span style="height: 85%;"></span>
+              <span style="height: 40%;"></span>
+              <span style="height: 70%;"></span>
             </div>
             <span class="vis-card-title">Spectrum</span>
           </button>
-          <button class="vis-style-card" data-style="wave" type="button" title="Smooth Undulating Wave">
+          <button class="vis-style-card" data-style="wave" type="button" title="Smooth Undulating Wave Ribbon">
             <div class="vis-preview-bars vis-prev-wave">
-              <span style="height: 35%;"></span>
+              <span style="height: 25%;"></span>
               <span style="height: 60%;"></span>
-              <span style="height: 85%;"></span>
-              <span style="height: 65%;"></span>
-              <span style="height: 40%;"></span>
+              <span style="height: 95%;"></span>
+              <span style="height: 60%;"></span>
+              <span style="height: 25%;"></span>
             </div>
             <span class="vis-card-title">Wave</span>
           </button>
           <button class="vis-style-card" data-style="pulse" type="button" title="Symmetric Center Beat Pulse">
             <div class="vis-preview-bars vis-prev-pulse">
-              <span style="height: 40%;"></span>
-              <span style="height: 70%;"></span>
+              <span style="height: 25%;"></span>
+              <span style="height: 50%;"></span>
               <span style="height: 100%;"></span>
-              <span style="height: 70%;"></span>
-              <span style="height: 40%;"></span>
+              <span style="height: 50%;"></span>
+              <span style="height: 25%;"></span>
             </div>
             <span class="vis-card-title">Pulse</span>
           </button>
-          <button class="vis-style-card" data-style="minimal" type="button" title="Clean Minimal Bars">
+          <button class="vis-style-card" data-style="minimal" type="button" title="Clean Minimal Level Meter">
             <div class="vis-preview-bars vis-prev-minimal">
-              <span style="height: 30%;"></span>
-              <span style="height: 50%;"></span>
-              <span style="height: 70%;"></span>
-              <span style="height: 50%;"></span>
-              <span style="height: 30%;"></span>
+              <span style="height: 42%;"></span>
+              <span style="height: 42%;"></span>
+              <span style="height: 42%;"></span>
+              <span style="height: 42%;"></span>
             </div>
             <span class="vis-card-title">Minimal</span>
           </button>
@@ -402,11 +414,13 @@
           <span id="offsetVal" class="value-chip">0.0s</span>
         </div>
         <div class="offset-controls">
+          <button id="btnOffsetMinusOne" class="sub-btn step-btn" title="Nudge 1.0s earlier">-1.0s</button>
           <button id="btnOffsetMinus" class="sub-btn step-btn" title="Nudge 0.2s earlier">-0.2s</button>
           <div class="range-container flex-1">
-            <input type="range" id="sliderOffset" min="-3" max="3" step="0.1" value="0">
+            <input type="range" id="sliderOffset" min="-10" max="10" step="0.1" value="0">
           </div>
           <button id="btnOffsetPlus" class="sub-btn step-btn" title="Nudge 0.2s later">+0.2s</button>
+          <button id="btnOffsetPlusOne" class="sub-btn step-btn" title="Nudge 1.0s later">+1.0s</button>
           <button id="btnOffsetReset" class="sub-btn reset-btn" title="Reset offset to 0.0s">Reset</button>
         </div>
       </section>
