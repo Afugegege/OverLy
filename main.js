@@ -627,10 +627,12 @@ ipcMain.on('set-always-on-top', (_event, pinned) => {
 let preImmersiveBounds = null;
 let isImmersiveMode = false;
 
-ipcMain.on('enter-immersive', () => {
+ipcMain.on('enter-immersive', (_event, fromAutoMinRestore) => {
   if (!mainWindow || mainWindow.isDestroyed() || isImmersiveMode) return;
   isImmersiveMode = true;
-  preImmersiveBounds = mainWindow.getBounds();
+  if (!fromAutoMinRestore || !preImmersiveBounds) {
+    preImmersiveBounds = mainWindow.getBounds();
+  }
 
   mainWindow.setResizable(true);
   mainWindow.setMinimumSize(400, 300);
@@ -647,7 +649,12 @@ ipcMain.on('exit-immersive', (_event, restoreBounds) => {
   isImmersiveMode = false;
 
   mainWindow.setFullScreen(false);
-  const target = restoreBounds || preImmersiveBounds;
+  if (restoreBounds === false) {
+    mainWindow.setResizable(false);
+    mainWindow.webContents.send('immersive-mode-changed', false);
+    return;
+  }
+  const target = (restoreBounds && typeof restoreBounds === 'object') ? restoreBounds : preImmersiveBounds;
   if (target) {
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -816,6 +823,9 @@ function animateWindowBounds(targetBounds, duration = 320, onComplete) {
 
 ipcMain.on('set-window-size', (_event, arg1, arg2) => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isFullScreen()) {
+    mainWindow.setFullScreen(false);
+  }
 
   let width, height, targetMode;
   if (typeof arg1 === 'object' && arg1 !== null) {

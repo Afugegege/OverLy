@@ -173,7 +173,8 @@ function getAutoMinimizeDelaySeconds() {
 function startAutoMinimizeTimer() {
   cancelAutoMinimizeTimer();
   if (!state.autoMinimize) return;
-  if (state.mode === 'minimized' || state.isAutoMinimized || isMouseOverOverlay) return;
+  if (state.mode === 'minimized' || state.isAutoMinimized) return;
+  if (isMouseOverOverlay && !state.isImmersive) return;
   const isPlaying = (state.hasMedia && state.status === 'Playing');
   if (isPlaying) return;
 
@@ -181,8 +182,10 @@ function startAutoMinimizeTimer() {
   if (state.hoverExpandedWhilePaused) {
     if (!state.autoMinimizeRehide) return;
     const delaySec = getAutoMinimizeDelaySeconds();
-    // Use a clean 400ms hysteresis buffer so cursor jitter at the 1-pixel edge doesn't oscillate
-    const delayMs = delaySec === 0 ? 400 : Math.max(500, Math.min(delaySec, 1) * 1000);
+    // In immersive mode, give a comfortable idle delay (e.g. 1.2s to 1.5s), else 400ms buffer
+    const delayMs = state.isImmersive
+      ? (delaySec === 0 ? 1200 : Math.max(1000, Math.min(delaySec, 2) * 1000))
+      : (delaySec === 0 ? 400 : Math.max(500, Math.min(delaySec, 1) * 1000));
     autoMinimizeTimer = setTimeout(() => {
       triggerAutoMinimize();
     }, delayMs);
@@ -190,8 +193,11 @@ function startAutoMinimizeTimer() {
   }
 
   const delaySec = getAutoMinimizeDelaySeconds();
-  // Safe hysteresis buffer: even for 0s (instant), wait 400ms so mouse leaving boundary doesn't stutter
-  const delayMs = delaySec === 0 ? 400 : Math.max(500, delaySec * 1000);
+  // Safe hysteresis buffer: even for 0s (instant), wait buffer so mouse leaving boundary doesn't stutter
+  // In immersive mode, if 0s, wait 1500ms idle so cursor/UI idle can happen smoothly before minimize
+  const delayMs = state.isImmersive
+    ? (delaySec === 0 ? 1500 : Math.max(1000, delaySec * 1000))
+    : (delaySec === 0 ? 400 : Math.max(500, delaySec * 1000));
   autoMinimizeTimer = setTimeout(() => {
     triggerAutoMinimize();
   }, delayMs);
@@ -212,7 +218,8 @@ function applyAutoMinimizeExpandUI() {
 function triggerAutoMinimize() {
   cancelAutoMinimizeTimer();
   if (!state.autoMinimize) return;
-  if (state.mode === 'minimized' || state.isAutoMinimized || isMouseOverOverlay) return;
+  if (state.mode === 'minimized' || state.isAutoMinimized) return;
+  if (isMouseOverOverlay && !state.isImmersive) return;
   const isPlaying = (state.hasMedia && state.status === 'Playing');
   if (isPlaying) return;
 
@@ -221,6 +228,15 @@ function triggerAutoMinimize() {
   lastAutoMinimizeActionTime = now;
   isAutoMinimizeTransitioning = true;
   setTimeout(() => { isAutoMinimizeTransitioning = false; }, 450);
+
+  if (state.isImmersive) {
+    state.preAutoMinMode = 'immersive';
+    state.isAutoMinimized = true;
+    exitImmersiveMode(true, false);
+    setMode('minimized', true, true);
+    applyAutoMinimizeExpandUI();
+    return;
+  }
 
   state.preAutoMinMode = state.mode;
   state.isAutoMinimized = true;
@@ -244,6 +260,12 @@ function restoreFromAutoMinimize(viaHover = false) {
   state.isAutoMinimized = false;
   state.preAutoMinMode = null;
   applyAutoMinimizeExpandUI();
+
+  if (targetMode === 'immersive') {
+    enterImmersiveMode(true);
+    return;
+  }
+
   setMode(targetMode, true, true);
 }
 
@@ -415,7 +437,7 @@ async function init() {
       });
 
       // If auto-minimize is active and player is paused or idle at startup, arm the timer
-      if (state.autoMinimize && !isMouseOverOverlay && state.mode !== 'minimized' && (!state.hasMedia || state.status !== 'Playing')) {
+      if (state.autoMinimize && (!isMouseOverOverlay || state.isImmersive) && state.mode !== 'minimized' && (!state.hasMedia || state.status !== 'Playing')) {
         startAutoMinimizeTimer();
       }
     }
@@ -858,6 +880,10 @@ function setupEventListeners() {
       if (state.isAutoMinimized) {
         restoreFromAutoMinimize();
       }
+    } else {
+      if (state.autoMinimize && (!isMouseOverOverlay || state.isImmersive) && !state.isAutoMinimized && (state.mode !== 'minimized' || state.isImmersive)) {
+        startAutoMinimizeTimer();
+      }
     }
 
     // Snapshot position smoothly when pausing or unpausing
@@ -1187,6 +1213,12 @@ function setupEventListeners() {
   const handleUserActivity = () => {
     if (state.isImmersive) {
       resetImmersiveIdleTimer();
+      if (state.autoMinimize && !state.isAutoMinimized) {
+        const isPlaying = (state.hasMedia && state.status === 'Playing');
+        if (!isPlaying) {
+          startAutoMinimizeTimer();
+        }
+      }
     }
   };
   window.addEventListener('mousemove', handleUserActivity);
@@ -1394,10 +1426,17 @@ function stopImmersiveIdleTimer() {
   body.classList.remove('immersive-idle');
 }
 
-function enterImmersiveMode() {
+function enterImmersiveMode(isRestore = false) {
   if (state.isImmersive) return;
   state.isImmersive = true;
-  state.preImmersiveMode = state.mode;
+  if (!isRestore || !state.preImmersiveMode) {
+    state.preImmersiveMode = state.mode;
+  }
+  if (!isRestore) {
+    state.isAutoMinimized = false;
+    state.preAutoMinMode = null;
+    applyAutoMinimizeExpandUI();
+  }
 
   body.classList.add('mode-immersive');
   if (immersiveView) {
@@ -1419,12 +1458,17 @@ function enterImmersiveMode() {
 
   resetImmersiveIdleTimer();
 
+  // If entering/restoring immersive mode while playback is paused or idle, arm auto-minimize
+  if (!isPlaying && state.autoMinimize) {
+    startAutoMinimizeTimer();
+  }
+
   if (window.overlyAPI?.enterImmersive) {
-    window.overlyAPI.enterImmersive();
+    window.overlyAPI.enterImmersive(isRestore);
   }
 }
 
-function exitImmersiveMode(notifyIpc = true) {
+function exitImmersiveMode(notifyIpc = true, restoreMode = true) {
   if (!state.isImmersive) return;
   state.isImmersive = false;
 
@@ -1436,10 +1480,12 @@ function exitImmersiveMode(notifyIpc = true) {
   }
 
   if (notifyIpc && window.overlyAPI?.exitImmersive) {
-    window.overlyAPI.exitImmersive();
+    window.overlyAPI.exitImmersive(restoreMode ? undefined : false);
   }
 
-  setMode(state.preImmersiveMode || 'card', true);
+  if (restoreMode) {
+    setMode(state.preImmersiveMode || 'card', true);
+  }
 }
 
 function toggleImmersiveLayout() {
@@ -1765,7 +1811,7 @@ function setMode(mode, updateSize = true, isInternalAutoAction = false) {
     }
     if (mode === 'minimized') {
       cancelAutoMinimizeTimer();
-    } else if (state.autoMinimize && !isMouseOverOverlay && (!state.hasMedia || state.status !== 'Playing')) {
+    } else if (state.autoMinimize && (!isMouseOverOverlay || state.isImmersive) && (!state.hasMedia || state.status !== 'Playing')) {
       startAutoMinimizeTimer();
     }
   }
@@ -2343,7 +2389,7 @@ function handleMediaUpdate(data) {
       restoreFromAutoMinimize();
     }
   } else {
-    if (state.autoMinimize && !isMouseOverOverlay && !state.isAutoMinimized && state.mode !== 'minimized') {
+    if (state.autoMinimize && (!isMouseOverOverlay || state.isImmersive) && !state.isAutoMinimized && (state.mode !== 'minimized' || state.isImmersive)) {
       if (!autoMinimizeTimer) {
         startAutoMinimizeTimer();
       }

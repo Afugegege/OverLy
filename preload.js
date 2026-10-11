@@ -25,7 +25,7 @@ contextBridge.exposeInMainWorld('overlyAPI', {
       ipcRenderer.send('set-window-size', { width, height, mode });
     }
   },
-  enterImmersive: () => ipcRenderer.send('enter-immersive'),
+  enterImmersive: (fromAutoMinRestore) => ipcRenderer.send('enter-immersive', fromAutoMinRestore),
   exitImmersive: (restoreBounds) => ipcRenderer.send('exit-immersive', restoreBounds),
   onImmersiveModeChanged: (callback) => {
     const handler = (_event, isImmersive) => callback(isImmersive);

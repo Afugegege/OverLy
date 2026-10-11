@@ -27,6 +27,7 @@ Hooks directly into Windows System Media Transport Controls (SMTC), meaning it w
 - Switch between **Split View** (album art + synced lyrics) and **Centered View** (focused lyric column).
 - Auto-hides controls and cursor after mouse inactivity.
 - Dedicated interactive scrubber, playback controls, and lyrics sync.
+- **Auto-Minimize Support**: Automatically exits Fullscreen and shrinks to the compact album disc when paused or idle, and seamlessly restores to Fullscreen upon resuming playback or hover.
 
 ### Dynamic Album Art Theming & Auto Mode
 - **Auto Theme**: Intelligently evaluates album art luminance to switch between dark and light aesthetics with tailored glass tints and radiant contrast visualizer colors.
@@ -43,8 +44,8 @@ Double-click the overlay or press `M` to cycle through layouts:
 - **Instant Layout Lyric Alignment**: Switching layouts keeps the active lyric pinned dead-center with zero scrolling delay.
 
 ### Auto-Minimize on Pause & Hover
-- Automatically minimizes to the compact orb or pill when paused.
-- Configurable delay options: **Instant** (immediately when mouse leaves), **1s**, **5s**, **10s**, up to **5m**.
+- Automatically minimizes to the compact orb or pill when paused (including in Fullscreen Immersive Mode).
+- Configurable delay options: **Instant** (immediately when mouse leaves / idle), **1s**, **5s**, **10s**, up to **5m**.
 - Choice of expansion behavior: expand upon **Resuming Playback** or immediately upon **Mouse Hover**.
 - **Re-minimize Option**: Automatically re-collapses if expanded via hover while remaining paused.
 
