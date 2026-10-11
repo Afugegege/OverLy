@@ -82,6 +82,11 @@
       "shortcutName": "overLy",
       "uninstallDisplayName": "overLy - Floating Lyrics",
       "runAfterFinish": true,
+      "installerSidebar": "assets/installerSidebar.bmp",
+      "uninstallerSidebar": "assets/uninstallerSidebar.bmp",
+      "installerHeader": "assets/installerHeader.bmp",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
       "include": "installer.nsh"
     }
   }

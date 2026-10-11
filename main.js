@@ -182,12 +182,6 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  if (!settings.hasCompletedSetup) {
-    setTimeout(() => {
-      openSetupWindow();
-    }, 450);
-  }
-
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
     console.log(`[RENDERER] [${level}] ${message} (${path.basename(sourceId || '')}:${line})`);
   });
