@@ -63,21 +63,9 @@ body:not(.theme-album-tinted) .ambient-aura {
   visibility: hidden !important;
 }
 
-body:not(.theme-album-tinted) .immersive-bg-art,
-body:not(.theme-album-tinted) .immersive-bg-glow1,
-body:not(.theme-album-tinted) .immersive-bg-glow2 {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-}
-
-body:not(.theme-album-tinted) .immersive-view {
-  background: #08090d !important;
-}
-
-body.theme-light:not(.theme-album-tinted) .immersive-view {
-  background: #f8fafc !important;
-  color: #11131a !important;
+/* Immersive Canvas default base */
+body.theme-light .immersive-view {
+  color: #ffffff;
 }
 
 /* Unfetched / Startup Theme: Dull Neutral Grey, Black & White Palette */
@@ -3244,10 +3232,10 @@ body.mode-immersive #resizeHandle {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #08090d;
+  background: radial-gradient(circle at 35% 40%, rgba(var(--accent-rgb, 45, 48, 65), 0.32) 0%, rgba(9, 11, 17, 0.96) 80%), #08090e;
   opacity: 1;
   pointer-events: auto;
-  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.8s ease;
 }
 
 .immersive-view.hidden {
@@ -3256,7 +3244,7 @@ body.mode-immersive #resizeHandle {
   pointer-events: none;
 }
 
-/* Dynamic blurred artwork background with subtle ambient glows */
+/* Dynamic living blurred artwork background with rich ambient auras */
 .immersive-bg {
   position: absolute;
   inset: -60px;
@@ -3271,55 +3259,94 @@ body.mode-immersive #resizeHandle {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: blur(85px) saturate(1.8) brightness(0.24);
-  transform: scale(1.22);
-  opacity: 0.92;
-  transition: filter 0.8s ease, opacity 0.8s ease;
+  filter: blur(52px) saturate(2.4) brightness(0.66);
+  transform: scale(1.18);
+  opacity: 0.85;
+  transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1), filter 0.9s ease;
+  animation: immersiveArtFloat 18s ease-in-out infinite alternate;
+}
+
+@keyframes immersiveArtFloat {
+  0% { transform: scale(1.16) translate(0, 0); }
+  50% { transform: scale(1.22) translate(-1.5%, 1%); }
+  100% { transform: scale(1.18) translate(1.5%, -1%); }
 }
 
 .immersive-bg-glow1 {
   position: absolute;
-  width: 65vw;
-  height: 65vh;
-  top: -15%;
+  width: 78vw;
+  height: 78vh;
+  top: -12%;
   left: -10%;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--aura-color1, rgba(255, 48, 64, 0.28)) 0%, transparent 68%);
-  filter: blur(90px);
+  background: radial-gradient(circle, rgba(var(--accent-rgb, 255, 48, 64), 0.54) 0%, rgba(var(--accent-rgb, 255, 48, 64), 0.18) 45%, transparent 72%);
+  filter: blur(85px);
   pointer-events: none;
+  animation: immersiveAuraDrift1 14s ease-in-out infinite alternate;
+}
+
+@keyframes immersiveAuraDrift1 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(5%, 4%) scale(1.08); }
+  100% { transform: translate(-3%, 7%) scale(0.96); }
 }
 
 .immersive-bg-glow2 {
   position: absolute;
-  width: 60vw;
-  height: 60vh;
+  width: 72vw;
+  height: 72vh;
   bottom: -15%;
   right: -10%;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--aura-color2, rgba(255, 48, 64, 0.20)) 0%, transparent 70%);
-  filter: blur(100px);
+  background: radial-gradient(circle, rgba(var(--accent-sec-rgb, 255, 107, 74), 0.44) 0%, rgba(var(--accent-sec-rgb, 255, 107, 74), 0.14) 50%, transparent 75%);
+  filter: blur(95px);
   pointer-events: none;
+  animation: immersiveAuraDrift2 16s ease-in-out infinite alternate;
+}
+
+@keyframes immersiveAuraDrift2 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-4%, -5%) scale(1.06); }
+  100% { transform: translate(4%, -2%) scale(0.94); }
+}
+
+.immersive-bg-glow3 {
+  position: absolute;
+  width: 55vw;
+  height: 55vh;
+  top: 22%;
+  left: 15%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--accent-rgb, 255, 48, 64), 0.36) 0%, transparent 68%);
+  filter: blur(75px);
+  pointer-events: none;
+  animation: immersiveAuraPulse 10s ease-in-out infinite alternate;
+}
+
+@keyframes immersiveAuraPulse {
+  0% { opacity: 0.6; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1.12); }
 }
 
 .immersive-bg-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at center, rgba(8, 9, 13, 0.35) 0%, rgba(6, 7, 10, 0.88) 100%);
+  background: radial-gradient(circle at 45% 45%, rgba(0, 0, 0, 0.04) 0%, rgba(6, 8, 14, 0.38) 58%, rgba(4, 5, 10, 0.72) 100%);
   pointer-events: none;
 }
 
-/* Minimalist subtle top header */
+/* Album Art Themed Top Header Bar */
 .immersive-top-bar {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 72px;
+  height: 76px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 44px;
-  z-index: 20;
+  z-index: 30;
   transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -3327,42 +3354,47 @@ body.mode-immersive #resizeHandle {
 .immersive-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .immersive-badge {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 2.2px;
+  letter-spacing: 2px;
   color: #ffffff !important;
-  background: rgba(255, 255, 255, 0.12);
-  padding: 5px 14px;
+  background: rgba(18, 20, 28, 0.76);
+  padding: 6px 16px;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow: 0 0 16px var(--accent-glow-subtle, rgba(255, 255, 255, 0.15));
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border: 1.5px solid rgba(var(--accent-rgb, 255, 48, 64), 0.50);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 16px rgba(var(--accent-rgb, 255, 48, 64), 0.30);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.immersive-badge-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  background: var(--accent, #FF3040);
+  box-shadow: 0 0 8px var(--accent, #FF3040);
+  flex-shrink: 0;
 }
 
 body.theme-light .immersive-badge {
-  color: #11141a !important;
-  background: rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.14);
-  text-shadow: none;
+  color: #ffffff !important;
+  background: rgba(18, 20, 28, 0.78);
+  border-color: rgba(var(--accent-rgb, 255, 48, 64), 0.55);
 }
 
 body.theme-light .immersive-btn {
-  color: rgba(17, 20, 26, 0.82);
-  background: rgba(0, 0, 0, 0.06);
-  border-color: rgba(0, 0, 0, 0.12);
-}
-
-body.theme-light .immersive-btn:hover {
-  background: rgba(0, 0, 0, 0.12);
-  color: #11141a;
-  border-color: rgba(0, 0, 0, 0.24);
+  color: #ffffff !important;
+  background: rgba(18, 20, 28, 0.76);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .immersive-top-actions {
@@ -3374,36 +3406,55 @@ body.theme-light .immersive-btn:hover {
 .immersive-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 12.5px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.78);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  padding: 8px 16px;
+  color: #ffffff !important;
+  background: rgba(18, 20, 28, 0.74);
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  padding: 8px 18px;
   border-radius: 9999px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 14px rgba(var(--accent-rgb, 255, 48, 64), 0.18);
+  user-select: none;
 }
 
 .immersive-btn svg {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
+  color: var(--accent, #FF3040);
+  filter: drop-shadow(0 0 4px rgba(var(--accent-rgb, 255, 48, 64), 0.45));
 }
 
 .immersive-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.32);
-  transform: translateY(-1px);
+  background: rgba(var(--accent-rgb, 255, 48, 64), 0.26);
+  border-color: var(--accent, #FF3040);
+  color: #ffffff !important;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5), 0 0 20px rgba(var(--accent-rgb, 255, 48, 64), 0.45);
+  transform: translateY(-2px);
+}
+
+.immersive-btn.exit-btn {
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.immersive-btn.exit-btn svg {
+  color: rgba(255, 255, 255, 0.9);
+  filter: none;
 }
 
 .immersive-btn.exit-btn:hover {
-  background: rgba(255, 48, 64, 0.24);
-  border-color: var(--accent);
+  background: rgba(255, 68, 68, 0.30);
+  border-color: #ff4d4d;
+  color: #ffffff !important;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 68, 68, 0.45);
+}
+
+.immersive-btn.exit-btn:hover svg {
   color: #ffffff;
 }
 
@@ -3453,15 +3504,15 @@ body.theme-light .immersive-btn:hover {
   aspect-ratio: 1/1;
   border-radius: 24px;
   overflow: hidden;
-  box-shadow: 0 28px 70px -10px rgba(0, 0, 0, 0.72), 0 0 50px var(--accent-glow-subtle);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 28px 75px -10px rgba(0, 0, 0, 0.78), 0 0 65px rgba(var(--accent-rgb, 255, 48, 64), 0.35);
+  border: 1.5px solid rgba(255, 255, 255, 0.20);
   background: rgba(255, 255, 255, 0.05);
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .immersive-art-wrapper:hover {
-  transform: translateY(-2px) scale(1.01);
-  box-shadow: 0 32px 80px -10px rgba(0, 0, 0, 0.8), 0 0 60px var(--accent-glow-subtle);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 34px 85px -10px rgba(0, 0, 0, 0.85), 0 0 80px rgba(var(--accent-rgb, 255, 48, 64), 0.50);
 }
 
 .immersive-art {
@@ -3670,17 +3721,20 @@ body.fetching-lyrics .vinyl-disc-graphic {
 }
 
 .immersive-ctrl-btn {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(18, 20, 28, 0.65);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .immersive-ctrl-btn svg {
@@ -3689,27 +3743,30 @@ body.fetching-lyrics .vinyl-disc-graphic {
 }
 
 .immersive-ctrl-btn:hover {
-  background: rgba(255, 255, 255, 0.20);
+  background: rgba(var(--accent-rgb, 255, 48, 64), 0.24);
+  border-color: var(--accent, #FF3040);
   transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(var(--accent-rgb, 255, 48, 64), 0.35);
 }
 
 .immersive-ctrl-btn.play-btn {
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   background: var(--accent);
   color: var(--accent-contrast, #ffffff);
   border-color: transparent;
-  box-shadow: 0 6px 22px var(--accent-glow);
+  box-shadow: 0 6px 28px rgba(var(--accent-rgb, 255, 48, 64), 0.55), 0 0 40px rgba(var(--accent-rgb, 255, 48, 64), 0.35);
 }
 
 .immersive-ctrl-btn.play-btn svg {
-  width: 22px;
-  height: 22px;
+  width: 23px;
+  height: 23px;
 }
 
 .immersive-ctrl-btn.play-btn:hover {
-  transform: scale(1.08);
-  filter: brightness(1.12);
+  transform: scale(1.09);
+  filter: brightness(1.15);
+  box-shadow: 0 8px 34px rgba(var(--accent-rgb, 255, 48, 64), 0.70), 0 0 50px rgba(var(--accent-rgb, 255, 48, 64), 0.50);
 }
 
 /* Right Section: Synchronized Scrolling Lyrics */
@@ -4000,7 +4057,7 @@ body.immersive-idle {
 }
 
 body.immersive-idle .immersive-top-bar {
-  opacity: 0.42;
+  opacity: 0.85;
   transform: translateY(0);
   pointer-events: auto;
 }

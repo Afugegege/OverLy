@@ -653,6 +653,10 @@ function applyAlbumArtThemeTokens(hexColor, isLight = false, isAuto = (state.the
   setVar('--text-muted', isLight ? 'rgba(17, 19, 26, 0.55)' : 'rgba(255, 255, 255, 0.55)');
   setVar('--aura-color1', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${isLight ? 0.22 : 0.28})`);
   setVar('--aura-color2', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${isLight ? 0.10 : 0.14})`);
+  setVar('--accent-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+  const secVisColor = getHighContrastVisualizerColor(hexColor, isLight);
+  const secRgb = hexToRgb(secVisColor);
+  setVar('--accent-sec-rgb', `${secRgb.r}, ${secRgb.g}, ${secRgb.b}`);
 
   setVar('--vis-bar-color', visColor);
   setVar('--vis-bar-glow', `rgba(${visRgb.r}, ${visRgb.g}, ${visRgb.b}, ${isLight ? 0.20 : 0.28})`);
@@ -777,8 +781,16 @@ function applyTheme(themeData) {
     if (ambientAura) ambientAura.style.opacity = '0';
 
     if (immersiveBgArt) {
-      immersiveBgArt.style.display = 'none';
-      immersiveBgArt.classList.remove('visible');
+      if (state.coverUrl) {
+        if (!immersiveBgArt.src || !immersiveBgArt.src.endsWith(state.coverUrl)) {
+          immersiveBgArt.src = state.coverUrl;
+        }
+        immersiveBgArt.style.display = '';
+        immersiveBgArt.classList.add('visible');
+      } else {
+        immersiveBgArt.style.display = 'none';
+        immersiveBgArt.classList.remove('visible');
+      }
     }
   }
 
@@ -1688,6 +1700,13 @@ function enterImmersiveMode(isRestore = false) {
 
   renderTrackInfo();
   renderLyricsList();
+  if (immersiveBgArt && state.coverUrl) {
+    if (!immersiveBgArt.src || !immersiveBgArt.src.endsWith(state.coverUrl)) {
+      immersiveBgArt.src = state.coverUrl;
+    }
+    immersiveBgArt.style.display = '';
+    immersiveBgArt.classList.add('visible');
+  }
   if (state.activeLyricIndex < 0) {
     scrollLyricsToTop(true);
     requestAnimationFrame(() => scrollLyricsToTop(true));
@@ -2346,6 +2365,8 @@ function applyAccentTokens(color, customSecondary = null) {
   const subtleGlowAlpha = luminance > 0.65 ? 0.08 : 0.14;
 
   document.documentElement.style.setProperty('--accent', color);
+  document.documentElement.style.setProperty('--accent-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+  document.documentElement.style.setProperty('--accent-sec-rgb', `${secRgb.r}, ${secRgb.g}, ${secRgb.b}`);
   document.documentElement.style.setProperty('--accent-contrast', contrastColor);
   document.documentElement.style.setProperty('--accent-text', accentText);
   document.documentElement.style.setProperty('--accent-play-bg', playBtnBg);
@@ -2890,8 +2911,8 @@ function renderTrackInfo() {
       }
     }
     if (immersiveBgArt) {
-      if (state.adaptAlbumColor !== false) {
-        if (immersiveBgArt.src !== state.coverUrl) {
+      if (state.coverUrl) {
+        if (!immersiveBgArt.src || !immersiveBgArt.src.endsWith(state.coverUrl)) {
           immersiveBgArt.src = state.coverUrl;
         }
         immersiveBgArt.style.display = '';
