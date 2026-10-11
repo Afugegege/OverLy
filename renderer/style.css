@@ -659,14 +659,14 @@ body.mode-collapsed .pill-more-container {
 .pill-more-actions {
   display: flex;
   align-items: center;
-  gap: 3px;
-  background: rgba(16, 18, 26, 0.94);
-  border: 1px solid var(--border-glass);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
-  border-radius: 999px;
+  gap: 5px;
+  background: transparent !important;
+  border: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 0;
   padding: 0;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 10px var(--accent-glow-subtle);
+  box-shadow: none !important;
   max-width: 0;
   opacity: 0;
   overflow: hidden;
@@ -677,10 +677,8 @@ body.mode-collapsed .pill-more-container {
               opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
               margin 0.2s ease,
-              padding 0.2s ease,
-              border-color 0.2s ease;
+              padding 0.2s ease;
   margin-right: 0;
-  border-color: transparent;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -688,13 +686,15 @@ body.mode-collapsed .pill-more-container {
 .pill-more-container:hover .pill-more-actions,
 .pill-more-container.open .pill-more-actions,
 .overlay-container.pill-more-open .pill-more-actions {
-  max-width: 270px;
+  max-width: 340px;
   opacity: 1;
   pointer-events: auto;
   transform: scale(1);
   margin-right: 4px;
-  padding: 2px 4px;
-  border-color: var(--border-glass);
+  padding: 0;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .media-btn.pill-sub-btn {
@@ -1260,6 +1260,37 @@ body.mode-collapsed .overlay-container.pill-more-open .pill-lyric-container {
   padding: 0 !important;
   overflow: hidden !important;
   transform: scale(0.8) !important;
+}
+
+/* Hide media control buttons when drawer is opened so the whole bar is for more tools */
+body.mode-pill .overlay-container:has(.pill-more-container:hover) .media-controls > button:not(.pill-more-btn),
+body.mode-pill .overlay-container:has(.pill-more-container.open) .media-controls > button:not(.pill-more-btn),
+body.mode-pill .overlay-container.pill-more-open .media-controls > button:not(.pill-more-btn),
+body.mode-collapsed .overlay-container:has(.pill-more-container:hover) .media-controls > button:not(.pill-more-btn),
+body.mode-collapsed .overlay-container:has(.pill-more-container.open) .media-controls > button:not(.pill-more-btn),
+body.mode-collapsed .overlay-container.pill-more-open .media-controls > button:not(.pill-more-btn) {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Expand tools bar across the pill when drawer is opened */
+body.mode-pill .overlay-container:has(.pill-more-container:hover) .media-controls,
+body.mode-pill .overlay-container:has(.pill-more-container.open) .media-controls,
+body.mode-pill .overlay-container.pill-more-open .media-controls,
+body.mode-collapsed .overlay-container:has(.pill-more-container:hover) .media-controls,
+body.mode-collapsed .overlay-container:has(.pill-more-container.open) .media-controls,
+body.mode-collapsed .overlay-container.pill-more-open .media-controls {
+  left: 12px !important;
+  right: 12px !important;
+  width: calc(100% - 24px) !important;
+  justify-content: flex-end !important;
 }
 
 body.mode-pill .pill-lyric-text,
@@ -2694,9 +2725,11 @@ body.theme-light .pill-more-container.open .pill-more-btn {
 
 /* Collapsed Tools Drawer in Light Mode */
 body.theme-light .pill-more-actions {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(0, 0, 0, 0.14);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14), 0 0 10px rgba(0, 0, 0, 0.05);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 body.theme-light .media-btn.pill-sub-btn {

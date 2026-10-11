@@ -413,15 +413,17 @@
           </div>
           <span id="offsetVal" class="value-chip">0.0s</span>
         </div>
-        <div class="offset-controls">
-          <button id="btnOffsetMinusOne" class="sub-btn step-btn" title="Nudge 1.0s earlier">-1.0s</button>
-          <button id="btnOffsetMinus" class="sub-btn step-btn" title="Nudge 0.2s earlier">-0.2s</button>
-          <div class="range-container flex-1">
-            <input type="range" id="sliderOffset" min="-10" max="10" step="0.1" value="0">
+        <div class="offset-controls-wrapper">
+          <div class="offset-slider-row">
+            <input type="range" id="sliderOffset" min="-10" max="10" step="0.1" value="0" class="offset-slider-full">
           </div>
-          <button id="btnOffsetPlus" class="sub-btn step-btn" title="Nudge 0.2s later">+0.2s</button>
-          <button id="btnOffsetPlusOne" class="sub-btn step-btn" title="Nudge 1.0s later">+1.0s</button>
-          <button id="btnOffsetReset" class="sub-btn reset-btn" title="Reset offset to 0.0s">Reset</button>
+          <div class="offset-buttons-row">
+            <button id="btnOffsetMinusOne" class="sub-btn step-btn" title="Nudge 1.0s earlier">-1.0s</button>
+            <button id="btnOffsetMinus" class="sub-btn step-btn" title="Nudge 0.2s earlier">-0.2s</button>
+            <button id="btnOffsetPlus" class="sub-btn step-btn" title="Nudge 0.2s later">+0.2s</button>
+            <button id="btnOffsetPlusOne" class="sub-btn step-btn" title="Nudge 1.0s later">+1.0s</button>
+            <button id="btnOffsetReset" class="sub-btn reset-btn" title="Reset offset to 0.0s">Reset</button>
+          </div>
         </div>
       </section>
 

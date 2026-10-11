@@ -285,9 +285,16 @@ const resizeHandle = document.getElementById('resizeHandle');
 // Initialization & Settings
 // ==========================================================================
 
+let initialUnfetchedTimer = null;
+
 async function init() {
-  // Start in dull monochrome unfetched state until media metadata is received
-  document.body.classList.add('is-unfetched');
+  // Grace period on boot: if media is already playing, connect directly to the song
+  // with theme colors, avoiding the jarring flash of an unstyled dark searching stage.
+  initialUnfetchedTimer = setTimeout(() => {
+    if (!state.hasMedia || !state.title) {
+      document.body.classList.add('is-unfetched');
+    }
+  }, 280);
 
   // Always register UI event listeners (close, minimize, controls, dragging) first
   try {
@@ -2497,6 +2504,11 @@ function handleMediaUpdate(data) {
     Boolean(data.hasSynced !== state.hasSynced && hasNowLyrics);
   const hasNewCover = Boolean(data.coverUrl && data.coverUrl !== state.coverUrl);
 
+  if (initialUnfetchedTimer) {
+    clearTimeout(initialUnfetchedTimer);
+    initialUnfetchedTimer = null;
+  }
+
   const wasUnfetched = !state.hasMedia || !state.title;
   const isNowUnfetched = !data.hasMedia || !data.title;
 
@@ -2932,10 +2944,10 @@ function updatePillInstrumentalView() {
     if (pillLyricWrap) pillLyricWrap.style.display = 'flex';
     pillText.style.display = '';
     if (pillEqualizer) pillEqualizer.classList.add('hidden');
-    if (state.isFetchingLyrics) {
-      pillText.textContent = 'Searching lyrics...';
-    } else if (state.hasMedia && state.title) {
+    if (state.hasMedia && state.title) {
       pillText.textContent = `${state.title} — ${state.artist}`;
+    } else if (state.isFetchingLyrics) {
+      pillText.textContent = 'Searching...';
     }
   }
 }
@@ -3548,7 +3560,7 @@ function syncLyrics(currentPos, force = false) {
           updatePillLyric(`${state.title} — ${state.artist}`);
         }
       } else {
-        updatePillLyric(state.isFetchingLyrics ? 'Searching lyrics...' : 'No lyrics');
+        updatePillLyric(state.title ? `${state.title} — ${state.artist}` : 'No lyrics');
       }
     }
     updatePillLyricsBadge();

@@ -49,6 +49,10 @@ app.disableHardwareAcceleration();
 
 app.whenReady().then(async () => {
   try {
+    const iconPath = path.join(__dirname, '..', 'OverLy-icon.png');
+    const iconBase64 = fs.readFileSync(iconPath).toString('base64');
+    const iconDataUrl = `data:image/png;base64,${iconBase64}`;
+
     const combinedHtml = `
       <!DOCTYPE html>
       <html>
@@ -59,152 +63,211 @@ app.whenReady().then(async () => {
           body {
             background: #000000;
             overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            -webkit-font-smoothing: antialiased;
           }
+
+          /* Modern Minimalist Sidebar (164 x 314) */
           #sidebarContainer {
             position: absolute;
             top: 0;
             left: 0;
             width: 164px;
             height: 314px;
-            background: #0d0f14;
+            background: linear-gradient(165deg, #131720 0%, #0d0f14 60%, #161a22 100%);
             color: #ffffff;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 16px 12px;
+            padding: 22px 12px;
             text-align: center;
+            position: relative;
           }
-          .wave-glow-1 {
+
+          /* Subtle frosted ambient glows */
+          .glow-orb-top {
             position: absolute;
-            top: -40px;
-            left: -30px;
-            width: 220px;
-            height: 180px;
-            background: radial-gradient(circle, rgba(255, 48, 64, 0.45) 0%, rgba(220, 20, 40, 0.15) 50%, transparent 75%);
-            filter: blur(14px);
-          }
-          .wave-glow-2 {
-            position: absolute;
-            bottom: -50px;
-            right: -40px;
-            width: 200px;
-            height: 200px;
-            background: radial-gradient(circle, rgba(255, 30, 50, 0.3) 0%, rgba(180, 10, 30, 0.08) 55%, transparent 75%);
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 180px;
+            height: 140px;
+            background: radial-gradient(circle, rgba(255, 52, 72, 0.28) 0%, rgba(255, 52, 72, 0.08) 50%, transparent 75%);
             filter: blur(16px);
+            pointer-events: none;
           }
-          .brand-box {
+
+          .glow-orb-bottom {
+            position: absolute;
+            bottom: -30px;
+            right: -20px;
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, rgba(255, 52, 72, 0.16) 0%, transparent 70%);
+            filter: blur(18px);
+            pointer-events: none;
+          }
+
+          /* Content Wrapper */
+          .brand-wrapper {
             position: relative;
             z-index: 2;
             display: flex;
             flex-direction: column;
             align-items: center;
+            width: 100%;
           }
-          .logo-svg {
-            width: 76px;
-            height: 76px;
+
+          /* Official App Icon */
+          .app-logo-disc {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
             margin-bottom: 12px;
-            filter: drop-shadow(0 0 16px rgba(255, 48, 64, 0.6));
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 52, 72, 0.3);
+            display: block;
+            object-fit: contain;
           }
+
+          /* Clean Minimalist Typography */
           .brand-title {
-            font-size: 26px;
+            font-size: 22px;
             font-weight: 800;
             letter-spacing: -0.5px;
             color: #ffffff;
-            margin-bottom: 4px;
+            line-height: 1.1;
           }
-          .brand-tagline {
-            font-size: 9px;
+
+          .brand-pill {
+            display: inline-block;
+            margin-top: 6px;
+            background: rgba(255, 52, 72, 0.14);
+            border: 1px solid rgba(255, 52, 72, 0.32);
+            color: #ff4757;
+            font-size: 8px;
             font-weight: 700;
-            letter-spacing: 2px;
-            color: #ff3b4e;
+            letter-spacing: 1.6px;
             text-transform: uppercase;
-            margin-bottom: 14px;
+            padding: 2.5px 8px;
+            border-radius: 12px;
           }
-          .divider {
-            width: 30px;
+
+          .brand-divider {
+            width: 22px;
             height: 1.5px;
-            background: rgba(255, 255, 255, 0.25);
-            margin-bottom: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 14px 0 10px 0;
             border-radius: 1px;
           }
-          .brand-sub {
-            font-size: 10px;
+
+          .brand-subtext {
+            font-size: 9.5px;
             font-weight: 400;
-            line-height: 1.35;
-            color: rgba(255, 255, 255, 0.65);
+            line-height: 1.4;
+            color: rgba(255, 255, 255, 0.62);
             padding: 0 4px;
           }
 
+          .brand-badge-footer {
+            margin-top: 14px;
+            font-size: 8px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.35);
+            letter-spacing: 0.5px;
+          }
+
+          /* Modern Minimalist Header (150 x 57) */
           #headerContainer {
             position: absolute;
             top: 0;
             left: 200px;
             width: 150px;
             height: 57px;
-            background: #0d0f14;
+            background: linear-gradient(135deg, #131720 0%, #0d0f14 100%);
             color: #ffffff;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: flex-end;
             padding-right: 14px;
+            position: relative;
           }
+
           .header-glow {
             position: absolute;
             right: 0;
-            top: -10px;
+            top: 0;
             width: 100px;
-            height: 77px;
-            background: radial-gradient(circle, rgba(255, 48, 64, 0.4) 0%, transparent 70%);
+            height: 57px;
+            background: radial-gradient(circle, rgba(255, 52, 72, 0.22) 0%, transparent 70%);
             filter: blur(8px);
           }
-          .header-row {
+
+          .header-content {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 9px;
             position: relative;
             z-index: 2;
           }
-          .header-logo {
+
+          .header-text-col {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+          }
+
+          .header-name {
+            font-size: 14px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -0.3px;
+            line-height: 1.1;
+          }
+
+          .header-tag {
+            font-size: 7px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            color: #ff4757;
+            text-transform: uppercase;
+            margin-top: 2px;
+          }
+
+          .header-logo-img {
             width: 32px;
             height: 32px;
-            filter: drop-shadow(0 0 8px rgba(255, 48, 64, 0.5));
-          }
-          .header-title {
-            font-size: 15px;
-            font-weight: 800;
-            letter-spacing: -0.3px;
-            color: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 10px rgba(255, 52, 72, 0.25);
+            display: block;
+            object-fit: contain;
           }
         </style>
       </head>
       <body>
         <div id="sidebarContainer">
-          <div class="wave-glow-1"></div>
-          <div class="wave-glow-2"></div>
-          <div class="brand-box">
-            <svg class="logo-svg" viewBox="0 0 100 100" fill="none">
-              <circle cx="50" cy="50" r="38" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-dasharray="160 50" transform="rotate(-30 50 50)"/>
-              <rect x="36" y="36" width="28" height="28" rx="8" transform="rotate(45 50 50)" fill="#ff3040"/>
-            </svg>
+          <div class="glow-orb-top"></div>
+          <div class="glow-orb-bottom"></div>
+          <div class="brand-wrapper">
+            <img class="app-logo-disc" src="${iconDataUrl}" alt="overLy">
             <div class="brand-title">overLy</div>
-            <div class="brand-tagline">MUSIC, IN FLOW.</div>
-            <div class="divider"></div>
-            <div class="brand-sub">Synchronized lyrics for your desktop.</div>
+            <div class="brand-pill">MUSIC, IN FLOW.</div>
+            <div class="brand-divider"></div>
+            <div class="brand-subtext">Synchronized lyrics for your desktop.</div>
+            <div class="brand-badge-footer">v1.0.1 • Fast &amp; Lightweight</div>
           </div>
         </div>
 
         <div id="headerContainer">
           <div class="header-glow"></div>
-          <div class="header-row">
-            <div class="header-title">overLy</div>
-            <svg class="header-logo" viewBox="0 0 100 100" fill="none">
-              <circle cx="50" cy="50" r="38" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-dasharray="160 50" transform="rotate(-30 50 50)"/>
-              <rect x="36" y="36" width="28" height="28" rx="8" transform="rotate(45 50 50)" fill="#ff3040"/>
-            </svg>
+          <div class="header-content">
+            <div class="header-text-col">
+              <div class="header-name">overLy</div>
+              <div class="header-tag">DESKTOP</div>
+            </div>
+            <img class="header-logo-img" src="${iconDataUrl}" alt="overLy">
           </div>
         </div>
       </body>
@@ -223,7 +286,7 @@ app.whenReady().then(async () => {
     });
 
     await win.loadFile(tempPath);
-    await new Promise(r => setTimeout(r, 600));
+    await new Promise(r => setTimeout(r, 700));
 
     // Capture Sidebar (164 x 314 at 0, 0)
     const sidebarImg = await win.capturePage({ x: 0, y: 0, width: 164, height: 314 });
@@ -249,7 +312,7 @@ app.whenReady().then(async () => {
     fs.writeFileSync(path.join(assetsDir, 'uninstallerSidebar.bmp'), sidebarBmp);
     fs.writeFileSync(path.join(assetsDir, 'installerHeader.bmp'), headerBmp);
 
-    console.log('SUCCESS: Bitmaps generated successfully!');
+    console.log('SUCCESS: Modern minimalist bitmaps generated with authentic app logo!');
   } catch (err) {
     console.error('ERROR generating bitmaps:', err);
   } finally {
