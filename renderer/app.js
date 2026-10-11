@@ -2455,8 +2455,14 @@ function renderTrackInfo() {
   trackArtist.textContent = state.artist || 'Unknown Artist';
 
   // Update Immersive Mode Elements
-  if (immersiveTitle) immersiveTitle.textContent = state.title;
-  if (immersiveArtist) immersiveArtist.textContent = state.artist || 'Unknown Artist';
+  if (immersiveTitle) {
+    immersiveTitle.textContent = state.title;
+    immersiveTitle.title = state.title;
+  }
+  if (immersiveArtist) {
+    immersiveArtist.textContent = state.artist || 'Unknown Artist';
+    immersiveArtist.title = state.artist || 'Unknown Artist';
+  }
 
   if (state.mode === 'minimized') {
     updateMinimizedDisplay();

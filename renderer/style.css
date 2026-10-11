@@ -2999,8 +2999,8 @@ body.mode-immersive #resizeHandle {
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  width: clamp(280px, 25vw, 380px);
-  max-width: 380px;
+  width: clamp(300px, 28vw, 440px);
+  max-width: 480px;
   flex-shrink: 0;
   gap: 18px;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -3071,9 +3071,10 @@ body.mode-immersive #resizeHandle {
   letter-spacing: -0.015em;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
-  overflow: hidden;
+  overflow: visible;
+  word-break: break-word;
 }
 
 .immersive-artist {
@@ -3332,23 +3333,23 @@ body.mode-immersive #resizeHandle {
   justify-content: center;
   align-items: center;
   padding-top: 72px;
-  gap: 28px;
-  max-width: 960px;
+  gap: 24px;
+  max-width: min(1200px, 94vw);
 }
 
 .immersive-layout-centered .immersive-left {
   flex-direction: row;
-  width: auto;
-  max-width: 860px;
-  justify-content: space-between;
+  width: max-content;
+  max-width: min(1180px, 92vw);
+  justify-content: flex-start;
   align-items: center;
   gap: 18px;
-  padding: 10px 22px;
+  padding: 10px 24px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   flex-shrink: 0;
 }
@@ -3371,9 +3372,9 @@ body.mode-immersive #resizeHandle {
 }
 
 .immersive-layout-centered .immersive-left .immersive-meta {
-  flex: 1;
-  min-width: 0;
-  max-width: 260px;
+  flex: 0 1 auto;
+  min-width: 140px;
+  max-width: min(560px, 46vw);
   text-align: left;
   gap: 3px;
 }
@@ -3385,21 +3386,30 @@ body.mode-immersive #resizeHandle {
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
+  max-width: 100%;
 }
 
 .immersive-layout-centered .immersive-left .immersive-artist {
   font-size: 13px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 100%;
 }
 
 .immersive-layout-centered .immersive-left .immersive-timeline-wrap {
-  max-width: 220px;
+  width: clamp(170px, 16vw, 240px);
+  max-width: 260px;
+  flex-shrink: 0;
   margin-top: 0;
 }
 
 .immersive-layout-centered .immersive-left .immersive-controls {
   width: auto;
+  flex-shrink: 0;
   margin-top: 0;
   gap: 10px;
 }
