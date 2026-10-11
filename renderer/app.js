@@ -162,6 +162,8 @@ const OPTIMISTIC_STATUS_TIMEOUT = 1200;
 // Auto-minimize idle state & timer
 let autoMinimizeTimer = null;
 let isMouseOverOverlay = false;
+let isAutoMinimizeTransitioning = false;
+let lastAutoMinimizeActionTime = 0;
 
 function getAutoMinimizeDelaySeconds() {
   const n = Number(state.autoMinimizeDelay);
@@ -179,8 +181,8 @@ function startAutoMinimizeTimer() {
   if (state.hoverExpandedWhilePaused) {
     if (!state.autoMinimizeRehide) return;
     const delaySec = getAutoMinimizeDelaySeconds();
-    // When re-minimizing on hover out, shrink straight after hover out (40ms) or within 1s
-    const delayMs = delaySec === 0 ? 40 : Math.min(delaySec, 1) * 1000;
+    // Use a clean 400ms hysteresis buffer so cursor jitter at the 1-pixel edge doesn't oscillate
+    const delayMs = delaySec === 0 ? 400 : Math.max(500, Math.min(delaySec, 1) * 1000);
     autoMinimizeTimer = setTimeout(() => {
       triggerAutoMinimize();
     }, delayMs);
@@ -188,7 +190,8 @@ function startAutoMinimizeTimer() {
   }
 
   const delaySec = getAutoMinimizeDelaySeconds();
-  const delayMs = delaySec === 0 ? 40 : delaySec * 1000;
+  // Safe hysteresis buffer: even for 0s (instant), wait 400ms so mouse leaving boundary doesn't stutter
+  const delayMs = delaySec === 0 ? 400 : Math.max(500, delaySec * 1000);
   autoMinimizeTimer = setTimeout(() => {
     triggerAutoMinimize();
   }, delayMs);
@@ -213,6 +216,12 @@ function triggerAutoMinimize() {
   const isPlaying = (state.hasMedia && state.status === 'Playing');
   if (isPlaying) return;
 
+  const now = Date.now();
+  if (now - lastAutoMinimizeActionTime < 500) return; // Prevent transition thrashing
+  lastAutoMinimizeActionTime = now;
+  isAutoMinimizeTransitioning = true;
+  setTimeout(() => { isAutoMinimizeTransitioning = false; }, 450);
+
   state.preAutoMinMode = state.mode;
   state.isAutoMinimized = true;
   setMode('minimized', true, true);
@@ -222,6 +231,13 @@ function triggerAutoMinimize() {
 function restoreFromAutoMinimize(viaHover = false) {
   cancelAutoMinimizeTimer();
   if (!state.isAutoMinimized) return;
+
+  const now = Date.now();
+  if (now - lastAutoMinimizeActionTime < 500) return; // Prevent transition thrashing
+  lastAutoMinimizeActionTime = now;
+  isAutoMinimizeTransitioning = true;
+  setTimeout(() => { isAutoMinimizeTransitioning = false; }, 450);
+
   const targetMode = state.preAutoMinMode || 'card';
   const isPlaying = (state.hasMedia && state.status === 'Playing');
   state.hoverExpandedWhilePaused = Boolean(viaHover && !isPlaying);
@@ -790,18 +806,7 @@ function setupEventListeners() {
     overlayContainer.addEventListener('mouseenter', () => {
       isMouseOverOverlay = true;
       cancelAutoMinimizeTimer();
-      if (state.isAutoMinimized) {
-        if (state.mode !== 'minimized') {
-          restoreFromAutoMinimize();
-        } else if (state.autoMinimizeExpand === 'hover') {
-          restoreFromAutoMinimize(true);
-        }
-      }
-    });
-
-    overlayContainer.addEventListener('mousemove', () => {
-      isMouseOverOverlay = true;
-      if (state.isAutoMinimized) {
+      if (state.isAutoMinimized && !isAutoMinimizeTransitioning) {
         if (state.mode !== 'minimized') {
           restoreFromAutoMinimize();
         } else if (state.autoMinimizeExpand === 'hover') {
@@ -981,7 +986,7 @@ function setupEventListeners() {
       }
     });
     artContainer.addEventListener('mouseenter', () => {
-      if (state.mode === 'minimized' && state.isAutoMinimized && state.autoMinimizeExpand === 'hover') {
+      if (state.mode === 'minimized' && state.isAutoMinimized && state.autoMinimizeExpand === 'hover' && !isAutoMinimizeTransitioning) {
         restoreFromAutoMinimize(true);
       }
     });
@@ -2418,12 +2423,12 @@ function renderTrackInfo() {
       applyAccentTokens(getNeutralAccentColor(), null);
     }
     albumArt.crossOrigin = 'anonymous';
-    albumArt.src = state.coverUrl;
-    albumArt.onload = () => {
+    const onArtLoaded = () => {
       albumArt.classList.add('visible');
       albumPlaceholder.classList.add('hidden');
       applyExtractedAlbumColors();
     };
+    albumArt.onload = onArtLoaded;
     albumArt.onerror = () => {
       albumArt.classList.remove('visible');
       albumPlaceholder.classList.remove('hidden');
@@ -2432,6 +2437,13 @@ function renderTrackInfo() {
       }
       applyTheme(state.theme);
     };
+
+    if (albumArt.src !== state.coverUrl) {
+      albumArt.src = state.coverUrl;
+    }
+    if (albumArt.complete && albumArt.naturalWidth > 0) {
+      onArtLoaded();
+    }
 
     if (immersiveArt) {
       immersiveArt.src = state.coverUrl;

@@ -1379,6 +1379,8 @@ body.from-minimized-to-pill .overlay-container {
     height: 100%;
     border-radius: var(--pill-radius);
   }
+}
+
 /* 2. Transition: Card (Normal) <-> Minimized Round Ball */
 body.from-card-to-minimized .overlay-container,
 body.from-normal-to-minimized .overlay-container {
