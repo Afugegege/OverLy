@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>overLy Setup</title>
+  <link rel="stylesheet" href="setup.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="setup-window">
+    <!-- Window Custom Titlebar -->
+    <header class="setup-titlebar">
+      <div class="titlebar-left">
+        <svg class="titlebar-icon" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="9" stroke="#ff3040" stroke-width="2.2" stroke-dasharray="14 3"/>
+          <rect x="9.5" y="9.5" width="5" height="5" rx="1.5" transform="rotate(45 12 12)" fill="#ff3040"/>
+        </svg>
+        <span class="titlebar-text">overLy Setup</span>
+      </div>
+      <div class="titlebar-controls">
+        <button id="btnTitleMinimize" class="titlebar-btn" title="Minimize">
+          <svg viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.2"/></svg>
+        </button>
+        <button id="btnTitleClose" class="titlebar-btn close-btn" title="Close">
+          <svg viewBox="0 0 12 12"><line x1="2.5" y1="2.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.2"/><line x1="9.5" y1="2.5" x2="2.5" y2="9.5" stroke="currentColor" stroke-width="1.2"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Container: Left Sidebar & Right Content Panel -->
+    <div class="setup-body">
+      <!-- Left Branding Sidebar -->
+      <aside class="setup-sidebar">
+        <div class="sidebar-aura-waves" aria-hidden="true"></div>
+        <div class="sidebar-brand-wrapper">
+          <div class="brand-logo-disc">
+            <svg class="brand-logo-svg" viewBox="0 0 100 100" fill="none">
+              <!-- Outer glowing ring -->
+              <circle cx="50" cy="50" r="38" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-dasharray="160 50" transform="rotate(-30 50 50)"/>
+              <!-- Inner vibrant diamond -->
+              <rect x="36" y="36" width="28" height="28" rx="8" transform="rotate(45 50 50)" fill="#ff3040"/>
+            </svg>
+          </div>
+          <h1 class="brand-title">overLy</h1>
+          <p class="brand-tagline">MUSIC, IN FLOW.</p>
+          <div class="brand-divider"></div>
+          <p class="brand-subtext">Synchronized lyrics for your desktop.</p>
+        </div>
+      </aside>
+
+      <!-- Right Multi-Step Content Area -->
+      <main class="setup-content">
+        <!-- Step 1: Welcome & Features (Exact UI as Screenshot) -->
+        <section class="step-page active" id="step1">
+          <div class="page-header">
+            <h2 class="page-title">Welcome to <span class="highlight-red">overLy</span></h2>
+            <p class="page-subtitle">A lightweight floating lyrics overlay that keeps your lyrics in sync while you work, play, or browse.</p>
+          </div>
+
+          <div class="features-list">
+            <!-- Feature 1 -->
+            <div class="feature-item">
+              <div class="feature-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 18V5l12-2v13"/>
+                  <circle cx="6" cy="18" r="3"/>
+                  <circle cx="18" cy="16" r="3"/>
+                  <path d="M2 9c2-1 4-1 6 0" stroke="#ff3040" stroke-width="2"/>
+                </svg>
+              </div>
+              <div class="feature-text">
+                <h3 class="feature-heading">Live media detection</h3>
+                <p class="feature-desc">Works with compatible Windows media sessions; no browser extensions required.</p>
+              </div>
+            </div>
+
+            <!-- Feature 2 -->
+            <div class="feature-item">
+              <div class="feature-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <rect x="2" y="4" width="20" height="16" rx="3"/>
+                  <rect x="5" y="8" width="8" height="6" rx="1.5" stroke="#ff3040" stroke-width="1.8"/>
+                  <line x1="15" y1="8" x2="19" y2="8"/>
+                  <line x1="15" y1="12" x2="19" y2="12"/>
+                </svg>
+              </div>
+              <div class="feature-text">
+                <h3 class="feature-heading">Flexible layouts</h3>
+                <p class="feature-desc">From a compact pill to immersive fullscreen lyrics.</p>
+              </div>
+            </div>
+
+            <!-- Feature 3 -->
+            <div class="feature-item">
+              <div class="feature-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <circle cx="13.5" cy="6.5" r="1.5" fill="#ff3040"/>
+                  <circle cx="17.5" cy="10.5" r="1.5" fill="currentColor"/>
+                  <circle cx="8.5" cy="7.5" r="1.5" fill="currentColor"/>
+                  <circle cx="6.5" cy="12.5" r="1.5" fill="currentColor"/>
+                  <path d="M12 2C6.5 2 2 6.5 2 12c0 3.5 2.2 6.5 5.5 7.5.5.1.8-.3.8-.7v-1.1c0-.9.7-1.7 1.7-1.7h1c2.8 0 5-2.2 5-5 0-4.9-4-9-9-9z"/>
+                </svg>
+              </div>
+              <div class="feature-text">
+                <h3 class="feature-heading">Adaptive themes</h3>
+                <p class="feature-desc">Album-art colours, customizable accents, and refined glass effects.</p>
+              </div>
+            </div>
+
+            <!-- Feature 4 -->
+            <div class="feature-item">
+              <div class="feature-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M4 4l7 16 3-7 7-3L4 4z" stroke="currentColor"/>
+                  <path d="M12 2v2M2 12h2M19 5l-1.5 1.5M5 19l1.5-1.5" stroke="#ff3040" stroke-width="2"/>
+                </svg>
+              </div>
+              <div class="feature-text">
+                <h3 class="feature-heading">Click-through mode</h3>
+                <p class="feature-desc">Keep lyrics visible without blocking the apps beneath.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 2: Choose Layout -->
+        <section class="step-page" id="step2">
+          <div class="page-header">
+            <h2 class="page-title">Choose Your <span class="highlight-red">Layout</span></h2>
+            <p class="page-subtitle">Pick how you want overLy to look on your screen. You can cycle layouts anytime with the M hotkey.</p>
+          </div>
+
+          <div class="layout-cards-grid">
+            <div class="layout-card active" data-mode="card">
+              <div class="layout-card-badge">Default</div>
+              <div class="layout-card-preview card-preview">
+                <div class="preview-mini-art"></div>
+                <div class="preview-mini-lines">
+                  <div class="mini-bar line-title"></div>
+                  <div class="mini-bar line-lyric active"></div>
+                  <div class="mini-bar line-lyric"></div>
+                </div>
+              </div>
+              <div class="layout-card-meta">
+                <h4>Floating Card</h4>
+                <p>Standard player with album art, playback controls & lyrics.</p>
+              </div>
+            </div>
+
+            <div class="layout-card" data-mode="collapsed">
+              <div class="layout-card-preview pill-preview">
+                <div class="preview-mini-art pill-circle"></div>
+                <div class="preview-mini-lines">
+                  <div class="mini-bar line-lyric active"></div>
+                </div>
+              </div>
+              <div class="layout-card-meta">
+                <h4>Compact Pill</h4>
+                <p>Ultra-thin rounded pill showing the active line of synchronized lyrics.</p>
+              </div>
+            </div>
+
+            <div class="layout-card" data-mode="minimized">
+              <div class="layout-card-preview mini-disc-preview">
+                <div class="preview-disc-art"></div>
+                <div class="preview-disc-drawer"></div>
+              </div>
+              <div class="layout-card-meta">
+                <h4>Minimized Disc</h4>
+                <p>56px circular floating album disc with an automated hover drawer.</p>
+              </div>
+            </div>
+
+            <div class="layout-card" data-mode="expanded">
+              <div class="layout-card-preview expanded-preview">
+                <div class="preview-mini-lines">
+                  <div class="mini-bar line-lyric"></div>
+                  <div class="mini-bar line-lyric active"></div>
+                  <div class="mini-bar line-lyric"></div>
+                  <div class="mini-bar line-lyric"></div>
+                </div>
+              </div>
+              <div class="layout-card-meta">
+                <h4>Expanded Lyrics</h4>
+                <p>Full-height window displaying multiple lines of synchronized lyrics.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 3: Theme & Integration Preferences -->
+        <section class="step-page" id="step3">
+          <div class="page-header">
+            <h2 class="page-title">Personalize <span class="highlight-red">Options</span></h2>
+            <p class="page-subtitle">Configure visual themes and Windows desktop behavior.</p>
+          </div>
+
+          <div class="preferences-list">
+            <label class="pref-toggle-card">
+              <div class="pref-info">
+                <span class="pref-title">Adapt Background to Album Art</span>
+                <span class="pref-desc">Dynamically blends your background with current song artwork colours.</span>
+              </div>
+              <input type="checkbox" id="chkAdaptAlbumColor" checked>
+              <span class="toggle-slider"></span>
+            </label>
+
+            <label class="pref-toggle-card">
+              <div class="pref-info">
+                <span class="pref-title">Always on Top (Pin Mode)</span>
+                <span class="pref-desc">Keeps overLy floating above your games, browser, and full-screen windows.</span>
+              </div>
+              <input type="checkbox" id="chkAlwaysOnTop" checked>
+              <span class="toggle-slider"></span>
+            </label>
+
+            <label class="pref-toggle-card">
+              <div class="pref-info">
+                <span class="pref-title">Start on Windows Boot</span>
+                <span class="pref-desc">Automatically starts overLy in the background when you sign in.</span>
+              </div>
+              <input type="checkbox" id="chkStartOnBoot">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="shortcut-tip-box">
+            <span class="tip-badge">GAMING TIP</span>
+            <p class="tip-text">Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>L</kbd> anytime to activate <strong>Click-Through Mode</strong> so your mouse clicks pass straight through into your games!</p>
+          </div>
+        </section>
+
+        <!-- Step 4: Ready to Play -->
+        <section class="step-page" id="step4">
+          <div class="page-header">
+            <h2 class="page-title">You're All <span class="highlight-red">Set!</span></h2>
+            <p class="page-subtitle">Play any track on Spotify, Apple Music, YouTube Music, or any Windows player.</p>
+          </div>
+
+          <div class="finish-status-card">
+            <div class="status-indicator-ring">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#ff3040" stroke-width="2.2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <div class="status-meta">
+              <h3>Windows SMTC Media Service Connected</h3>
+              <p>overLy will automatically detect playback, extract vibrant colors, and sync timed lyrics.</p>
+            </div>
+          </div>
+
+          <div class="shortcuts-cheat-grid">
+            <div class="shortcut-card">
+              <kbd>M</kbd>
+              <span>Cycle Layouts</span>
+            </div>
+            <div class="shortcut-card">
+              <kbd>P</kbd>
+              <span>Pin / Unpin</span>
+            </div>
+            <div class="shortcut-card">
+              <kbd>Ctrl+Shift+L</kbd>
+              <span>Click-Through Lock</span>
+            </div>
+            <div class="shortcut-card">
+              <kbd>F</kbd>
+              <span>Fullscreen Mode</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Footer Navigation Bar -->
+        <footer class="setup-footer">
+          <div class="footer-left">
+            <div class="step-dots" id="stepDots">
+              <span class="dot active"></span>
+              <span class="dot"></span>
+              <span class="dot"></span>
+              <span class="dot"></span>
+            </div>
+            <span class="footer-separator">|</span>
+            <span class="footer-step-label" id="stepLabel">WELCOME • STEP 1 OF 4</span>
+          </div>
+
+          <div class="footer-right">
+            <button id="btnPrev" class="setup-btn btn-secondary hidden">Back</button>
+            <button id="btnCancel" class="setup-btn btn-cancel">Cancel</button>
+            <button id="btnNext" class="setup-btn btn-primary">Next &gt;</button>
+          </div>
+        </footer>
+      </main>
+    </div>
+  </div>
+
+  <script src="setup.js"></script>
+</body>
+</html>
