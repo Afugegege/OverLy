@@ -1,113 +1,184 @@
-# overLy
+# overLy 🎵
 
-A lightweight, customizable desktop overlay for Windows that displays real-time synced lyrics for whatever you are currently listening to.
+<p align="center">
+  <strong>A modern, minimalist, and deeply customizable Windows desktop overlay for real-time synced lyrics and media control.</strong>
+</p>
 
-Hooks directly into Windows System Media Transport Controls (SMTC), meaning it works immediately with Spotify, Apple Music, YouTube Music, Tidal, Chrome, Edge, Brave, and other desktop or web players without requiring accounts, browser extensions, or API tokens.
-
----
-
-## Features
-
-### Dynamic Album Art Theming
-- In Auto Theme mode, both the background tint and text colors are derived from the album art (with contrast checks ensuring text is always sharp and readable), and the accent color automatically switches to auto as well.
-- In Auto Accent mode, overLy samples colors directly from the currently playing album artwork to theme lyrics, waveform visualizer, buttons, and progress scrubbers.
-- If the Settings window is open when the track changes, Settings updates its accent colors, preview chips, and ambient glow in real time.
-- Falls back to a clean neutral tone while artwork is fetching or if no cover art is found.
-
-### Progress Bar as Pill Border
-- In Collapsed Pill mode, track progress wraps around the entire perimeter border of the pill using an SVG stroke rather than a standard flat bar.
-- Interactive seeking: hover to see the elapsed/remaining time, and click or drag anywhere along the border to seek directly in the track.
-
-### Auto-Hiding Controls
-- Media buttons, layout toggles, close buttons, and titlebar elements stay hidden while playing so the screen stays clean.
-- Hovering anywhere near the overlay instantly brings the controls back into view.
-
-### Immersive Theater Mode (F)
-- Fullscreen distraction-free lyric experience with dynamic blurred backdrop.
-- Switch between **Split View** (album art + synced lyrics) and **Centered View** (focused lyric column).
-- Auto-hides controls and cursor after mouse inactivity.
-- Dedicated interactive scrubber, playback controls, and lyrics sync.
-- **Auto-Minimize Support**: Automatically exits Fullscreen and shrinks to the compact album disc when paused or idle, and seamlessly restores to Fullscreen upon resuming playback or hover.
-
-### Dynamic Album Art Theming & Auto Mode
-- **Auto Theme**: Intelligently evaluates album art luminance to switch between dark and light aesthetics with tailored glass tints and radiant contrast visualizer colors.
-- **Dynamic Accent**: Colors sampled from album artwork are applied dynamically to lyrics, visualizer waveforms, playback buttons, and progress scrubbers.
-- Real-time accent and theme updates in the Settings window when tracks change.
-
-### 5 Compact & Expanded Layouts
-Double-click the overlay or press `M` to cycle through layouts:
-- **Collapsed Pill**: Minimal capsule with perimeter SVG border progress scrubber and hover controls.
-- **Normal Card**: Elegant card with album art, track details, animated spectrum, scrubber, and synced lyrics.
-- **Only Lyrics**: Minimalist floating text HUD.
-- **Expanded Lyrics**: Tall vertical view displaying upcoming and preceding lyric lines.
-- **Minimized Bubble**: Compact circular orb with album artwork and ambient aura.
-- **Instant Layout Lyric Alignment**: Switching layouts keeps the active lyric pinned dead-center with zero scrolling delay.
-
-### Auto-Minimize on Pause & Hover
-- Automatically minimizes to the compact orb or pill when paused (including in Fullscreen Immersive Mode).
-- Configurable delay options: **Instant** (immediately when mouse leaves / idle), **1s**, **5s**, **10s**, up to **5m**.
-- Choice of expansion behavior: expand upon **Resuming Playback** or immediately upon **Mouse Hover**.
-- **Re-minimize Option**: Automatically re-collapses if expanded via hover while remaining paused.
-
-### Resilient SMTC Windows Media Sync
-- Multi-session discovery hooks directly into Windows SMTC, automatically finding active and paused media across Spotify, Apple Music, YouTube Music, web browsers, and media players.
-- Pause retention grace period prevents track information from being lost or desyncing during extended pauses.
-
-### Click-Through Lock Mode (Ctrl + Shift + L)
-- Transparent mouse mode allowing interaction with games, browsers, or code editors behind the overlay without interruption.
-- Visual toast notification confirms lock status.
-
-### Manual Lyrics Search & Timing Offset
-- Automatic lookups powered by LRCLIB and NetEase with fuzzy matching.
-- Manual search dialog in Settings to query alternate song titles or artists.
-- Timing offset adjustments (-3.0s to +3.0s in 0.2s increments) for Bluetooth audio synchronization.
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D4?logo=windows&logoColor=white" alt="Windows" />
+  <img src="https://img.shields.io/badge/Electron-44.7.0-47848F?logo=electron&logoColor=white" alt="Electron" />
+  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" />
+  <img src="https://img.shields.io/badge/Zero%20Config-SMTC%20Native-blueviolet" alt="Zero Config" />
+</p>
 
 ---
 
-## Keyboard Shortcuts
+## Overview
+
+**overLy** is a lightweight, translucent floating HUD that hooks directly into the **Windows System Media Transport Controls (SMTC)**. It automatically tracks playback, fetches time-synced lyrics with verified high-resolution album artwork, and themes itself dynamically based on whatever you are listening to.
+
+Works out of the box with **Spotify, Apple Music, YouTube Music, Tidal, Chrome, Edge, Brave, VLC**, and any other desktop or browser media player — **no API keys, accounts, or browser extensions required.**
+
+---
+
+## 🌟 Feature Showcase
+
+### 1. Zero-Configuration Windows Media Sync (SMTC)
+- **Native WinRT Daemon**: Communicates with the Windows SMTC subsystem (`smtc_daemon.ps1`) to track media playback status, timeline progress, track titles, artists, and playback positions at 60 FPS.
+- **Multi-Player Support**: Automatically tracks active sessions from Spotify (Desktop & Web), Apple Music, Tidal, YouTube Music, Chrome, Edge, Brave, Firefox, and VLC.
+- **Smart Session Priority**: Immediately latches onto actively playing sessions; handles track transitions, pauses, and player switching seamlessly with pause-retention grace periods.
+- **Hardware Media Key Integration**: Control playback (Play/Pause, Next Track, Previous Track, Seek) directly from overLy, with automatic fallback to Windows media keys.
+
+### 2. Multi-Source Synced Lyrics Engine
+- **Aggregated Lookups**: Queries **LRCLIB**, **Kugou**, and **QQ Music / NetEase** concurrently to guarantee maximum lyric coverage worldwide.
+- **CJK & Multi-Lingual Normalization**: Full Unicode tokenization supporting Simplified and Traditional Chinese (`后` ↔ `後`, `里` ↔ `裡`, etc.), Japanese Kanji/Kana, and Korean Hangul.
+- **Strict Title Scoring**: Validates track titles and artists before matching to prevent wrong song mismatches (e.g. tracks with identical album names or from the same artist).
+- **Interactive Lyric Seeking**: Click any lyric line to jump directly to that exact moment in the song.
+- **Top-Scroll on Track Change**: Lyrics immediately reset and scroll to line 1 the second a new song starts, rather than waiting for vocal synchronization.
+- **Instrumental & No-Lyrics Fallback**: Automatically switches to an audio visualizer when an instrumental track or track without lyrics is detected.
+
+### 3. Verified High-Resolution Album Artwork
+- **Intelligent Art Search**: Retrieves authentic high-res album covers (up to 1000×1000) via iTunes (including regional stores: TW, HK, JP, US) and Deezer.
+- **Verification Guarantee**: Top 5 candidate results are title-checked so album art always matches the exact track playing.
+- **Local SMTC Fallback**: If offline or searching, smoothly falls back to the native media player's embedded thumbnail stream.
+
+### 4. Dynamic Album Art Theming & Ambient Auras
+- **Auto Theme**: Analyzes the cover art's luminance to switch between sleek dark and radiant light glassmorphism styles with high contrast for crisp readability.
+- **Auto Accent Color**: Extracts the dominant vibrant color from the album artwork and themes lyric highlights, visualizer bars, progress scrubbers, buttons, and glow effects.
+- **Ambient Aura Glow**: Softly diffuses blurred album colors behind the overlay for a modern aesthetic.
+- **Live Theme Sync**: Standalone Settings window updates its preview chips, glowing accents, and sliders live as tracks change.
+
+### 5. Five Versatile Layout Modes (Press `M` or Double-Click)
+Switch between layouts to fit your workspace:
+
+| Layout | Description |
+| :--- | :--- |
+| **Normal Card** | Full-featured card featuring album art, title, artist, media controls, seeking progress bar, and synced scrolling lyrics. |
+| **Collapsed Pill** | Minimalist rounded capsule featuring an innovative perimeter SVG border progress bar, hover controls, and drawer. |
+| **Only Lyrics** | Pure floating typography HUD displaying only the active lyric line for minimal distraction while gaming or working. |
+| **Expanded Lyrics** | Tall vertical card displaying upcoming and preceding lyric lines for an Apple Music-style lyric view. |
+| **Minimized Bubble** | Compact circular orb with album artwork, breathing status pulse, click-to-play overlay, and floating hover drawer. |
+
+### 6. Perimeter SVG Border Scrubber (Pill Mode)
+- In Collapsed Pill mode, playback progress wraps around the entire pill's rounded perimeter using an interactive SVG gradient stroke.
+- Hover anywhere on the border to preview elapsed and remaining time.
+- Click or drag along the border to seek instantly in the track.
+
+### 7. Immersive Fullscreen Theater Mode (Press `F`)
+- **Cinematic Fullscreen Experience**: Dynamic, heavily blurred album backdrop with ambient lighting.
+- **Two Layout Options**:
+  - **Split View**: Large high-res artwork on the left + synced scrolling lyrics on the right.
+  - **Centered View**: Centered lyric column.
+- **Inactivity Auto-Hide**: Controls, progress bars, and cursor automatically fade away after 3 seconds of mouse inactivity.
+- **Full Media Controls**: Timeline scrubber, play/pause, next/previous, and lyric retry.
+
+### 8. Auto-Minimize & Smart Re-Expand
+- Automatically minimizes to the compact disc orb when music is paused or idle.
+- **Customizable Timer**: Instant, 1s, 5s, 10s, 30s, 1m, 2m, or 5m delays.
+- **Expansion Triggers**:
+  - **On Play**: Re-expands automatically when music resumes.
+  - **On Hover**: Temporarily expands when you hover your cursor over the orb, and automatically re-minimizes if you move away while paused.
+
+### 9. One-Click Refetch Button & Shortcut (`F5`)
+- When a player lags or updates slowly, click the **Refetch (`↻`)** button to immediately re-poll Windows SMTC, purge cached entries, and fetch fresh lyrics and cover art.
+- Available across all layouts:
+  - Top Control Bar
+  - Hover Media Controls
+  - Pill Mode Drawer (`...`)
+  - Minimized Mode Hover Drawer
+  - Keyboard Shortcut: **`F5`** or **`Ctrl + Shift + R`**
+
+### 10. Click-Through Ghost Mode (`Ctrl + Shift + L`)
+- Completely ignores mouse events so you can interact with games, IDEs, or browser windows beneath overLy without interruption.
+- A subtle floating unlock banner appears outside the window to easily restore clickability with a single click.
+
+### 11. Window Resizing & Pinning (`R`, `P`)
+- **Always on Top (`P`)**: Pins overLy above all full-screen or windowed apps.
+- **Interactive Resizing (`R`)**: Enables an aesthetic bottom-right resize grip. Drag to freely scale width and height; double-click the grip to reset to default layout dimensions.
+
+### 12. Audio Visualizer for Instrumental Tracks
+- When instrumental tracks play or no lyrics are available, overLy renders a real-time reactive audio visualizer.
+- Four selectable visualizer styles in Settings:
+  - **Spectrum** (Equalizer bars)
+  - **Wave** (Smooth wave peaks)
+  - **Pulse** (Rhythmic breathing bars)
+  - **Minimal** (Subtle indicator)
+
+### 13. Standalone Settings Window
+- Accessible via the gear icon or tray icon:
+  - **Theme**: System, Dark, Light, or Auto.
+  - **Accent Color**: Auto (from album art) or Custom color palette (Purple, Blue, Emerald, Coral, Pink, Gold, Cyan).
+  - **Opacity Slider**: Adjust transparency from 30% to 100%.
+  - **Font Size Slider**: Customize lyric text size from 12px to 32px.
+  - **Timing Offset**: Adjust synchronization from -3.0s to +3.0s in 0.2s increments (useful for Bluetooth latency).
+  - **Manual Lyrics Search**: Search by custom track title and artist to manually bind lyrics.
+  - **Auto-Minimize Settings**: Configure delay times and expand behavior.
+  - **Launch on Windows Startup**: Toggle automatic startup on Windows boot.
+
+---
+
+## ⌨️ Keyboard Shortcuts
 
 | Shortcut | Action |
 | :--- | :--- |
-| `Ctrl + Shift + L` | Toggle Click-Through Lock Mode |
-| `M` (or double-click) | Cycle layout mode |
-| `F` | Toggle Fullscreen Immersive Mode |
-| `P` | Toggle Always on Top |
-| `R` | Toggle window resizing mode |
-| `Esc` | Close Settings window / Exit Immersive Mode |
+| **`M`** *(or double-click)* | Cycle layout mode (*Card → Pill → Minimized → Only Lyrics → Expanded*) |
+| **`F`** | Toggle Fullscreen Immersive Theater Mode |
+| **`Ctrl + Shift + L`** | Toggle Click-Through Lock Mode (Ghost Mode) |
+| **`F5`** / **`Ctrl + Shift + R`** | Refetch active track info, lyrics, and album artwork |
+| **`P`** | Toggle Always on Top |
+| **`R`** | Toggle Window Resizing Mode (double-click grip to reset) |
+| **`Esc`** | Exit Immersive Mode / Close Settings Window |
 
 ---
 
-## Installation
+## 📦 Installation
 
-### Option 1: Pre-Built Releases
-Download from the [Releases](https://github.com/Afugegege/OverLy/releases) page:
-- **`overLy Setup.exe`**: Windows installer with start menu entry and auto-launch options.
-- **`overLy-win.zip`**: Portable build (extract and launch `overLy.exe`).
+### Option 1: Pre-Built Release (Recommended)
+Download the latest version from the **[Releases](https://github.com/Afugegege/OverLy/releases)** page:
+- **`overLy Setup 1.0.1.exe`**: Modern Windows installer with Start Menu shortcuts and optional auto-launch.
+- **`overLy-1.0.1-win.zip`**: Standalone portable version (extract anywhere and run `overLy.exe`).
 
-> **Windows SmartScreen**: Because this is an open-source project without a paid corporate certificate, Windows SmartScreen may show an initial prompt on first run. Click **"More info" -> "Run anyway"**.
+> **Note on Windows SmartScreen**: Because overLy is an independent open-source project without a paid corporate certificate, Windows SmartScreen may show an initial warning. Click **"More info" → "Run anyway"**.
 
 ---
 
 ### Option 2: Run from Source
 
-#### Requirements
-- Windows 10 (1809+) or Windows 11
-- Node.js (v18+)
+#### Prerequisites
+- **Windows 10** (build 1809+) or **Windows 11**
+- **Node.js** (v18 or newer)
+- **PowerShell 5.1+** (preinstalled on Windows)
 
 ```bash
+# Clone the repository
 git clone https://github.com/Afugegege/OverLy.git
 cd OverLy
+
+# Install dependencies
 npm install
+
+# Start overLy
 npm start
 ```
 
-To build installers or portable binaries:
+#### Build Executable & Installer
 ```bash
 npm run dist
 ```
+Build outputs will be generated in the `dist/` directory.
 
 ---
 
-## License
+## 🛠️ Tech Stack & Architecture
 
-MIT
+- **Runtime**: Electron 44, Node.js
+- **Media Bridge**: Native PowerShell WinRT script (`smtc_daemon.ps1`) interfacing with Windows `GlobalSystemMediaTransportControlsSessionManager`
+- **Frontend**: Vanilla HTML5, CSS3 Glassmorphism tokens, and JavaScript
+- **Lyrics Providers**: LRCLIB API, Kugou API, QQ Music API, NetEase API
+- **Cover Providers**: iTunes Search API (Multi-regional), Deezer API, and native SMTC stream
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
