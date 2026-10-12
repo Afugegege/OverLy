@@ -59,7 +59,8 @@ const defaultSettings = {
   autoMinimizeExpand: 'play', // 'play' | 'hover'
   autoMinimizeRehide: true,
   visualizerStyle: 'spectrum', // 'spectrum' | 'wave' | 'pulse' | 'minimal'
-  immersiveLayout: 'split' // 'split' | 'centered'
+  immersiveLayout: 'split', // 'split' | 'centered'
+  hasCompletedSetup: false
 };
 
 function loadSettings() {
@@ -166,6 +167,7 @@ function createWindow() {
     resizable: false,
     maximizable: false,
     skipTaskbar: false,
+    show: Boolean(settings.hasCompletedSetup && !process.argv.includes('--setup')),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -181,6 +183,12 @@ function createWindow() {
   mainWindow.setIgnoreMouseEvents(false);
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  if (!settings.hasCompletedSetup || process.argv.includes('--setup')) {
+    setTimeout(() => {
+      openSetupWindow();
+    }, 350);
+  }
 
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
     console.log(`[RENDERER] [${level}] ${message} (${path.basename(sourceId || '')}:${line})`);
@@ -284,6 +292,10 @@ function updateTray() {
           settingsWindow.webContents.send('startup-changed', item.checked);
         }
       }
+    },
+    {
+      label: 'Setup Wizard...',
+      click: () => openSetupWindow()
     },
     {
       label: 'Settings & Styling',
@@ -646,6 +658,123 @@ function openSettingsWindow(searchQuery) {
     settingsWindow = null;
   });
 }
+
+// Setup Installer Wizard Window
+let setupWindow = null;
+
+function openSetupWindow() {
+  if (setupWindow && !setupWindow.isDestroyed()) {
+    setupWindow.show();
+    setupWindow.focus();
+    return;
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const wa = primaryDisplay.workArea;
+  const sw = 780;
+  const sh = 520;
+
+  const x = Math.round(wa.x + (wa.width - sw) / 2);
+  const y = Math.round(wa.y + (wa.height - sh) / 2);
+
+  setupWindow = new BrowserWindow({
+    x,
+    y,
+    width: sw,
+    height: sh,
+    title: 'overLy Setup',
+    icon: path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
+    frame: false,
+    transparent: true,
+    backgroundColor: '#ffffff',
+    resizable: false,
+    maximizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  setupWindow.loadFile(path.join(__dirname, 'renderer', 'setup.html'));
+
+  setupWindow.on('closed', () => {
+    setupWindow = null;
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
+ipcMain.on('open-setup-wizard', () => {
+  openSetupWindow();
+});
+
+ipcMain.on('minimize-setup-wizard', () => {
+  if (setupWindow && !setupWindow.isDestroyed()) {
+    setupWindow.minimize();
+  }
+});
+
+ipcMain.on('close-setup-wizard', () => {
+  if (setupWindow && !setupWindow.isDestroyed()) {
+    setupWindow.close();
+    setupWindow = null;
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
+});
+
+ipcMain.on('finish-setup-wizard', (_event, config) => {
+  const s = loadSettings();
+  if (config) {
+    if (config.mode) {
+      s.mode = config.mode;
+    }
+    if (typeof config.adaptAlbumColor === 'boolean') {
+      s.adaptAlbumColor = config.adaptAlbumColor;
+    }
+    if (typeof config.alwaysOnTop === 'boolean') {
+      s.alwaysOnTop = config.alwaysOnTop;
+      isAlwaysOnTop = config.alwaysOnTop;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setAlwaysOnTop(isAlwaysOnTop, isAlwaysOnTop ? 'screen-saver' : 'normal');
+      }
+      updateTray();
+    }
+    if (typeof config.startOnBoot === 'boolean') {
+      s.startOnBoot = config.startOnBoot;
+      app.setLoginItemSettings({
+        openAtLogin: config.startOnBoot,
+        path: app.getPath('exe')
+      });
+      updateTray();
+    }
+    s.hasCompletedSetup = true;
+    saveSettings(s);
+  }
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (config && config.mode) {
+      mainWindow.webContents.send('setting-updated', { key: 'mode', value: config.mode });
+    }
+    if (config && typeof config.adaptAlbumColor === 'boolean') {
+      mainWindow.webContents.send('setting-updated', { key: 'adaptAlbumColor', value: config.adaptAlbumColor });
+    }
+    mainWindow.show();
+    mainWindow.focus();
+  }
+
+  if (setupWindow && !setupWindow.isDestroyed()) {
+    setupWindow.close();
+    setupWindow = null;
+  }
+});
 
 
 // IPC listeners

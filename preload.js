@@ -90,5 +90,9 @@ contextBridge.exposeInMainWorld('overlyAPI', {
     ipcRenderer.on('theme-changed', handler);
     return () => ipcRenderer.removeListener('theme-changed', handler);
   },
-  uninstallApp: () => ipcRenderer.send('uninstall-app')
+  uninstallApp: () => ipcRenderer.send('uninstall-app'),
+  openSetupWizard: () => ipcRenderer.send('open-setup-wizard'),
+  closeSetupWizard: () => ipcRenderer.send('close-setup-wizard'),
+  minimizeSetupWizard: () => ipcRenderer.send('minimize-setup-wizard'),
+  finishSetupWizard: (data) => ipcRenderer.send('finish-setup-wizard', data)
 });

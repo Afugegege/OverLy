@@ -63,18 +63,17 @@ app.whenReady().then(async () => {
           body {
             background: #000000;
             overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
             -webkit-font-smoothing: antialiased;
           }
 
-          /* Modern Minimalist Sidebar (164 x 314) */
-          #sidebarContainer {
+          /* Modern Dark Glass Sidebar (164 x 314) */
+          .sidebar-box {
             position: absolute;
             top: 0;
-            left: 0;
             width: 164px;
             height: 314px;
-            background: linear-gradient(165deg, #131720 0%, #0d0f14 60%, #161a22 100%);
+            background: linear-gradient(165deg, #11141e 0%, #0c0e14 55%, #151824 100%);
             color: #ffffff;
             overflow: hidden;
             display: flex;
@@ -83,18 +82,26 @@ app.whenReady().then(async () => {
             justify-content: center;
             padding: 22px 12px;
             text-align: center;
-            position: relative;
+            box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
           }
 
-          /* Subtle frosted ambient glows */
+          #sidebarContainer {
+            left: 0;
+          }
+
+          #uninstallerSidebarContainer {
+            left: 180px;
+          }
+
+          /* Frosted Ambient Red Glows matching overLy --accent: #FF3040 */
           .glow-orb-top {
             position: absolute;
-            top: -20px;
+            top: -24px;
             left: 50%;
             transform: translateX(-50%);
             width: 180px;
             height: 140px;
-            background: radial-gradient(circle, rgba(255, 52, 72, 0.28) 0%, rgba(255, 52, 72, 0.08) 50%, transparent 75%);
+            background: radial-gradient(circle, rgba(255, 48, 64, 0.32) 0%, rgba(255, 48, 64, 0.08) 55%, transparent 75%);
             filter: blur(16px);
             pointer-events: none;
           }
@@ -105,12 +112,11 @@ app.whenReady().then(async () => {
             right: -20px;
             width: 150px;
             height: 150px;
-            background: radial-gradient(circle, rgba(255, 52, 72, 0.16) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(255, 48, 64, 0.18) 0%, transparent 70%);
             filter: blur(18px);
             pointer-events: none;
           }
 
-          /* Content Wrapper */
           .brand-wrapper {
             position: relative;
             z-index: 2;
@@ -120,18 +126,19 @@ app.whenReady().then(async () => {
             width: 100%;
           }
 
-          /* Official App Icon */
+          /* Glowing Disc Logo */
           .app-logo-disc {
-            width: 72px;
-            height: 72px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
             margin-bottom: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 52, 72, 0.3);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 48, 64, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.16);
             display: block;
             object-fit: contain;
           }
 
-          /* Clean Minimalist Typography */
+          /* Minimalist Typography */
           .brand-title {
             font-size: 22px;
             font-weight: 800;
@@ -143,30 +150,36 @@ app.whenReady().then(async () => {
           .brand-pill {
             display: inline-block;
             margin-top: 6px;
-            background: rgba(255, 52, 72, 0.14);
-            border: 1px solid rgba(255, 52, 72, 0.32);
+            background: rgba(255, 48, 64, 0.15);
+            border: 1px solid rgba(255, 48, 64, 0.35);
             color: #ff4757;
-            font-size: 8px;
+            font-size: 7.5px;
             font-weight: 700;
-            letter-spacing: 1.6px;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
             padding: 2.5px 8px;
             border-radius: 12px;
           }
 
+          .brand-pill.uninstaller {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            color: #e4e4e7;
+          }
+
           .brand-divider {
-            width: 22px;
+            width: 24px;
             height: 1.5px;
-            background: rgba(255, 255, 255, 0.2);
-            margin: 14px 0 10px 0;
+            background: rgba(255, 255, 255, 0.18);
+            margin: 13px 0 10px 0;
             border-radius: 1px;
           }
 
           .brand-subtext {
             font-size: 9.5px;
             font-weight: 400;
-            line-height: 1.4;
-            color: rgba(255, 255, 255, 0.62);
+            line-height: 1.45;
+            color: rgba(255, 255, 255, 0.65);
             padding: 0 4px;
           }
 
@@ -174,25 +187,25 @@ app.whenReady().then(async () => {
             margin-top: 14px;
             font-size: 8px;
             font-weight: 600;
-            color: rgba(255, 255, 255, 0.35);
+            color: rgba(255, 255, 255, 0.38);
             letter-spacing: 0.5px;
           }
 
-          /* Modern Minimalist Header (150 x 57) */
+          /* Modern Dark Header (150 x 57) */
           #headerContainer {
             position: absolute;
             top: 0;
-            left: 200px;
+            left: 360px;
             width: 150px;
             height: 57px;
-            background: linear-gradient(135deg, #131720 0%, #0d0f14 100%);
+            background: linear-gradient(135deg, #0c0e14 0%, #141722 100%);
             color: #ffffff;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: flex-end;
             padding-right: 14px;
-            position: relative;
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
           }
 
           .header-glow {
@@ -201,7 +214,7 @@ app.whenReady().then(async () => {
             top: 0;
             width: 100px;
             height: 57px;
-            background: radial-gradient(circle, rgba(255, 52, 72, 0.22) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(255, 48, 64, 0.25) 0%, transparent 70%);
             filter: blur(8px);
           }
 
@@ -240,14 +253,16 @@ app.whenReady().then(async () => {
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 10px rgba(255, 52, 72, 0.25);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5), 0 0 12px rgba(255, 48, 64, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             display: block;
             object-fit: contain;
           }
         </style>
       </head>
       <body>
-        <div id="sidebarContainer">
+        <!-- Installer Sidebar (164 x 314) -->
+        <div id="sidebarContainer" class="sidebar-box">
           <div class="glow-orb-top"></div>
           <div class="glow-orb-bottom"></div>
           <div class="brand-wrapper">
@@ -256,10 +271,25 @@ app.whenReady().then(async () => {
             <div class="brand-pill">MUSIC, IN FLOW.</div>
             <div class="brand-divider"></div>
             <div class="brand-subtext">Synchronized lyrics for your desktop.</div>
-            <div class="brand-badge-footer">v1.0.1 • Fast &amp; Lightweight</div>
+            <div class="brand-badge-footer">SMTC Native • 60 FPS</div>
           </div>
         </div>
 
+        <!-- Dedicated Uninstaller Sidebar (164 x 314) -->
+        <div id="uninstallerSidebarContainer" class="sidebar-box">
+          <div class="glow-orb-top"></div>
+          <div class="glow-orb-bottom"></div>
+          <div class="brand-wrapper">
+            <img class="app-logo-disc" src="${iconDataUrl}" alt="overLy">
+            <div class="brand-title">overLy</div>
+            <div class="brand-pill uninstaller">UNINSTALL WIZARD</div>
+            <div class="brand-divider"></div>
+            <div class="brand-subtext">Clean removal from your desktop.</div>
+            <div class="brand-badge-footer">Safe &amp; Clean Removal</div>
+          </div>
+        </div>
+
+        <!-- Inner Pages Header (150 x 57) -->
         <div id="headerContainer">
           <div class="header-glow"></div>
           <div class="header-content">
@@ -278,7 +308,7 @@ app.whenReady().then(async () => {
     fs.writeFileSync(tempPath, combinedHtml, 'utf8');
 
     const win = new BrowserWindow({
-      width: 600,
+      width: 700,
       height: 500,
       show: false,
       frame: false,
@@ -288,12 +318,16 @@ app.whenReady().then(async () => {
     await win.loadFile(tempPath);
     await new Promise(r => setTimeout(r, 700));
 
-    // Capture Sidebar (164 x 314 at 0, 0)
+    // Capture Installer Sidebar (164 x 314 at 0, 0)
     const sidebarImg = await win.capturePage({ x: 0, y: 0, width: 164, height: 314 });
     const sidebarBmp = convertBgraTo24Bmp(sidebarImg.toBitmap(), 164, 314);
 
-    // Capture Header (150 x 57 at 200, 0)
-    const headerImg = await win.capturePage({ x: 200, y: 0, width: 150, height: 57 });
+    // Capture Uninstaller Sidebar (164 x 314 at 180, 0)
+    const uninstSidebarImg = await win.capturePage({ x: 180, y: 0, width: 164, height: 314 });
+    const uninstSidebarBmp = convertBgraTo24Bmp(uninstSidebarImg.toBitmap(), 164, 314);
+
+    // Capture Header (150 x 57 at 360, 0)
+    const headerImg = await win.capturePage({ x: 360, y: 0, width: 150, height: 57 });
     const headerBmp = convertBgraTo24Bmp(headerImg.toBitmap(), 150, 57);
 
     win.destroy();
@@ -304,17 +338,20 @@ app.whenReady().then(async () => {
     if (!fs.existsSync(buildDir)) fs.mkdirSync(buildDir, { recursive: true });
     if (!fs.existsSync(assetsDir)) fs.mkdirSync(assetsDir, { recursive: true });
 
+    // Write to build/ directory
     fs.writeFileSync(path.join(buildDir, 'installerSidebar.bmp'), sidebarBmp);
-    fs.writeFileSync(path.join(buildDir, 'uninstallerSidebar.bmp'), sidebarBmp);
+    fs.writeFileSync(path.join(buildDir, 'uninstallerSidebar.bmp'), uninstSidebarBmp);
     fs.writeFileSync(path.join(buildDir, 'installerHeader.bmp'), headerBmp);
 
+    // Write to assets/ directory
     fs.writeFileSync(path.join(assetsDir, 'installerSidebar.bmp'), sidebarBmp);
-    fs.writeFileSync(path.join(assetsDir, 'uninstallerSidebar.bmp'), sidebarBmp);
+    fs.writeFileSync(path.join(assetsDir, 'uninstallerSidebar.bmp'), uninstSidebarBmp);
     fs.writeFileSync(path.join(assetsDir, 'installerHeader.bmp'), headerBmp);
 
-    console.log('SUCCESS: Modern minimalist bitmaps generated with authentic app logo!');
+    console.log('SUCCESS: Generated authentic overLy installer & uninstaller bitmaps!');
   } catch (err) {
     console.error('ERROR generating bitmaps:', err);
+    process.exit(1);
   } finally {
     app.quit();
   }

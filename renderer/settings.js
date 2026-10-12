@@ -1093,6 +1093,14 @@ function setupEventListeners() {
     if (e.key === 'Enter') handleManualSearch();
   });
 
+  // Setup Wizard
+  const btnRunSetupWizard = document.getElementById('btnRunSetupWizard');
+  if (btnRunSetupWizard) {
+    btnRunSetupWizard.addEventListener('click', () => {
+      window.overlyAPI?.openSetupWizard?.();
+    });
+  }
+
   // App Uninstall
   const btnUninstallApp = document.getElementById('btnUninstallApp');
   if (btnUninstallApp) {
