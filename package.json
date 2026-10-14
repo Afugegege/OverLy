@@ -22,7 +22,8 @@
     "dist": "electron-builder --win",
     "dist:zip": "electron-builder --win zip",
     "checksums": "node scripts/generate-checksums.js",
-    "postdist": "node scripts/generate-checksums.js"
+    "postdist": "node scripts/generate-checksums.js",
+    "release": "node scripts/publish-release.js"
   },
   "keywords": [
     "lyrics",
