@@ -17,6 +17,7 @@ using System.Runtime.InteropServices;
 
 public class CommandBridge {
     public static ConcurrentQueue<string> Queue = new ConcurrentQueue<string>();
+    public static volatile bool IsEof = false;
     static CommandBridge() {
         System.Threading.ThreadPool.QueueUserWorkItem(_ => {
             try {
@@ -27,6 +28,9 @@ public class CommandBridge {
                     }
                 }
             } catch {}
+            finally {
+                IsEof = true;
+            }
         });
     }
     public static string GetNextCommand() {
@@ -63,7 +67,6 @@ $global:manager = Await $asyncOp ([Windows.Media.Control.GlobalSystemMediaTransp
 
 [Windows.Storage.Streams.IRandomAccessStreamWithContentType, Windows.Storage.Streams, ContentType=WindowsRuntime] | Out-Null
 $global:asStreamMethod = [System.IO.WindowsRuntimeStreamExtensions].GetMethods() | ? { $_.Name -eq 'AsStream' -and $_.GetParameters().Count -eq 1 }
-$global:tempThumbFile = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "overLy_smtc_thumb.jpg")
 $global:lastThumbFile = ""
 $global:lastManagerRefresh = $null
 
@@ -74,6 +77,7 @@ $lastJson = ""
 
 $global:lastActiveSession = $null
 $global:lastAppId = $null
+$global:lastTrackKey = ""
 $global:noMediaCount = 0
 
 function Get-ResolvedSession {
@@ -90,15 +94,19 @@ function Get-ResolvedSession {
         } catch {}
     }
 
-    # 1. ALWAYS search all sessions first to find an actively PLAYING session!
-    # In Windows, GetCurrentSession() frequently remains stuck on an old paused/idle app
-    # while Spotify or another media player is actively playing in GetSessions().
+    $activeTrackCandidate = $null
+    $activeTrackProps = $null
+    $activeTrackStatus = "Unknown"
+
     $playingCandidate = $null
     $playingProps = $null
-    $lastAppCandidate = $null
-    $lastAppProps = $null
-    $pausedCandidate = $null
-    $pausedProps = $null
+
+    $currentSessionCandidate = $null
+    $currentSessionProps = $null
+    $currentSessionStatus = "Unknown"
+
+    $fallbackCandidate = $null
+    $fallbackProps = $null
 
     try {
         $sessions = $global:manager.GetSessions()
@@ -109,62 +117,118 @@ function Get-ResolvedSession {
                     if ($props -and -not [string]::IsNullOrWhiteSpace($props.Title)) {
                         $pInfo = $s.GetPlaybackInfo()
                         $stat = if ($pInfo) { $pInfo.PlaybackStatus.ToString() } else { "Unknown" }
+                        $trackKey = "$($props.Artist):::$($props.Title)"
 
-                        if ($stat -eq "Playing") {
+                        # Match the track currently active in overLy
+                        if ($global:lastTrackKey -and $trackKey -eq $global:lastTrackKey) {
+                            $activeTrackCandidate = $s
+                            $activeTrackProps = $props
+                            $activeTrackStatus = $stat
+                        }
+
+                        # First playing candidate
+                        if ($stat -eq "Playing" -and -not $playingCandidate) {
                             $playingCandidate = $s
                             $playingProps = $props
-                            break # Found actively playing session, prioritize immediately!
-                        } elseif ($global:lastAppId -and $s.SourceAppId -eq $global:lastAppId -and -not $lastAppCandidate) {
-                            $lastAppCandidate = $s
-                            $lastAppProps = $props
-                        } elseif (-not $pausedCandidate) {
-                            $pausedCandidate = $s
-                            $pausedProps = $props
+                        }
+
+                        # General fallback
+                        if (-not $fallbackCandidate) {
+                            $fallbackCandidate = $s
+                            $fallbackProps = $props
                         }
                     }
                 } catch {}
             }
-
-            if ($playingCandidate) {
-                $global:lastActiveSession = $playingCandidate
-                $global:lastAppId = $playingCandidate.SourceAppId
-                return @{ session = $playingCandidate; props = $playingProps }
-            }
         }
     } catch {}
 
-    # 2. If no actively playing session, check GetCurrentSession()
+    # Inspect GetCurrentSession()
     try {
         $cur = $global:manager.GetCurrentSession()
         if ($cur) {
-            $props = Await ($cur.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
-            if ($props -and -not [string]::IsNullOrWhiteSpace($props.Title)) {
-                $global:lastActiveSession = $cur
-                $global:lastAppId = $cur.SourceAppId
-                return @{ session = $cur; props = $props }
+            $curProps = Await ($cur.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+            if ($curProps -and -not [string]::IsNullOrWhiteSpace($curProps.Title)) {
+                $currentSessionCandidate = $cur
+                $currentSessionProps = $curProps
+                $curInfo = $cur.GetPlaybackInfo()
+                $currentSessionStatus = if ($curInfo) { $curInfo.PlaybackStatus.ToString() } else { "Unknown" }
             }
         }
     } catch {}
 
-    # 3. Fallbacks from registered sessions
-    if ($lastAppCandidate) {
-        $global:lastActiveSession = $lastAppCandidate
-        return @{ session = $lastAppCandidate; props = $lastAppProps }
+    # 1. If we matched the active track from registered sessions:
+    if ($activeTrackCandidate) {
+        if ($activeTrackStatus -eq "Playing") {
+            $global:lastActiveSession = $activeTrackCandidate
+            $global:lastAppId = $activeTrackCandidate.SourceAppId
+            return @{ session = $activeTrackCandidate; props = $activeTrackProps }
+        }
+
+        # The active track is paused. Only switch if GetCurrentSession() is actively playing a DIFFERENT track:
+        if ($currentSessionCandidate -and $currentSessionStatus -eq "Playing") {
+            $curTrackKey = "$($currentSessionProps.Artist):::$($currentSessionProps.Title)"
+            if ($curTrackKey -ne $global:lastTrackKey) {
+                $global:lastActiveSession = $currentSessionCandidate
+                $global:lastAppId = $currentSessionCandidate.SourceAppId
+                return @{ session = $currentSessionCandidate; props = $currentSessionProps }
+            }
+        }
+
+        # Otherwise, preserve the current track and report its accurate Paused state
+        $global:lastActiveSession = $activeTrackCandidate
+        $global:lastAppId = $activeTrackCandidate.SourceAppId
+        return @{ session = $activeTrackCandidate; props = $activeTrackProps }
     }
-    if ($pausedCandidate) {
-        $global:lastActiveSession = $pausedCandidate
-        $global:lastAppId = $pausedCandidate.SourceAppId
-        return @{ session = $pausedCandidate; props = $pausedProps }
+
+    # 2. If GetCurrentSession is Playing, prioritize it
+    if ($currentSessionCandidate -and $currentSessionStatus -eq "Playing") {
+        $global:lastActiveSession = $currentSessionCandidate
+        $global:lastAppId = $currentSessionCandidate.SourceAppId
+        return @{ session = $currentSessionCandidate; props = $currentSessionProps }
+    }
+
+    # 3. If any session in GetSessions() is Playing
+    if ($playingCandidate) {
+        $global:lastActiveSession = $playingCandidate
+        $global:lastAppId = $playingCandidate.SourceAppId
+        return @{ session = $playingCandidate; props = $playingProps }
+    }
+
+    # 4. Fallback to GetCurrentSession()
+    if ($currentSessionCandidate) {
+        $global:lastActiveSession = $currentSessionCandidate
+        $global:lastAppId = $currentSessionCandidate.SourceAppId
+        return @{ session = $currentSessionCandidate; props = $currentSessionProps }
+    }
+
+    # 5. Fallback to registered session
+    if ($fallbackCandidate) {
+        $global:lastActiveSession = $fallbackCandidate
+        $global:lastAppId = $fallbackCandidate.SourceAppId
+        return @{ session = $fallbackCandidate; props = $fallbackProps }
     }
 
     return $null
 }
 
 while ($true) {
+    if ([CommandBridge]::IsEof) {
+        if ($global:lastThumbFile -and (Test-Path $global:lastThumbFile)) {
+            try { Remove-Item -Force $global:lastThumbFile } catch {}
+        }
+        [System.Environment]::Exit(0)
+    }
+
     # Process queued commands on the main thread where $global:manager exists
     $pendingCmd = $null
     while ($pendingCmd = [CommandBridge]::GetNextCommand()) {
-        if ($pendingCmd -eq "exit") { [System.Environment]::Exit(0) }
+        if ($pendingCmd -eq "exit") {
+            if ($global:lastThumbFile -and (Test-Path $global:lastThumbFile)) {
+                try { Remove-Item -Force $global:lastThumbFile } catch {}
+            }
+            [System.Environment]::Exit(0)
+        }
         if ($pendingCmd -eq "refresh") {
             $global:lastManagerRefresh = [DateTime]::MinValue
             $global:lastRawTrackKey = ""
@@ -181,18 +245,100 @@ while ($true) {
             if (-not $targetSession) {
                 $targetSession = $global:manager.GetCurrentSession()
             }
-            if ($targetSession) {
-                if ($pendingCmd -eq "play_pause") {
-                    $op = $targetSession.TryTogglePlayPauseAsync()
-                    $handled = [bool](Await $op ([bool]))
-                    Start-Sleep -Milliseconds 120
-                } elseif ($pendingCmd -eq "next") {
-                    $op = $targetSession.TrySkipNextAsync()
-                    $handled = [bool](Await $op ([bool]))
-                } elseif ($pendingCmd -eq "prev") {
-                    $op = $targetSession.TrySkipPreviousAsync()
-                    $handled = [bool](Await $op ([bool]))
-                } elseif ($pendingCmd -match '^seek:?([0-9\.]+)') {
+
+            if ($pendingCmd -eq "pause") {
+                if ($targetSession) {
+                    try {
+                        $op = $targetSession.TryPauseAsync()
+                        $handled = [bool](Await $op ([bool]))
+                    } catch {}
+                }
+                if (-not $handled) {
+                    $isCurrentlyPlaying = $false
+                    if ($targetSession) {
+                        try {
+                            $pInfo = $targetSession.GetPlaybackInfo()
+                            if ($pInfo -and $pInfo.PlaybackStatus.ToString() -eq "Playing") { $isCurrentlyPlaying = $true }
+                        } catch {}
+                    }
+                    if ($isCurrentlyPlaying) {
+                        if ($targetSession) {
+                            try {
+                                $op = $targetSession.TryTogglePlayPauseAsync()
+                                $handled = [bool](Await $op ([bool]))
+                            } catch {}
+                        }
+                        if (-not $handled) {
+                            try { [HardwareMediaKeys]::PlayPause() } catch {}
+                        }
+                    } else {
+                        $handled = $true # Already paused; never toggle back to playing!
+                    }
+                }
+                Start-Sleep -Milliseconds 60
+            } elseif ($pendingCmd -eq "play") {
+                if ($targetSession) {
+                    try {
+                        $op = $targetSession.TryPlayAsync()
+                        $handled = [bool](Await $op ([bool]))
+                    } catch {}
+                }
+                if (-not $handled) {
+                    $isCurrentlyPlaying = $false
+                    if ($targetSession) {
+                        try {
+                            $pInfo = $targetSession.GetPlaybackInfo()
+                            if ($pInfo -and $pInfo.PlaybackStatus.ToString() -eq "Playing") { $isCurrentlyPlaying = $true }
+                        } catch {}
+                    }
+                    if (-not $isCurrentlyPlaying) {
+                        if ($targetSession) {
+                            try {
+                                $op = $targetSession.TryTogglePlayPauseAsync()
+                                $handled = [bool](Await $op ([bool]))
+                            } catch {}
+                        }
+                        if (-not $handled) {
+                            try { [HardwareMediaKeys]::PlayPause() } catch {}
+                        }
+                    } else {
+                        $handled = $true # Already playing
+                    }
+                }
+                Start-Sleep -Milliseconds 60
+            } elseif ($pendingCmd -eq "play_pause") {
+                if ($targetSession) {
+                    try {
+                        $op = $targetSession.TryTogglePlayPauseAsync()
+                        $handled = [bool](Await $op ([bool]))
+                    } catch {}
+                }
+                if (-not $handled) {
+                    try { [HardwareMediaKeys]::PlayPause() } catch {}
+                }
+                Start-Sleep -Milliseconds 60
+            } elseif ($pendingCmd -eq "next") {
+                if ($targetSession) {
+                    try {
+                        $op = $targetSession.TrySkipNextAsync()
+                        $handled = [bool](Await $op ([bool]))
+                    } catch {}
+                }
+                if (-not $handled) {
+                    try { [HardwareMediaKeys]::Next() } catch {}
+                }
+            } elseif ($pendingCmd -eq "prev") {
+                if ($targetSession) {
+                    try {
+                        $op = $targetSession.TrySkipPreviousAsync()
+                        $handled = [bool](Await $op ([bool]))
+                    } catch {}
+                }
+                if (-not $handled) {
+                    try { [HardwareMediaKeys]::Prev() } catch {}
+                }
+            } elseif ($pendingCmd -match '^seek:?([0-9\.]+)') {
+                if ($targetSession) {
                     $seekSec = [double]$matches[1]
                     $ticks = [long]($seekSec * 10000000)
                     $op = $targetSession.TryChangePlaybackPositionAsync($ticks)
@@ -200,15 +346,6 @@ while ($true) {
                 }
             }
         } catch {}
-
-        # If SMTC didn't handle or no session, fallback to native Windows Hardware Media Keys
-        if (-not $handled) {
-            try {
-                if ($pendingCmd -eq "play_pause") { [HardwareMediaKeys]::PlayPause() }
-                elseif ($pendingCmd -eq "next") { [HardwareMediaKeys]::Next() }
-                elseif ($pendingCmd -eq "prev") { [HardwareMediaKeys]::Prev() }
-            } catch {}
-        }
     }
     try {
         $resolved = Get-ResolvedSession
@@ -296,12 +433,19 @@ while ($true) {
                 $thumbFileAvailable = $global:lastThumbFile
             }
 
+            $playbackTypeStr = if ($props.PlaybackType) { $props.PlaybackType.ToString() } else { "Unknown" }
+            $trackNo = if ($props.TrackNumber) { [int]$props.TrackNumber } else { 0 }
+            $trackCount = if ($props.AlbumTrackCount) { [int]$props.AlbumTrackCount } else { 0 }
+
             $res = @{
                 hasMedia = $true
                 app = $session.SourceAppId
                 title = $props.Title
                 artist = $props.Artist
                 album = $props.AlbumTitle
+                trackNumber = $trackNo
+                albumTrackCount = $trackCount
+                playbackType = $playbackTypeStr
                 position = $pos
                 duration = $dur
                 status = $status

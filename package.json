@@ -1,7 +1,7 @@
 {
   "name": "overly",
   "productName": "overLy",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Lightweight floating synced lyrics overlay for Windows",
   "main": "main.js",
   "author": "Afugegege",
@@ -19,8 +19,10 @@
     "prebuild": "electron scripts/generate-bitmaps.js",
     "predist": "electron scripts/generate-bitmaps.js",
     "build": "electron-builder --win",
-    "dist": "electron-builder --win nsis zip",
-    "dist:zip": "electron-builder --win zip"
+    "dist": "electron-builder --win",
+    "dist:zip": "electron-builder --win zip",
+    "checksums": "node scripts/generate-checksums.js",
+    "postdist": "node scripts/generate-checksums.js"
   },
   "keywords": [
     "lyrics",
@@ -42,6 +44,17 @@
     "directories": {
       "output": "dist"
     },
+    "files": [
+      "main.js",
+      "preload.js",
+      "smtc-service.js",
+      "lyrics-service.js",
+      "smtc_daemon.ps1",
+      "renderer/**/*",
+      "assets/**/*",
+      "!scripts/**/*",
+      "!**/*.map"
+    ],
     "asar": true,
     "asarUnpack": [
       "smtc_daemon.ps1"
@@ -74,7 +87,8 @@
         }
       ],
       "icon": "assets/icon.ico",
-      "requestedExecutionLevel": "asInvoker"
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": true,

@@ -150,6 +150,14 @@ class SmtcService extends EventEmitter {
     }
   }
 
+  play() {
+    this.sendCommand('play');
+  }
+
+  pause() {
+    this.sendCommand('pause');
+  }
+
   togglePlayPause() {
     this.sendCommand('play_pause');
   }
@@ -171,14 +179,20 @@ class SmtcService extends EventEmitter {
   stop() {
     this.isStopping = true;
     if (this.process) {
+      const proc = this.process;
+      this.process = null;
       try {
-        this.sendCommand('exit');
+        if (proc.stdin && !proc.stdin.destroyed) {
+          try { proc.stdin.write('exit\n'); } catch (_) {}
+          try { proc.stdin.end(); } catch (_) {}
+        }
         setTimeout(() => {
-          if (this.process) {
-            this.process.kill();
-            this.process = null;
-          }
-        }, 500);
+          try {
+            if (proc && !proc.killed) {
+              proc.kill();
+            }
+          } catch (_) {}
+        }, 400);
       } catch (e) {}
     }
   }

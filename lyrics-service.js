@@ -1,11 +1,62 @@
-/**
- * Lyrics & Metadata Service
- * Fetches synced LRC lyrics from LRCLIB and album artwork from Deezer/iTunes
- * Enhanced with intelligent matching & scoring to prevent wrong song detection
- */
+const fs = require('fs');
+const path = require('path');
+let electronApp = null;
+try {
+  electronApp = require('electron').app;
+} catch (e) {}
 
 const cache = new Map();
 const coverArtCache = new Map();
+
+function getLyricsCacheFilePath() {
+  const baseDir = (electronApp && typeof electronApp.getPath === 'function')
+    ? electronApp.getPath('userData')
+    : path.join(process.env.APPDATA || process.env.TEMP, 'overLy');
+  try {
+    if (!fs.existsSync(baseDir)) {
+      fs.mkdirSync(baseDir, { recursive: true });
+    }
+  } catch (_) {}
+  return path.join(baseDir, 'lyrics_cache.json');
+}
+
+function loadPersistentLyricsCache() {
+  try {
+    const filePath = getLyricsCacheFilePath();
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      if (Array.isArray(data)) {
+        for (const [key, value] of data) {
+          cache.set(key, value);
+        }
+      } else if (data && typeof data === 'object') {
+        for (const [key, value] of Object.entries(data)) {
+          cache.set(key, value);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[LYRICS CACHE] Error loading persistent cache:', err);
+  }
+}
+
+let saveCacheTimer = null;
+function savePersistentLyricsCache() {
+  if (saveCacheTimer) return;
+  saveCacheTimer = setTimeout(() => {
+    saveCacheTimer = null;
+    try {
+      const filePath = getLyricsCacheFilePath();
+      const entries = Array.from(cache.entries()).slice(-400); // Persist up to 400 recent songs
+      fs.writeFileSync(filePath, JSON.stringify(entries), 'utf8');
+    } catch (err) {
+      console.warn('[LYRICS CACHE] Error saving persistent cache:', err);
+    }
+  }, 1500);
+}
+
+// Load persisted lyrics cache immediately
+loadPersistentLyricsCache();
 
 function normalizeText(s) {
   if (!s) return '';
@@ -837,7 +888,8 @@ async function getTrackData(rawArtist, rawTitle, album = '', duration = 0, force
   // Only cache if we got actual lyrics or plain lyrics to avoid permanently caching transient failures
   if (hasSynced || plainLyrics) {
     cache.set(key, result);
-    if (cache.size > 200) {
+    savePersistentLyricsCache();
+    if (cache.size > 350) {
       const firstKey = cache.keys().next().value;
       cache.delete(firstKey);
     }
@@ -846,8 +898,243 @@ async function getTrackData(rawArtist, rawTitle, album = '', duration = 0, force
   return result;
 }
 
+/**
+ * Ultra-Fast Decoupled Lyrics Fetcher
+ * Returns cached lyrics in 0ms, or fetches lyrics without waiting for cover art search!
+ */
+async function fetchLyricsOnly(rawArtist, rawTitle, album = '', duration = 0, forceRefresh = false) {
+  if (!rawTitle) return null;
+  const { artist, title } = extractTrackAndArtist(rawArtist, rawTitle);
+  const key = `${(artist || '').toLowerCase()}:::${title.toLowerCase()}`;
+
+  if (forceRefresh) {
+    cache.delete(key);
+  } else if (cache.has(key)) {
+    const cached = cache.get(key);
+    if (cached && ((cached.lyrics && cached.lyrics.length > 0) || cached.plainLyrics)) {
+      return cached;
+    }
+  }
+
+  const lyricsData = await fetchLyricsMultiSource(artist, title, album, duration);
+  let parsedLyrics = [];
+  let hasSynced = false;
+  let plainLyrics = '';
+
+  if (lyricsData) {
+    if (lyricsData.syncedLyrics) {
+      parsedLyrics = parseLrc(lyricsData.syncedLyrics);
+      hasSynced = parsedLyrics.length > 0;
+    }
+    plainLyrics = lyricsData.plainLyrics || '';
+  }
+
+  const result = {
+    title,
+    artist: artist || 'Unknown Artist',
+    album: album || '',
+    hasSynced,
+    lyrics: parsedLyrics,
+    plainLyrics
+  };
+
+  if (hasSynced || plainLyrics) {
+    const existing = cache.get(key);
+    if (existing?.coverUrl) {
+      result.coverUrl = existing.coverUrl;
+    }
+    cache.set(key, result);
+    savePersistentLyricsCache();
+  }
+
+  return result;
+}
+
+/**
+ * Smart Media Classifier: Differentiates Ads, Videos, and Music
+ */
+function classifyMediaContent(mediaData) {
+  if (!mediaData || !mediaData.title) {
+    return { mediaType: 'none', isMusic: false };
+  }
+
+  const title = (mediaData.title || '').trim();
+  const artist = (mediaData.artist || '').trim();
+  const app = (mediaData.app || '').toLowerCase();
+  const playbackType = (mediaData.playbackType || '').toLowerCase();
+
+  // 1. Advertisements (Spotify, YouTube, browser ads)
+  const isSpotifyAd = app.includes('spotify') && (
+    /^advertisement$/i.test(title) ||
+    /^spotify$/i.test(title) ||
+    /^advertisement$/i.test(artist) ||
+    (/^spotify$/i.test(artist) && title.length < 32)
+  );
+
+  const isGenericAd = (
+    /^(?:Advertisement|Sponsored|Commercial)\b/i.test(title) ||
+    /^(?:Ad\s*[\u2022\u00b7·\-|]|Skip\s*Ad)/i.test(title) ||
+    /\b(?:Advertisement|Sponsored)\b/i.test(title) ||
+    /^advertisement$/i.test(artist)
+  );
+
+  if (isSpotifyAd || isGenericAd) {
+    return { mediaType: 'ad', isMusic: false };
+  }
+
+  // 2. Video Content (SMTC playbackType or video players)
+  if (playbackType === 'video') {
+    return { mediaType: 'video', isMusic: false };
+  }
+
+  const isDedicatedVideoApp = (
+    app.includes('vlc') ||
+    app.includes('potplayer') ||
+    app.includes('mpv') ||
+    app.includes('wmplayer') ||
+    app.includes('zunevideo') ||
+    app.includes('netflix') ||
+    app.includes('bilibili') ||
+    app.includes('disney') ||
+    app.includes('primevideo')
+  );
+
+  if (isDedicatedVideoApp) {
+    return { mediaType: 'video', isMusic: false };
+  }
+
+  const isBrowser = app.includes('chrome') || app.includes('msedge') || app.includes('firefox') || app.includes('brave') || app.includes('opera');
+  if (isBrowser) {
+    if (!artist && /(?:-\s*YouTube|\|\s*Twitch|\|\s*Netflix|Episode\s*\d+|Chapter\s*\d+)/i.test(title)) {
+      return { mediaType: 'video', isMusic: false };
+    }
+  }
+
+  // 3. Podcasts / Meetings
+  const isMeetingApp = app.includes('teams') || app.includes('zoom') || app.includes('discord') || app.includes('webex');
+  if (isMeetingApp) {
+    return { mediaType: 'other', isMusic: false };
+  }
+
+  return { mediaType: 'music', isMusic: true };
+}
+
+const albumTracklistCache = new Map();
+
+/**
+ * Queries album tracklist from Deezer/iTunes to predict upcoming songs
+ */
+async function getAlbumTracklist(artist, album) {
+  if (!artist || !album) return [];
+  const key = `${cleanArtist(artist).toLowerCase()}:::${cleanTitle(album).toLowerCase()}`;
+  if (albumTracklistCache.has(key)) {
+    return albumTracklistCache.get(key);
+  }
+
+  try {
+    const q = `album:"${cleanTitle(album)}"`;
+    const res = await fetchWithTimeout(`https://api.deezer.com/search?q=${encodeURIComponent(q)}&limit=40`, {}, 3000);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data?.data) && data.data.length > 0) {
+        const normArtist = cleanArtist(artist).toLowerCase();
+        const matched = data.data.filter(d => {
+          const aName = (d.artist?.name || '').toLowerCase();
+          return aName.includes(normArtist) || normArtist.includes(aName);
+        });
+        const pool = matched.length > 0 ? matched : data.data;
+        const tracks = pool.map(d => ({
+          title: d.title || d.title_short,
+          artist: d.artist?.name || artist,
+          trackNumber: d.track_position || 0,
+          duration: d.duration || 0
+        })).sort((a, b) => a.trackNumber - b.trackNumber);
+
+        if (tracks.length > 0) {
+          albumTracklistCache.set(key, tracks);
+          return tracks;
+        }
+      }
+    }
+  } catch (_) {}
+
+  // Fallback to iTunes album lookup
+  try {
+    const q = `${cleanArtist(artist)} ${cleanTitle(album)}`;
+    const res = await fetchWithTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=1`, {}, 3000);
+    if (res.ok) {
+      const data = await res.json();
+      const colId = data?.results?.[0]?.collectionId;
+      if (colId) {
+        const lookupRes = await fetchWithTimeout(`https://itunes.apple.com/lookup?id=${colId}&entity=song`, {}, 3000);
+        if (lookupRes.ok) {
+          const lData = await lookupRes.json();
+          if (Array.isArray(lData?.results)) {
+            const tracks = lData.results
+              .filter(r => r.wrapperType === 'track')
+              .map(r => ({
+                title: r.trackName,
+                artist: r.artistName || artist,
+                trackNumber: r.trackNumber || 0,
+                duration: r.trackTimeMillis ? Math.round(r.trackTimeMillis / 1000) : 0
+              })).sort((a, b) => a.trackNumber - b.trackNumber);
+            if (tracks.length > 0) {
+              albumTracklistCache.set(key, tracks);
+              return tracks;
+            }
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  return [];
+}
+
+/**
+ * Predicts and pre-loads next song's lyrics from album tracklist in background
+ */
+async function predictAndPreloadNextTrack(rawArtist, rawTitle, rawAlbum, trackNumber = 0) {
+  if (!rawTitle) return null;
+  const { artist, title } = extractTrackAndArtist(rawArtist, rawTitle);
+  const album = rawAlbum || '';
+  if (!artist || !album) return null;
+
+  try {
+    const tracks = await getAlbumTracklist(artist, album);
+    if (!tracks || tracks.length === 0) return null;
+
+    const normTitle = cleanTitle(title).toLowerCase();
+    let currentIndex = -1;
+
+    if (trackNumber > 0) {
+      currentIndex = tracks.findIndex(t => t.trackNumber === trackNumber);
+    }
+    if (currentIndex === -1) {
+      currentIndex = tracks.findIndex(t => {
+        const tName = cleanTitle(t.title).toLowerCase();
+        return tName === normTitle || tName.includes(normTitle) || normTitle.includes(tName);
+      });
+    }
+
+    if (currentIndex >= 0 && currentIndex + 1 < tracks.length) {
+      const nextTrack = tracks[currentIndex + 1];
+      const nextKey = `${(nextTrack.artist || artist).toLowerCase()}:::${nextTrack.title.toLowerCase()}`;
+      if (!cache.has(nextKey)) {
+        // Pre-fetch next track's lyrics in background without waiting
+        fetchLyricsOnly(nextTrack.artist || artist, nextTrack.title, album, nextTrack.duration).catch(() => {});
+        return nextTrack;
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
 module.exports = {
   getTrackData,
+  fetchLyricsOnly,
+  predictAndPreloadNextTrack,
+  classifyMediaContent,
   fetchCoverArt,
   cleanTitle,
   cleanArtist,

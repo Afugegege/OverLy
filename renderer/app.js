@@ -15,6 +15,9 @@ const state = {
   lyrics: [],
   hasSynced: false,
   plainLyrics: '',
+  extractedCoverColors: null,
+  mediaType: 'music', // 'music' | 'ad' | 'video' | 'other'
+  isMusic: true,
   
   // App preferences
   mode: 'card', // 'pill' | 'card' | 'expanded'
@@ -160,6 +163,9 @@ const btnImmersiveRetry = document.getElementById('btnImmersiveRetry');
 const pillBorderSvg = document.getElementById('pillBorderSvg');
 const pillBorderTrack = document.getElementById('pillBorderTrack');
 const pillBorderRect = document.getElementById('pillBorderRect');
+const pillGradStop1 = document.getElementById('pillGradStop1');
+const pillGradStop2 = document.getElementById('pillGradStop2');
+const pillGradStop3 = document.getElementById('pillGradStop3');
 
 // Dragging & seeking state
 let isDraggingProgress = false;
@@ -477,6 +483,11 @@ async function init() {
         }
       });
 
+      // Contract mini drawer automatically when cursor leaves the window
+      window.overlyAPI.onMiniDrawerContract?.(() => {
+        contractMiniDrawerWindow(true);
+      });
+
       // If auto-minimize is active and player is paused or idle at startup, arm the timer
       if (state.autoMinimize && !isMouseOverOverlay && !state.isImmersive && state.mode !== 'minimized' && (!state.hasMedia || state.status !== 'Playing')) {
         startAutoMinimizeTimer();
@@ -554,32 +565,29 @@ function rgbToHex(r, g, b) {
 }
 
 function getHighContrastVisualizerColor(baseHex, isLight) {
-  if (!baseHex) return isLight ? '#4f46e5' : '#818cf8';
+  if (!baseHex) return getNeutralAccentColor();
   const { h, s, l } = hexToHsl(baseHex);
 
   if (!isLight) {
-    // Dark mode / Auto theme (dark background L ~ 0.08)
-    // Guarantee radiant high luminance (L: 0.68 to 0.86) so bars never blend into dark backgrounds
+    // Dark mode: strictly preserve the authentic hue and saturation from album art
+    // Only adjust luminance so visualizer bars are clearly readable against dark backgrounds (L: 0.65 to 0.85)
     let targetL = l;
     if (l < 0.55) {
-      targetL = 0.68 + (l * 0.22);
+      targetL = 0.65 + (l * 0.20);
     } else if (l > 0.90) {
-      targetL = 0.86;
+      targetL = 0.85;
     }
-    const targetS = s < 0.15 ? 0.38 : Math.max(0.45, s);
-    const targetH = s < 0.15 ? 0.58 : h;
-    return hslToHex(targetH, targetS, targetL);
+    return hslToHex(h, s, targetL);
   } else {
-    // Light mode (light background L ~ 0.95)
-    // Guarantee high contrast deep luminance (L: 0.22 to 0.40)
+    // Light mode: strictly preserve the authentic hue and saturation from album art
+    // Only adjust luminance so visualizer bars are clearly readable against light backgrounds (L: 0.22 to 0.38)
     let targetL = l;
     if (l > 0.45) {
-      targetL = 0.26 + ((1 - l) * 0.16);
+      targetL = 0.25 + ((1 - l) * 0.15);
     } else if (l < 0.15) {
       targetL = 0.22;
     }
-    const targetS = Math.max(0.50, s);
-    return hslToHex(h, targetS, targetL);
+    return hslToHex(h, s, targetL);
   }
 }
 
@@ -848,33 +856,73 @@ function setupEventListeners() {
     cycleNextLayout();
   });
 
-  // Lock (Click-Through) toggle
+  // Lock toggle from header
   btnLockToggle.addEventListener('click', (e) => {
     e.stopPropagation();
     toggleLock();
   });
+
   if (lockToast) {
-    lockToast.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleLock();
+    lockToast.addEventListener('animationend', (e) => {
+      if (e.animationName === 'lockShake') {
+        lockToast.classList.remove('shake');
+      }
     });
   }
 
-  // Allow unlocking even when click-through is enabled by capturing hover over lock elements
-  const unlockTargets = [btnLockToggle, btnPillLock, lockToast, document.querySelector('.top-bar')];
-  unlockTargets.forEach((el) => {
-    if (!el) return;
-    el.addEventListener('mouseenter', () => {
-      if (state.isLocked && window.overlyAPI?.setTempIgnoreMouseEvents) {
+  // Intercept all clicks on window when in locked mode:
+  // Clicking anything on the window expands the "Click to unlock" badge and shakes it to alert the user.
+  // Clicking the expanded "Click to unlock" badge unlocks the window.
+  window.addEventListener('pointerdown', (e) => {
+    if (!state.isLocked) return;
+
+    const onLockBadge = e.target.closest('#lockToast');
+    if (onLockBadge && lockToast?.classList.contains('expanded')) {
+      // If badge is already expanded and user clicks it, let event proceed to click handler
+      return;
+    }
+
+    // Stop all interactive controls / drag / seek in locked mode
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    triggerLockAlert();
+  }, true);
+
+  window.addEventListener('click', (e) => {
+    if (!state.isLocked) return;
+
+    const onLockBadge = e.target.closest('#lockToast');
+    if (onLockBadge && lockToast?.classList.contains('expanded')) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleLock();
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    triggerLockAlert();
+  }, true);
+
+  // When unlocked, pass through clicks in the transparent top 30px buffer above the card to background apps
+  window.addEventListener('pointermove', (e) => {
+    if (state.isLocked || state.isImmersive || state.mode === 'minimized') return;
+    const isAboveCard = e.clientY < 30;
+    if (isAboveCard) {
+      window.overlyAPI?.setTempIgnoreMouseEvents?.(true);
+    } else {
+      window.overlyAPI?.setTempIgnoreMouseEvents?.(false);
+    }
+  });
+
+  if (overlayContainer) {
+    overlayContainer.addEventListener('pointerenter', () => {
+      if (!state.isLocked && window.overlyAPI?.setTempIgnoreMouseEvents) {
         window.overlyAPI.setTempIgnoreMouseEvents(false);
       }
     });
-    el.addEventListener('mouseleave', () => {
-      if (state.isLocked && window.overlyAPI?.setTempIgnoreMouseEvents) {
-        window.overlyAPI.setTempIgnoreMouseEvents(true);
-      }
-    });
-  });
+  }
 
   // Pin (Always on top) toggle - supported in both Card/Expanded view & Collapsed view
   if (btnPinToggle) {
@@ -1018,8 +1066,7 @@ function setupEventListeners() {
       overlayContainer?.classList.remove('pill-more-open');
     }
     if (miniMoreContainer && !miniMoreContainer.contains(e.target)) {
-      miniMoreContainer.classList.remove('open');
-      overlayContainer?.classList.remove('mini-more-open');
+      contractMiniDrawerWindow(true);
     }
   });
 
@@ -1027,8 +1074,14 @@ function setupEventListeners() {
   window.addEventListener('blur', () => {
     pillMoreContainer?.classList.remove('open');
     overlayContainer?.classList.remove('pill-more-open');
-    miniMoreContainer?.classList.remove('open');
-    overlayContainer?.classList.remove('mini-more-open');
+    contractMiniDrawerWindow(true);
+  });
+
+  // Close mini drawer when mouse leaves the document window
+  document.addEventListener('mouseleave', () => {
+    if (state.mode === 'minimized' && !state.isImmersive) {
+      contractMiniDrawerWindow(false);
+    }
   });
 
   if (overlayContainer) {
@@ -1047,11 +1100,9 @@ function setupEventListeners() {
       document.body.classList.remove('pill-art-hovered');
       pillMoreContainer?.classList.remove('open');
       overlayContainer.classList.remove('pill-more-open');
-      miniMoreContainer?.classList.remove('open');
-      overlayContainer.classList.remove('mini-more-open');
 
       if (state.mode === 'minimized' && !state.isImmersive) {
-        contractMiniDrawerWindow();
+        contractMiniDrawerWindow(false);
       }
 
       if (state.autoMinimize && !state.isAutoMinimized && !state.isImmersive && state.mode !== 'minimized') {
@@ -1113,7 +1164,13 @@ function setupEventListeners() {
     iconImmersivePause?.classList.toggle('hidden', !willBePlaying);
     playingIndicator.classList.toggle('active', willBePlaying);
 
-    if (window.overlyAPI) window.overlyAPI.togglePlayPause();
+    if (willBePlaying) {
+      if (window.overlyAPI?.play) window.overlyAPI.play();
+      else if (window.overlyAPI?.togglePlayPause) window.overlyAPI.togglePlayPause();
+    } else {
+      if (window.overlyAPI?.pause) window.overlyAPI.pause();
+      else if (window.overlyAPI?.togglePlayPause) window.overlyAPI.togglePlayPause();
+    }
   });
   btnPrev.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1169,7 +1226,13 @@ function setupEventListeners() {
     iconMiniPause?.classList.toggle('hidden', !willBePlaying);
     playingIndicator?.classList.toggle('active', willBePlaying);
 
-    if (window.overlyAPI) window.overlyAPI.togglePlayPause();
+    if (willBePlaying) {
+      if (window.overlyAPI?.play) window.overlyAPI.play();
+      else if (window.overlyAPI?.togglePlayPause) window.overlyAPI.togglePlayPause();
+    } else {
+      if (window.overlyAPI?.pause) window.overlyAPI.pause();
+      else if (window.overlyAPI?.togglePlayPause) window.overlyAPI.togglePlayPause();
+    }
 
     if (state.isAutoMinimized && state.preAutoMinMode) {
       if (willBePlaying) {
@@ -1221,6 +1284,11 @@ function setupEventListeners() {
         }
       }
     });
+    minimizedPlayOverlay.addEventListener('mouseleave', () => {
+      if (state.mode === 'minimized' && !state.isImmersive) {
+        contractMiniDrawerWindow(false);
+      }
+    });
   }
   const artContainer = document.querySelector('.art-container');
   if (artContainer) {
@@ -1248,6 +1316,9 @@ function setupEventListeners() {
     });
     artContainer.addEventListener('mouseleave', () => {
       document.body.classList.remove('pill-art-hovered');
+      if (state.mode === 'minimized' && !state.isImmersive) {
+        contractMiniDrawerWindow(false);
+      }
     });
   }
 
@@ -1256,6 +1327,11 @@ function setupEventListeners() {
       if (miniDrawerCloseTimer) {
         clearTimeout(miniDrawerCloseTimer);
         miniDrawerCloseTimer = null;
+      }
+    });
+    miniMoreContainer.addEventListener('mouseleave', () => {
+      if (state.mode === 'minimized' && !state.isImmersive) {
+        contractMiniDrawerWindow(false);
       }
     });
   }
@@ -1490,7 +1566,7 @@ function setupEventListeners() {
   setupImmersiveProgressScrubber();
 
   // Setup reliable pointer-captured window dragging from clicking anywhere outside interactive controls
-  setupWindowDrag(overlayContainer);
+  setupWindowDrag(document.body);
 
   // Setup corner resize handle
   setupCornerResize();
@@ -1869,31 +1945,57 @@ function setupWindowDrag(element) {
 
   element.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return; // Left click only
+    if (state.isLocked) return; // Never drag when locked
 
     // If click is on an interactive button or control, let the element handle it
     const interactive = e.target.closest(
       'button, input, select, textarea, .media-btn, .icon-btn, .pill-action-btn, ' +
       '.no-lyrics-btn, .progress-container, .resize-handle, .pill-more-actions, ' +
       '.mini-more-actions, .mini-sub-btn, ' +
-      '.lyric-line'
+      '.lyric-line, .lock-toast'
     );
     if (interactive) {
       return;
     }
+
+    const pointerId = e.pointerId;
+    try {
+      element.setPointerCapture(pointerId);
+    } catch (_) {}
 
     let isMoving = false;
     let startX = e.screenX;
     let startY = e.screenY;
     let lastX = e.screenX;
     let lastY = e.screenY;
+    let accumulatedDeltaX = 0;
+    let accumulatedDeltaY = 0;
+    let rafId = null;
+
+    const dispatchMove = () => {
+      if (accumulatedDeltaX !== 0 || accumulatedDeltaY !== 0) {
+        const dx = accumulatedDeltaX;
+        const dy = accumulatedDeltaY;
+        accumulatedDeltaX = 0;
+        accumulatedDeltaY = 0;
+        if (window.overlyAPI?.moveWindow) {
+          window.overlyAPI.moveWindow(dx, dy);
+        }
+      }
+    };
 
     const onPointerMove = (ev) => {
+      if (ev.pointerId !== undefined && ev.pointerId !== pointerId) return;
+
+      // If user released the mouse button, cleanly end the drag
+      if ((ev.buttons & 1) === 0) {
+        onPointerUp(ev);
+        return;
+      }
+
       const dist = Math.hypot(ev.screenX - startX, ev.screenY - startY);
       if (!isMoving && dist > 3) {
         isMoving = true;
-        try {
-          element.setPointerCapture(e.pointerId);
-        } catch {}
         document.body.classList.add('is-dragging');
       }
 
@@ -1902,31 +2004,67 @@ function setupWindowDrag(element) {
         const deltaY = ev.screenY - lastY;
         lastX = ev.screenX;
         lastY = ev.screenY;
-        if (deltaX !== 0 || deltaY !== 0) {
-          if (window.overlyAPI?.moveWindow) {
-            window.overlyAPI.moveWindow(deltaX, deltaY);
-          }
+
+        accumulatedDeltaX += deltaX;
+        accumulatedDeltaY += deltaY;
+
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            rafId = null;
+            dispatchMove();
+          });
         }
       }
     };
 
     const onPointerUp = (ev) => {
+      if (ev.pointerId !== undefined && ev.pointerId !== pointerId && ev.type !== 'pointercancel' && ev.type !== 'mouseup') {
+        return;
+      }
+
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+
       if (isMoving) {
+        dispatchMove();
         dragJustEndedTime = Date.now();
-        try {
-          element.releasePointerCapture(ev.pointerId);
-        } catch {}
         document.body.classList.remove('is-dragging');
         persistSettings();
       }
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
+
+      try {
+        if (element.hasPointerCapture(pointerId)) {
+          element.releasePointerCapture(pointerId);
+        }
+      } catch (_) {}
+
+      window.removeEventListener('pointermove', onPointerMove, { capture: true });
+      window.removeEventListener('pointerup', onPointerUp, { capture: true });
+      window.removeEventListener('pointercancel', onPointerCancel, { capture: true });
+      window.removeEventListener('mouseup', onPointerUp, { capture: true });
+      element.removeEventListener('pointermove', onPointerMove);
+      element.removeEventListener('pointerup', onPointerUp);
+      element.removeEventListener('pointercancel', onPointerCancel);
     };
 
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerUp);
+    const onPointerCancel = (ev) => {
+      // During high-velocity mouse flicks, Windows DWM or Chromium can send a transient pointercancel.
+      // If the user is still actively holding down the primary mouse button, DO NOT abort the drag!
+      if ((ev.buttons & 1) !== 0) {
+        return;
+      }
+      onPointerUp(ev);
+    };
+
+    window.addEventListener('pointermove', onPointerMove, { capture: true });
+    window.addEventListener('pointerup', onPointerUp, { capture: true });
+    window.addEventListener('pointercancel', onPointerCancel, { capture: true });
+    window.addEventListener('mouseup', onPointerUp, { capture: true });
+    element.addEventListener('pointermove', onPointerMove);
+    element.addEventListener('pointerup', onPointerUp);
+    element.addEventListener('pointercancel', onPointerCancel);
   });
 }
 
@@ -2010,8 +2148,8 @@ function setupCornerResize() {
     e.preventDefault();
 
     const isCompact = state.mode === 'collapsed' || state.mode === 'pill';
-    const minW = isCompact ? 300 : 340;
-    const minH = isCompact ? 64 : 140;
+    const minW = isCompact ? 280 : 320;
+    const minH = isCompact ? 56 : 140;
 
     const newW = Math.max(minW, Math.round(startW + (e.screenX - startX)));
     const newH = Math.max(minH, Math.round(startH + (e.screenY - startY)));
@@ -2084,39 +2222,46 @@ function expandMiniDrawerWindow() {
   miniMoreContainer?.classList.add('open');
 
   if (window.overlyAPI?.setWindowSize) {
-    window.overlyAPI.setWindowSize({ width: 280, height: 68, mode: 'minimized', anchorLeft: true });
+    window.overlyAPI.setWindowSize({ width: 280, height: 56, mode: 'minimized', anchorLeft: true });
   }
 }
 
-function contractMiniDrawerWindow() {
+function contractMiniDrawerWindow(immediate = false) {
   if (state.mode !== 'minimized' || state.isImmersive) return;
 
   if (miniDrawerCloseTimer) {
     clearTimeout(miniDrawerCloseTimer);
+    miniDrawerCloseTimer = null;
   }
 
-  miniDrawerCloseTimer = setTimeout(() => {
+  const doClose = () => {
     overlayContainer?.classList.remove('mini-more-open');
     miniMoreContainer?.classList.remove('open');
 
     if (window.overlyAPI?.setWindowSize) {
-      window.overlyAPI.setWindowSize({ width: 68, height: 68, mode: 'minimized', anchorLeft: true });
+      window.overlyAPI.setWindowSize({ width: 56, height: 56, mode: 'minimized', anchorLeft: true });
     }
     miniDrawerCloseTimer = null;
-  }, 140);
+  };
+
+  if (immediate) {
+    doClose();
+  } else {
+    miniDrawerCloseTimer = setTimeout(doClose, 160);
+  }
 }
 
 function getTargetWindowDimensions(mode = state.mode) {
   if (mode === 'minimized' || mode === 'mini') {
-    return { width: 68, height: 68 };
+    return { width: 56, height: 56 };
   } else if (mode === 'collapsed' || mode === 'pill') {
-    return { width: 440, height: 104 };
+    return { width: 420, height: 90 };
   } else if (mode === 'lyrics') {
-    return { width: 460, height: 164 };
+    return { width: 440, height: 150 };
   } else if (mode === 'expanded') {
-    return { width: 460, height: 504 };
+    return { width: 440, height: 490 };
   }
-  return { width: 460, height: 274 };
+  return { width: 440, height: 260 };
 }
 
 function updateWindowDimensionsForLyrics() {
@@ -2314,41 +2459,31 @@ function applyAccentTokens(color, customSecondary = null) {
   let playBtnBorder = '1px solid rgba(255, 255, 255, 0.2)';
   let playBtnShadow = 'none';
 
-  if (luminance > 0.70) {
-    if (isLight) {
+  const hVal = hexToHsl(color);
+
+  if (isLight) {
+    // In light theme: active lyric text must ALWAYS be deep, dark, and high-contrast!
+    // Never allow a light, pastel, or mid-tone color to wash out against light glass.
+    if (hVal.s < 0.12) {
       accentText = '#0f1118';
-      contrastColor = '#0f1118';
-      playBtnBg = '#ffffff';
-      playBtnText = '#0f1118';
-      playBtnBorder = '1.5px solid rgba(0, 0, 0, 0.22)';
-      playBtnShadow = '0 4px 14px rgba(0, 0, 0, 0.15)';
     } else {
-      accentText = '#ffffff';
-      contrastColor = '#0e1018';
-      playBtnBg = '#ffffff';
-      playBtnText = '#0e1018';
-      playBtnBorder = '1px solid rgba(255, 255, 255, 0.35)';
-      playBtnShadow = '0 4px 14px rgba(255, 255, 255, 0.25)';
+      // Keep authentic album tint, but ensure deep dark contrast (L ~ 0.18) so it's always darker than inactive lines
+      accentText = hslToHex(hVal.h, Math.min(0.65, Math.max(0.35, hVal.s)), 0.18);
     }
-  } else if (luminance < 0.25) {
-    if (isLight) {
-      accentText = '#18181b';
-      contrastColor = '#ffffff';
-      playBtnBg = '#18181b';
-      playBtnText = '#ffffff';
-      playBtnBorder = '1px solid rgba(0, 0, 0, 0.2)';
-      playBtnShadow = '0 4px 14px rgba(0, 0, 0, 0.2)';
-    } else {
-      accentText = '#ffffff';
-      contrastColor = '#ffffff';
-      playBtnBg = '#22232a';
-      playBtnText = '#ffffff';
-      playBtnBorder = '1.5px solid rgba(255, 255, 255, 0.45)';
-      playBtnShadow = '0 4px 14px rgba(255, 255, 255, 0.2)';
-    }
+    contrastColor = '#ffffff';
+    playBtnBg = luminance > 0.65 ? hslToHex(hVal.h, hVal.s, 0.40) : color;
+    playBtnText = '#ffffff';
+    playBtnBorder = '1px solid rgba(0, 0, 0, 0.15)';
+    playBtnShadow = '0 3px 12px rgba(0, 0, 0, 0.12)';
   } else {
+    // In dark theme: active lyric text must ALWAYS be radiant and bright!
+    // Never allow a dark or mid-tone accent to appear dimmer than inactive white lines.
+    if (hVal.s < 0.12 || luminance < 0.55) {
+      accentText = hVal.s < 0.12 ? '#ffffff' : hslToHex(hVal.h, Math.min(0.70, hVal.s), 0.82);
+    } else {
+      accentText = color;
+    }
     contrastColor = luminance > 0.6 ? '#11131a' : '#ffffff';
-    accentText = color;
     playBtnBg = color;
     playBtnText = contrastColor;
     playBtnBorder = '1px solid rgba(255, 255, 255, 0.25)';
@@ -2388,16 +2523,7 @@ function applyAccentTokens(color, customSecondary = null) {
   document.documentElement.style.setProperty('--vis-btn-bg', isLight ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.15)');
   document.documentElement.style.setProperty('--vis-btn-border', isLight ? 'rgba(0, 0, 0, 0.16)' : 'rgba(255, 255, 255, 0.24)');
 
-  const gradStop1 = document.getElementById('pillGradStop1');
-  if (gradStop1) {
-    const grad1 = (luminance < 0.25 && !isLight) ? '#ffffff' : (luminance > 0.70 && isLight ? '#0f1118' : color);
-    gradStop1.setAttribute('stop-color', grad1);
-  }
-  const gradStop2 = document.getElementById('pillGradStop2');
-  if (gradStop2) {
-    const grad2 = (luminance < 0.25 && !isLight) ? '#b0b5c5' : (luminance > 0.70 && isLight ? '#3a3f50' : lighterColor);
-    gradStop2.setAttribute('stop-color', grad2);
-  }
+  updatePillBorderGradient();
 }
 
 function extractColorsFromCanvas(img) {
@@ -2443,6 +2569,18 @@ function extractColorsFromCanvas(img) {
     buckets.sort((a, b) => b.score - a.score);
     const primary = buckets[0];
     let secondary = buckets.find(c => Math.abs(c.r - primary.r) + Math.abs(c.g - primary.g) + Math.abs(c.b - primary.b) > 70);
+    if (!secondary) {
+      secondary = {
+        r: Math.min(255, Math.round(primary.r * 0.7 + 255 * 0.3)),
+        g: Math.min(255, Math.round(primary.g * 0.7 + 255 * 0.3)),
+        b: Math.min(255, Math.round(primary.b * 0.7 + 255 * 0.3))
+      };
+    }
+
+    let tertiary = buckets.find(c => (
+      Math.abs(c.r - primary.r) + Math.abs(c.g - primary.g) + Math.abs(c.b - primary.b) > 60 &&
+      Math.abs(c.r - secondary.r) + Math.abs(c.g - secondary.g) + Math.abs(c.b - secondary.b) > 60
+    ));
 
     const authenticPrimary = rgbToHex(primary.r, primary.g, primary.b);
     let accent = authenticPrimary;
@@ -2455,12 +2593,98 @@ function extractColorsFromCanvas(img) {
     return {
       primary: authenticPrimary,
       accent,
-      secondary: secondary ? rgbToHex(secondary.r, secondary.g, secondary.b) : null,
+      secondary: rgbToHex(secondary.r, secondary.g, secondary.b),
+      tertiary: tertiary ? rgbToHex(tertiary.r, tertiary.g, tertiary.b) : null,
       isDark,
       luminance: avgLuminance
     };
   } catch (_) {
     return null;
+  }
+}
+
+function updatePillBorderGradient(extractedColors = null) {
+  if (extractedColors) {
+    state.extractedCoverColors = extractedColors;
+  }
+
+  const grad1 = pillGradStop1 || document.getElementById('pillGradStop1');
+  const grad2 = pillGradStop2 || document.getElementById('pillGradStop2');
+  const grad3 = pillGradStop3 || document.getElementById('pillGradStop3');
+  if (!grad1 || !grad2) return;
+
+  const isLight = document.body.classList.contains('theme-light');
+
+  // Tune extracted album art colors to be vibrant, luminous and crisp on translucent glass
+  const tuneForBorder = (color, defaultLum = 0.62) => {
+    if (!color) return null;
+    try {
+      const rgb = hexToRgb(color);
+      if (!rgb) return color;
+      const hsl = hexToHsl(color);
+      if (isLight) {
+        // Light mode: high-contrast readability against light glass (L ~ 0.28-0.45)
+        const l = Math.min(0.45, Math.max(0.28, hsl.l));
+        const s = Math.max(0.50, hsl.s);
+        return hslToHex(hsl.h, s, l);
+      } else {
+        // Dark mode: jewel-toned glowing radiance (L ~ 0.58-0.76, S >= 0.55)
+        const l = Math.max(defaultLum, Math.min(0.76, hsl.l < 0.38 ? defaultLum : hsl.l));
+        const s = Math.max(0.55, hsl.s < 0.20 ? 0.65 : hsl.s);
+        return hslToHex(hsl.h, s, l);
+      }
+    } catch (_) {
+      return color;
+    }
+  };
+
+  const colors = state.extractedCoverColors;
+  if (state.hasMedia && colors && (colors.primary || colors.accent)) {
+    const rawPrimary = colors.primary || colors.accent;
+    const rawSecondary = colors.secondary || colors.accent || rawPrimary;
+    const rawTertiary = colors.tertiary || colors.accent || colors.primary;
+
+    const stop1 = tuneForBorder(rawPrimary, 0.60);
+    let stop2 = tuneForBorder(rawSecondary, 0.65);
+    let stop3 = tuneForBorder(rawTertiary, 0.70);
+
+    // If stop1 and stop2 lack chromatic variance, apply a harmonic hue shift for a rich gradient
+    if (stop1 === stop2) {
+      try {
+        const hVal = hexToHsl(stop1);
+        const shiftedHue = (hVal.h + 0.12) % 1.0;
+        stop2 = hslToHex(shiftedHue, Math.max(0.60, hVal.s), isLight ? 0.38 : 0.68);
+      } catch (_) {}
+    }
+
+    // Ensure stop3 provides a distinct right-side tone
+    if (!colors.tertiary || stop3 === stop1 || stop3 === stop2) {
+      try {
+        const hVal = hexToHsl(stop2 || stop1);
+        const shiftedHue = (hVal.h + 0.08) % 1.0;
+        stop3 = hslToHex(shiftedHue, Math.max(0.60, hVal.s), isLight ? 0.42 : 0.72);
+      } catch (_) {
+        stop3 = stop2;
+      }
+    }
+
+    grad1.setAttribute('stop-color', stop1);
+    grad2.setAttribute('stop-color', stop2);
+    if (grad3) {
+      grad3.setAttribute('stop-color', stop3);
+    }
+  } else {
+    // Fallback when no media or no album art: use active app accent tokens
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff3366';
+    const accentLight = getComputedStyle(document.documentElement).getPropertyValue('--accent-light').trim() || accent;
+    const tunedAccent = tuneForBorder(accent, 0.60);
+    const tunedLight = tuneForBorder(accentLight, 0.70);
+
+    grad1.setAttribute('stop-color', tunedAccent);
+    grad2.setAttribute('stop-color', tunedLight);
+    if (grad3) {
+      grad3.setAttribute('stop-color', tunedAccent);
+    }
   }
 }
 
@@ -2479,11 +2703,13 @@ async function applyExtractedAlbumColors() {
     if (!state.coverUrl) {
       if (!state.hasMedia || !state.title) {
         state.lastExtractedPrimary = null;
+        state.extractedCoverColors = null;
         state.coverIsDark = true;
         if (state.accentColor === 'auto') {
           applyAccentTokens(getNeutralAccentColor(), null);
         }
         applyTheme(state.theme);
+        updatePillBorderGradient(null);
         if (window.overlyAPI?.updateSetting) {
           window.overlyAPI.updateSetting('extractedAccentColor', null);
         }
@@ -2500,6 +2726,7 @@ async function applyExtractedAlbumColors() {
     }
     if (colors && colors.primary) {
       state.lastExtractedPrimary = colors.primary;
+      state.extractedCoverColors = colors;
       state.coverIsDark = typeof colors.isDark === 'boolean' ? colors.isDark : true;
       state.coverLuminance = typeof colors.luminance === 'number' ? colors.luminance : 0.5;
 
@@ -2507,6 +2734,7 @@ async function applyExtractedAlbumColors() {
         applyAccentTokens(colors.primary, colors.secondary);
       }
       applyTheme(state.theme);
+      updatePillBorderGradient(colors);
       if (window.overlyAPI?.updateSetting) {
         window.overlyAPI.updateSetting('extractedAccentColor', colors.primary);
       }
@@ -2560,30 +2788,65 @@ function setOffset(offset) {
   state.offset = offset;
 }
 
+let lockCollapseTimeout = null;
+
+function triggerLockAlert() {
+  if (!state.isLocked || !lockToast) return;
+
+  lockToast.classList.remove('hidden');
+  lockToast.classList.add('expanded');
+
+  // Trigger shake animation cleanly by forcing a CSS reflow
+  lockToast.classList.remove('shake');
+  void lockToast.offsetWidth;
+  lockToast.classList.add('shake');
+
+  if (lockCollapseTimeout) {
+    clearTimeout(lockCollapseTimeout);
+  }
+  lockCollapseTimeout = setTimeout(() => {
+    if (state.isLocked && lockToast) {
+      lockToast.classList.remove('expanded', 'shake');
+    }
+  }, 2800);
+}
+
 function setLockState(locked) {
   state.isLocked = locked;
+  document.body.classList.toggle('is-locked', locked);
+
   if (btnLockToggle) {
     btnLockToggle.classList.toggle('active', locked);
-    btnLockToggle.title = locked ? 'Locked: Click to unlock (Ctrl+Shift+L)' : 'Lock (Click-Through Mode, Ctrl+Shift+L)';
+    btnLockToggle.title = locked ? 'Locked: Click to unlock (Ctrl+Shift+L)' : 'Lock (Ctrl+Shift+L)';
   }
   if (btnPillLock) {
     btnPillLock.classList.toggle('active', locked);
-    btnPillLock.title = locked ? 'Locked: Click to unlock (Ctrl+Shift+L)' : 'Lock (Click-Through Mode, Ctrl+Shift+L)';
+    btnPillLock.title = locked ? 'Locked: Click to unlock (Ctrl+Shift+L)' : 'Lock (Ctrl+Shift+L)';
   }
 
-  if (locked) {
-    lockToast.classList.remove('hidden');
-    lockToast.innerHTML = `
-      <svg class="lock-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-      </svg>
-      <span>Locked • <u>Click to unlock</u> (Ctrl+Shift+L)</span>
-    `;
-  } else {
-    lockToast.classList.add('hidden');
-    if (window.overlyAPI?.setTempIgnoreMouseEvents) {
-      window.overlyAPI.setTempIgnoreMouseEvents(false);
+  if (lockToast) {
+    if (locked) {
+      lockToast.className = 'lock-toast';
+      lockToast.innerHTML = `
+        <svg class="lock-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <span class="lock-toast-label">Click to unlock</span>
+      `;
+      lockToast.title = 'Locked: Click to unlock (Ctrl+Shift+L)';
+      if (window.overlyAPI?.setTempIgnoreMouseEvents) {
+        window.overlyAPI.setTempIgnoreMouseEvents(false);
+      }
+    } else {
+      lockToast.className = 'lock-toast hidden';
+      if (lockCollapseTimeout) {
+        clearTimeout(lockCollapseTimeout);
+        lockCollapseTimeout = null;
+      }
+      if (window.overlyAPI?.setTempIgnoreMouseEvents) {
+        window.overlyAPI.setTempIgnoreMouseEvents(false);
+      }
     }
   }
 }
@@ -2639,6 +2902,8 @@ function handleMediaUpdate(data) {
   state.album = data.album || '';
   state.duration = data.duration || 0;
   state.isFetchingLyrics = Boolean(data.isFetchingLyrics);
+  state.mediaType = data.mediaType || 'music';
+  state.isMusic = (typeof data.isMusic === 'boolean') ? data.isMusic : (state.mediaType === 'music');
 
   document.body.classList.toggle('is-unfetched', isNowUnfetched);
   if (wasUnfetched !== isNowUnfetched) {
@@ -2720,6 +2985,7 @@ function handleMediaUpdate(data) {
     pillMoreContainer?.classList.remove('open');
 
     if (data.coverColors && data.coverColors.primary) {
+      state.extractedCoverColors = data.coverColors;
       state.lastExtractedPrimary = data.coverColors.primary;
       state.coverIsDark = typeof data.coverColors.isDark === 'boolean' ? data.coverColors.isDark : true;
       state.coverLuminance = typeof data.coverColors.luminance === 'number' ? data.coverColors.luminance : 0.5;
@@ -2727,6 +2993,7 @@ function handleMediaUpdate(data) {
         applyAccentTokens(data.coverColors.primary, data.coverColors.secondary);
       }
       applyTheme(state.theme);
+      updatePillBorderGradient(data.coverColors);
       if (window.overlyAPI?.updateSetting) {
         window.overlyAPI.updateSetting('extractedAccentColor', data.coverColors.primary);
       }
@@ -2757,6 +3024,8 @@ function handleMediaUpdate(data) {
     iconMiniPlay.classList.toggle('hidden', isPlaying);
     iconMiniPause.classList.toggle('hidden', !isPlaying);
   }
+  iconImmersivePlay?.classList.toggle('hidden', isPlaying);
+  iconImmersivePause?.classList.toggle('hidden', !isPlaying);
   playingIndicator.classList.toggle('active', isPlaying);
   if (isPlaying) state.hoverExpandedWhilePaused = false;
 
@@ -2819,7 +3088,7 @@ function renderTrackInfo() {
 
   if (!state.hasMedia || !state.title) {
     document.body.classList.add('is-unfetched');
-    trackTitle.textContent = 'Searching';
+    trackTitle.textContent = 'No playing';
     trackArtist.textContent = '';
     albumArt.classList.remove('visible');
     albumPlaceholder.classList.remove('hidden');
@@ -2827,15 +3096,17 @@ function renderTrackInfo() {
     if (state.mode !== 'minimized') {
       updatePillLyric('');
     }
-    if (state.lastExtractedPrimary) {
+    if (state.lastExtractedPrimary || state.extractedCoverColors) {
       state.lastExtractedPrimary = null;
+      state.extractedCoverColors = null;
       if (state.accentColor === 'auto') {
         applyAccentTokens(getNeutralAccentColor(), null);
       }
       applyTheme(state.theme);
+      updatePillBorderGradient(null);
     }
     // Update Immersive Mode Elements
-    if (immersiveTitle) immersiveTitle.textContent = 'Searching...';
+    if (immersiveTitle) immersiveTitle.textContent = 'No playing';
     if (immersiveArtist) immersiveArtist.textContent = '';
     if (immersiveArt) {
       immersiveArt.src = '';
@@ -2874,7 +3145,7 @@ function renderTrackInfo() {
     const onArtLoaded = () => {
       albumArt.classList.add('visible');
       albumPlaceholder.classList.add('hidden');
-      if (!state.lastExtractedPrimary) {
+      if (!state.lastExtractedPrimary || !state.extractedCoverColors) {
         applyExtractedAlbumColors();
       }
     };
@@ -2961,6 +3232,8 @@ function hasAnyLyrics() {
 
 function isInstrumentalOrNoLyrics() {
   if (!state.hasMedia) return false;
+  // Non-music (ads, videos, podcasts) never have lyrics
+  if (state.isMusic === false) return true;
   // If actively fetching lyrics, do NOT treat as instrumental yet
   if (state.isFetchingLyrics) return false;
 
@@ -3000,6 +3273,10 @@ function isInstrumentalOrNoLyrics() {
 }
 
 function getInstrumentalTag() {
+  if (state.mediaType === 'ad') return 'Ad';
+  if (state.mediaType === 'video') return 'Video';
+  if (state.isMusic === false) return 'Media';
+
   let text = '';
   if (state.lyrics && state.lyrics.length > 0) {
     for (const l of state.lyrics) {
@@ -3317,9 +3594,11 @@ function renderLyricsList() {
     footer.className = 'vis-footer-bar';
 
     const statusLabel = getInstrumentalTag();
+    const isRealMusic = state.isMusic !== false;
 
     footer.innerHTML = `
       <span class="vis-status-tag" id="visStatusTag">${statusLabel}</span>
+      ${isRealMusic ? `
       <button class="vis-mini-btn vis-mini-retry" id="btnVisRetry" title="Retry fetching lyrics">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
@@ -3332,7 +3611,7 @@ function renderLyricsList() {
           <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
         <span>Search</span>
-      </button>
+      </button>` : ''}
     `;
 
     const btnRetry = footer.querySelector('#btnVisRetry');
@@ -3504,13 +3783,13 @@ function updatePillBorderDimensions() {
   if (w <= 0 || h <= 0) return;
 
   const strokeW = 2;
-  const inset = strokeW / 2;
-  const rectW = Math.max(0, w - strokeW);
-  const rectH = Math.max(0, h - strokeW);
+  const inset = 1.5;
+  const rectW = Math.max(0, w - inset * 2);
+  const rectH = Math.max(0, h - inset * 2);
   const radius = rectH / 2;
   const cx = inset + rectW / 2;
-  const rightX = inset + rectW;
-  const bottomY = inset + rectH;
+  const rightX = w - inset;
+  const bottomY = h - inset;
   const leftX = inset;
   const topY = inset;
 

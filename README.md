@@ -135,10 +135,11 @@ Switch between layouts to fit your workspace:
 
 ### Option 1: Pre-Built Release (Recommended)
 Download the latest version from the **[Releases](https://github.com/Afugegege/OverLy/releases)** page:
-- **`overLy Setup 1.0.1.exe`**: Modern Windows installer with Start Menu shortcuts and optional auto-launch.
-- **`overLy-1.0.1-win.zip`**: Standalone portable version (extract anywhere and run `overLy.exe`).
+- **`overLy Setup 1.0.2.exe`**: One-click Windows NSIS installer with Start Menu shortcuts.
+- **`overLy 1.0.2.exe`**: Portable single-file executable (no installation required).
+- **`overLy-1.0.2-win.zip`**: Portable archive (extract anywhere and run `overLy.exe`).
 
-> **Note on Windows SmartScreen**: Because overLy is an independent open-source project without a paid corporate certificate, Windows SmartScreen may show an initial warning. Click **"More info" -> "Run anyway"**.
+Every release includes a `SHA256SUMS.txt` checksum manifest. See **[SECURITY.md](SECURITY.md)** for instructions on verifying release integrity, code signing status, and understanding Windows SmartScreen download warnings.
 
 ---
 

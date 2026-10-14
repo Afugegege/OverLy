@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('overlyAPI', {
     ipcRenderer.on('lock-toggled', handler);
     return () => ipcRenderer.removeListener('lock-toggled', handler);
   },
+  play: () => ipcRenderer.send('media-play'),
+  pause: () => ipcRenderer.send('media-pause'),
   togglePlayPause: () => ipcRenderer.send('media-play-pause'),
   nextTrack: () => ipcRenderer.send('media-next'),
   prevTrack: () => ipcRenderer.send('media-prev'),
@@ -93,6 +95,10 @@ contextBridge.exposeInMainWorld('overlyAPI', {
   uninstallApp: () => ipcRenderer.send('uninstall-app'),
   openSetupWizard: () => ipcRenderer.send('open-setup-wizard'),
   closeSetupWizard: () => ipcRenderer.send('close-setup-wizard'),
-  minimizeSetupWizard: () => ipcRenderer.send('minimize-setup-wizard'),
-  finishSetupWizard: (data) => ipcRenderer.send('finish-setup-wizard', data)
+  finishSetupWizard: (data) => ipcRenderer.send('finish-setup-wizard', data),
+  onMiniDrawerContract: (callback) => {
+    const handler = (_event) => callback();
+    ipcRenderer.on('mini-drawer-contract', handler);
+    return () => ipcRenderer.removeListener('mini-drawer-contract', handler);
+  }
 });

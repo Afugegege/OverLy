@@ -27,3 +27,16 @@ desktop.ini
 *.njsproj
 *.sln
 *.sw?
+
+# Security & Secrets (Never commit credentials)
+*.pfx
+*.p12
+*.cer
+*.crt
+*.key
+*.pem
+.env
+.env.*
+*.secret
+*.token
+credentials.json

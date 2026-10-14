@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu, nativeImage, screen, nativeTheme, dialog, shell, net } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu, nativeImage, screen, nativeTheme, dialog, shell, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -28,7 +28,7 @@ let isAlwaysOnTop = true;
 let currentTrackKey = '';
 let currentTrackData = null;
 let lastMediaData = null;
-let currentWindowWidth = 460;
+let currentWindowWidth = 440;
 let currentWindowHeight = 260;
 let isUserResizing = false;
 let currentLayoutMode = 'card';
@@ -63,24 +63,68 @@ const defaultSettings = {
   hasCompletedSetup: false
 };
 
+const ALLOWED_SETTING_KEYS = new Set([
+  'mode', 'accentColor', 'opacity', 'fontSize', 'offset', 'bounds',
+  'alwaysOnTop', 'startOnBoot', 'theme', 'adaptAlbumColor', 'autoMinimize',
+  'autoMinimizeDelay', 'autoMinimizeExpand', 'autoMinimizeRehide',
+  'visualizerStyle', 'immersiveLayout', 'hasCompletedSetup', 'layoutPositions'
+]);
+
+function sanitizeSettings(input) {
+  if (!input || typeof input !== 'object') return { ...defaultSettings };
+  const sanitized = { ...defaultSettings };
+  for (const key of Object.keys(input)) {
+    if (ALLOWED_SETTING_KEYS.has(key) && Object.prototype.hasOwnProperty.call(input, key)) {
+      sanitized[key] = input[key];
+    }
+  }
+  return sanitized;
+}
+
+let cachedSettings = null;
+let debouncedSaveSettingsTimer = null;
+
 function loadSettings() {
   try {
     if (fs.existsSync(settingsPath)) {
       const raw = fs.readFileSync(settingsPath, 'utf8').replace(/^\uFEFF/, '');
-      return { ...defaultSettings, ...JSON.parse(raw) };
+      cachedSettings = { ...defaultSettings, ...sanitizeSettings(JSON.parse(raw)) };
+      return cachedSettings;
     }
   } catch (e) {
     console.error('Failed to load settings:', e);
   }
-  return { ...defaultSettings };
+  cachedSettings = { ...defaultSettings };
+  return cachedSettings;
 }
 
 function saveSettings(settings) {
   try {
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+    if (debouncedSaveSettingsTimer) {
+      clearTimeout(debouncedSaveSettingsTimer);
+      debouncedSaveSettingsTimer = null;
+    }
+    const sanitized = sanitizeSettings(settings);
+    cachedSettings = sanitized;
+    fs.writeFileSync(settingsPath, JSON.stringify(sanitized, null, 2), 'utf8');
   } catch (e) {
     console.error('Failed to save settings:', e);
   }
+}
+
+function debouncedSaveSettings(settings, delay = 350) {
+  try {
+    cachedSettings = sanitizeSettings(settings);
+  } catch (_) {}
+  if (debouncedSaveSettingsTimer) {
+    clearTimeout(debouncedSaveSettingsTimer);
+  }
+  debouncedSaveSettingsTimer = setTimeout(() => {
+    debouncedSaveSettingsTimer = null;
+    if (cachedSettings) {
+      saveSettings(cachedSettings);
+    }
+  }, delay);
 }
 
 function createTrayIcon() {
@@ -112,14 +156,14 @@ function createWindow() {
   isAlwaysOnTop = settings.alwaysOnTop ?? true;
 
   const modeSizes = {
-    card: { width: 460, height: 274 },
-    normal: { width: 460, height: 274 },
-    collapsed: { width: 440, height: 104 },
-    pill: { width: 440, height: 104 },
-    minimized: { width: 68, height: 68 },
-    mini: { width: 68, height: 68 },
-    lyrics: { width: 460, height: 164 },
-    expanded: { width: 460, height: 504 }
+    card: { width: 440, height: 260 },
+    normal: { width: 440, height: 260 },
+    collapsed: { width: 420, height: 90 },
+    pill: { width: 420, height: 90 },
+    minimized: { width: 56, height: 56 },
+    mini: { width: 56, height: 56 },
+    lyrics: { width: 440, height: 150 },
+    expanded: { width: 440, height: 490 }
   };
   const currentMode = settings.mode || 'card';
   const targetSize = modeSizes[currentMode] || modeSizes.card;
@@ -171,7 +215,8 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
     }
   });
 
@@ -355,17 +400,66 @@ function toggleClickThrough(explicitValue) {
   }
 
   if (mainWindow) {
-    if (isClickThrough) {
-      mainWindow.setIgnoreMouseEvents(true, { forward: true });
-    } else {
-      mainWindow.setIgnoreMouseEvents(false);
-    }
+    // In locked mode, keep mouse events active so clicking anywhere on the window alerts the user
+    mainWindow.setIgnoreMouseEvents(false);
     mainWindow.webContents.send('lock-toggled', isClickThrough);
   }
   updateTray();
 }
 
+function resolveThumbnailDataUrl(thumbPath) {
+  if (!thumbPath) return null;
+  try {
+    if (fs.existsSync(thumbPath)) {
+      const buf = fs.readFileSync(thumbPath);
+      if (buf && buf.length > 0) {
+        const mime = buf[0] === 0x89 ? 'image/png' : 'image/jpeg';
+        return `data:${mime};base64,${buf.toString('base64')}`;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading native SMTC thumbnail:', e);
+  }
+  return null;
+}
+
 app.whenReady().then(() => {
+  // Explicitly deny web permissions as overLy requires none
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
+  });
+
+  // Global WebContents hardening against unauthorized navigation and window creation
+  app.on('web-contents-created', (_event, contents) => {
+    contents.on('will-navigate', (navEvent, navigationUrl) => {
+      try {
+        const parsed = new URL(navigationUrl);
+        if (parsed.protocol !== 'file:') {
+          navEvent.preventDefault();
+          if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+            shell.openExternal(navigationUrl);
+          }
+        }
+      } catch (_) {
+        navEvent.preventDefault();
+      }
+    });
+
+    contents.setWindowOpenHandler(({ url }) => {
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+          shell.openExternal(url);
+        }
+      } catch (_) {}
+      return { action: 'deny' };
+    });
+
+    contents.on('will-attach-webview', (webviewEvent) => {
+      webviewEvent.preventDefault();
+    });
+  });
+
   createWindow();
 
 
@@ -417,22 +511,6 @@ app.whenReady().then(() => {
 
   let mediaAbsentGraceTimer = null;
 
-  function resolveThumbnailDataUrl(thumbPath) {
-    if (!thumbPath) return null;
-    try {
-      if (fs.existsSync(thumbPath)) {
-        const buf = fs.readFileSync(thumbPath);
-        if (buf && buf.length > 0) {
-          const mime = buf[0] === 0x89 ? 'image/png' : 'image/jpeg';
-          return `data:${mime};base64,${buf.toString('base64')}`;
-        }
-      }
-    } catch (e) {
-      console.error('Error reading native SMTC thumbnail:', e);
-    }
-    return null;
-  }
-
   smtcService.on('update', async (mediaData) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
 
@@ -483,14 +561,42 @@ app.whenReady().then(() => {
       currentTrackKey = trackKey;
       const initialCover = resolveThumbnailDataUrl(mediaData.thumbnailPath);
 
+      // Classify media: check if it's an advertisement, video, or music
+      const { mediaType, isMusic } = lyricsService.classifyMediaContent(mediaData);
+
+      if (!isMusic) {
+        // Ads, videos, podcasts: SKIP lyrics search completely!
+        currentTrackData = {
+          title: mediaData.title,
+          artist: mediaData.artist,
+          album: mediaData.album,
+          lyrics: [],
+          hasSynced: false,
+          plainLyrics: '',
+          coverUrl: initialCover,
+          isFetchingLyrics: false,
+          mediaType,
+          isMusic: false
+        };
+
+        broadcastMediaUpdate({
+          ...mediaData,
+          ...currentTrackData
+        });
+        return;
+      }
+
       currentTrackData = {
         title: mediaData.title,
         artist: mediaData.artist,
+        album: mediaData.album,
         lyrics: [],
         hasSynced: false,
         plainLyrics: '',
         coverUrl: initialCover,
-        isFetchingLyrics: true
+        isFetchingLyrics: true,
+        mediaType: 'music',
+        isMusic: true
       };
 
       // Notify renderers at once so previous lyrics vanish without delay and native album art appears instantly
@@ -499,38 +605,44 @@ app.whenReady().then(() => {
         ...currentTrackData
       });
 
-      // Asynchronously fetch fresh lyrics & artwork for the new track
+      // Ultra-Fast decoupled lyrics fetch:
       (async () => {
         const fetchKey = trackKey;
         try {
-          const freshData = await lyricsService.getTrackData(
+          const lyricsData = await lyricsService.fetchLyricsOnly(
             mediaData.artist,
             mediaData.title,
             mediaData.album,
-            mediaData.duration,
-            false,
-            initialCover
+            mediaData.duration
           );
-          // Only apply if the user is still listening to this track
+
+          // Only apply if user is still on this track
           if (currentTrackKey === fetchKey) {
-            currentTrackData = freshData
-              ? { ...freshData, coverUrl: freshData.coverUrl || initialCover, isFetchingLyrics: false }
-              : {
-                  title: mediaData.title,
-                  artist: mediaData.artist,
-                  lyrics: [],
-                  hasSynced: false,
-                  plainLyrics: '',
-                  coverUrl: initialCover,
-                  isFetchingLyrics: false
-                };
+            currentTrackData = {
+              ...currentTrackData,
+              title: lyricsData?.title || mediaData.title,
+              artist: lyricsData?.artist || mediaData.artist,
+              lyrics: lyricsData?.lyrics || [],
+              hasSynced: Boolean(lyricsData?.hasSynced),
+              plainLyrics: lyricsData?.plainLyrics || '',
+              coverUrl: lyricsData?.coverUrl || currentTrackData.coverUrl || initialCover,
+              isFetchingLyrics: false
+            };
             broadcastMediaUpdate({
               ...mediaData,
               ...currentTrackData
             });
+
+            // Automatically pre-search upcoming track from album tracklist in background
+            lyricsService.predictAndPreloadNextTrack(
+              mediaData.artist,
+              mediaData.title,
+              mediaData.album,
+              mediaData.trackNumber
+            ).catch(() => {});
           }
         } catch (err) {
-          console.error('Error fetching track data:', err);
+          console.error('Error fetching fast lyrics:', err);
           if (currentTrackKey === fetchKey && currentTrackData) {
             currentTrackData.isFetchingLyrics = false;
             broadcastMediaUpdate({
@@ -538,6 +650,21 @@ app.whenReady().then(() => {
               ...currentTrackData
             });
           }
+        }
+
+        // Concurrently fetch high-res artwork if initial cover is missing or needs upgrade
+        if (!initialCover && currentTrackKey === fetchKey) {
+          lyricsService.fetchCoverArt(mediaData.artist, mediaData.title, mediaData.album)
+            .then(coverUrl => {
+              if (currentTrackKey === fetchKey && coverUrl && currentTrackData) {
+                currentTrackData.coverUrl = coverUrl;
+                broadcastMediaUpdate({
+                  ...mediaData,
+                  ...currentTrackData
+                });
+              }
+            })
+            .catch(() => {});
         }
       })();
       return;
@@ -554,6 +681,8 @@ app.whenReady().then(() => {
     // Regular position / playback updates for currently playing track
     const payload = {
       ...mediaData,
+      mediaType: currentTrackData?.mediaType || 'music',
+      isMusic: (typeof currentTrackData?.isMusic === 'boolean') ? currentTrackData.isMusic : true,
       coverUrl: currentTrackData?.coverUrl || null,
       lyrics: currentTrackData?.lyrics || [],
       hasSynced: currentTrackData?.hasSynced || false,
@@ -629,7 +758,8 @@ function openSettingsWindow(searchQuery) {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
     }
   });
 
@@ -694,7 +824,8 @@ function openSetupWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
     }
   });
 
@@ -778,10 +909,16 @@ ipcMain.on('finish-setup-wizard', (_event, config) => {
 
 
 // IPC listeners
+ipcMain.on('media-play', () => smtcService.play());
+ipcMain.on('media-pause', () => smtcService.pause());
 ipcMain.on('media-play-pause', () => smtcService.togglePlayPause());
 ipcMain.on('media-next', () => smtcService.nextTrack());
 ipcMain.on('media-prev', () => smtcService.previousTrack());
-ipcMain.on('media-seek', (_event, seconds) => smtcService.seekTo(seconds));
+ipcMain.on('media-seek', (_event, seconds) => {
+  if (typeof seconds === 'number' && Number.isFinite(seconds) && seconds >= 0 && seconds <= 86400) {
+    smtcService.seekTo(seconds);
+  }
+});
 
 ipcMain.on('set-click-through', (_event, locked) => {
   toggleClickThrough(locked);
@@ -871,7 +1008,12 @@ function updateWindowAnchor(bounds = null) {
   };
 }
 
-ipcMain.on('window-move', (_event, { deltaX, deltaY }) => {
+ipcMain.on('window-move', (_event, payload) => {
+  if (!payload || typeof payload !== 'object') return;
+  const { deltaX, deltaY } = payload;
+  if (typeof deltaX !== 'number' || !Number.isFinite(deltaX) || typeof deltaY !== 'number' || !Number.isFinite(deltaY)) return;
+  if (Math.abs(deltaX) > 5000 || Math.abs(deltaY) > 5000) return;
+
   if (mainWindow && !mainWindow.isDestroyed()) {
     const [x, y] = mainWindow.getPosition();
     let newX = Math.round(x + deltaX);
@@ -880,9 +1022,30 @@ ipcMain.on('window-move', (_event, { deltaX, deltaY }) => {
     const display = screen.getDisplayMatching(mainWindow.getBounds());
     const wa = display.workArea;
 
-    // Keep window securely on-screen during drag
-    newX = Math.max(wa.x - currentWindowWidth + 60, Math.min(wa.x + wa.width - 60, newX));
-    newY = Math.max(wa.y, Math.min(wa.y + wa.height - 40, newY));
+    const s = cachedSettings || loadSettings();
+    const normMode = normalizeMode(s.mode);
+    const topPad = normMode === 'minimized' ? 0 : 30;
+
+    // Magnetic edge snapping: snap cleanly against screen borders only when moving towards them
+    const snapDistance = 14;
+    if (deltaX < 0 && Math.abs(newX - wa.x) <= snapDistance) {
+      newX = wa.x;
+    } else if (deltaX > 0 && Math.abs(newX + currentWindowWidth - (wa.x + wa.width)) <= snapDistance) {
+      newX = wa.x + wa.width - currentWindowWidth;
+    }
+
+    // Top & bottom snapping: only snap when moving towards that edge so pulling away never traps the window
+    const minAllowedY = isClickThrough ? wa.y : wa.y - topPad;
+    if (deltaY < 0 && Math.abs((newY + topPad) - wa.y) <= snapDistance && !isClickThrough) {
+      newY = wa.y - topPad;
+    } else if (deltaY < 0 && Math.abs(newY - wa.y) <= snapDistance) {
+      newY = wa.y;
+    } else if (deltaY > 0 && Math.abs(newY + currentWindowHeight - (wa.y + wa.height)) <= snapDistance) {
+      newY = wa.y + wa.height - currentWindowHeight;
+    }
+
+    newX = Math.max(wa.x, Math.min(wa.x + wa.width - currentWindowWidth, newX));
+    newY = Math.max(minAllowedY, Math.min(wa.y + wa.height - currentWindowHeight, newY));
 
     mainWindow.setBounds({
       x: newX,
@@ -893,15 +1056,18 @@ ipcMain.on('window-move', (_event, { deltaX, deltaY }) => {
 
     updateWindowAnchor({ x: newX, y: newY, width: currentWindowWidth, height: currentWindowHeight });
 
-    const s = loadSettings();
-    const normMode = normalizeMode(s.mode);
     if (!s.layoutPositions) s.layoutPositions = {};
     s.layoutPositions[normMode] = { x: newX, y: newY };
-    saveSettings(s);
+    debouncedSaveSettings(s, 350);
   }
 });
 
-ipcMain.on('window-move-to', (_event, { x, y }) => {
+ipcMain.on('window-move-to', (_event, payload) => {
+  if (!payload || typeof payload !== 'object') return;
+  const { x, y } = payload;
+  if (typeof x !== 'number' || !Number.isFinite(x) || typeof y !== 'number' || !Number.isFinite(y)) return;
+  if (Math.abs(x) > 10000 || Math.abs(y) > 10000) return;
+
   if (mainWindow && !mainWindow.isDestroyed()) {
     let newX = Math.round(x);
     let newY = Math.round(y);
@@ -909,8 +1075,33 @@ ipcMain.on('window-move-to', (_event, { x, y }) => {
     const display = screen.getDisplayMatching(mainWindow.getBounds());
     const wa = display.workArea;
 
+    const s = cachedSettings || loadSettings();
+    const normMode = normalizeMode(s.mode);
+    const topPad = normMode === 'minimized' ? 0 : 30;
+
+    // Magnetic edge snapping: only snap when moving towards that edge
+    const snapDistance = 14;
+    const [curX, curY] = mainWindow.getPosition();
+    const deltaX = newX - curX;
+    const deltaY = newY - curY;
+
+    if (deltaX < 0 && Math.abs(newX - wa.x) <= snapDistance) {
+      newX = wa.x;
+    } else if (deltaX > 0 && Math.abs(newX + currentWindowWidth - (wa.x + wa.width)) <= snapDistance) {
+      newX = wa.x + wa.width - currentWindowWidth;
+    }
+
+    const minAllowedY = isClickThrough ? wa.y : wa.y - topPad;
+    if (deltaY < 0 && Math.abs((newY + topPad) - wa.y) <= snapDistance && !isClickThrough) {
+      newY = wa.y - topPad;
+    } else if (deltaY < 0 && Math.abs(newY - wa.y) <= snapDistance) {
+      newY = wa.y;
+    } else if (deltaY > 0 && Math.abs(newY + currentWindowHeight - (wa.y + wa.height)) <= snapDistance) {
+      newY = wa.y + wa.height - currentWindowHeight;
+    }
+
     newX = Math.max(wa.x, Math.min(wa.x + wa.width - currentWindowWidth, newX));
-    newY = Math.max(wa.y, Math.min(wa.y + wa.height - currentWindowHeight, newY));
+    newY = Math.max(minAllowedY, Math.min(wa.y + wa.height - currentWindowHeight, newY));
 
     mainWindow.setBounds({
       x: newX,
@@ -921,11 +1112,9 @@ ipcMain.on('window-move-to', (_event, { x, y }) => {
 
     updateWindowAnchor({ x: newX, y: newY, width: currentWindowWidth, height: currentWindowHeight });
 
-    const s = loadSettings();
-    const normMode = normalizeMode(s.mode);
     if (!s.layoutPositions) s.layoutPositions = {};
     s.layoutPositions[normMode] = { x: newX, y: newY };
-    saveSettings(s);
+    debouncedSaveSettings(s, 350);
   }
 });
 
@@ -1007,6 +1196,45 @@ function animateWindowBounds(targetBounds, duration = 320, onComplete) {
   }, frameInterval);
 }
 
+let miniDrawerMonitorTimer = null;
+
+function updateMiniDrawerMonitor(normMode, width) {
+  if (normMode === 'minimized' && width > 100) {
+    if (miniDrawerMonitorTimer) clearInterval(miniDrawerMonitorTimer);
+    miniDrawerMonitorTimer = setInterval(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) {
+        clearInterval(miniDrawerMonitorTimer);
+        miniDrawerMonitorTimer = null;
+        return;
+      }
+      try {
+        const cursor = screen.getCursorScreenPoint();
+        const bounds = mainWindow.getBounds();
+        // Generous 8px tolerance around the window
+        const inside = (
+          cursor.x >= bounds.x - 8 &&
+          cursor.x <= bounds.x + bounds.width + 8 &&
+          cursor.y >= bounds.y - 8 &&
+          cursor.y <= bounds.y + bounds.height + 8
+        );
+        if (!inside) {
+          clearInterval(miniDrawerMonitorTimer);
+          miniDrawerMonitorTimer = null;
+          mainWindow.webContents.send('mini-drawer-contract');
+        }
+      } catch (_) {
+        clearInterval(miniDrawerMonitorTimer);
+        miniDrawerMonitorTimer = null;
+      }
+    }, 120);
+  } else {
+    if (miniDrawerMonitorTimer) {
+      clearInterval(miniDrawerMonitorTimer);
+      miniDrawerMonitorTimer = null;
+    }
+  }
+}
+
 ipcMain.on('set-window-size', (_event, arg1, arg2) => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (isImmersiveMode || mainWindow.isFullScreen()) {
@@ -1024,6 +1252,10 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
     height = arg2;
   }
 
+  if (typeof width !== 'number' || !Number.isFinite(width) || typeof height !== 'number' || !Number.isFinite(height)) return;
+  width = Math.max(50, Math.min(3840, width));
+  height = Math.max(50, Math.min(2160, height));
+
   currentWindowWidth = Math.round(width);
   currentWindowHeight = Math.round(height);
 
@@ -1032,6 +1264,7 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
     targetMode = s.mode || 'card';
   }
   const normMode = normalizeMode(targetMode);
+  updateMiniDrawerMonitor(normMode, currentWindowWidth);
 
   if (!s.layoutPositions) s.layoutPositions = {};
 
@@ -1046,8 +1279,8 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
     targetX = currentBounds.x;
     targetY = currentBounds.y;
     const isMini = (normMode === 'minimized');
-    const minW = isMini ? 160 : (normMode === 'collapsed' ? 300 : 340);
-    const minH = isMini ? 44 : (normMode === 'collapsed' ? 64 : 140);
+    const minW = isMini ? 56 : (normMode === 'collapsed' ? 280 : 320);
+    const minH = isMini ? 56 : (normMode === 'collapsed' ? 56 : 140);
     if (targetX + currentWindowWidth > wa.x + wa.width) {
       currentWindowWidth = Math.max(minW, wa.x + wa.width - targetX);
     }
@@ -1056,7 +1289,7 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
     }
     updateWindowAnchor({ x: targetX, y: targetY, width: currentWindowWidth, height: currentWindowHeight });
     s.layoutPositions[normMode] = { x: targetX, y: targetY };
-    saveSettings(s);
+    debouncedSaveSettings(s, 350);
   } else {
     currentLayoutMode = normMode;
 
@@ -1116,11 +1349,14 @@ ipcMain.on('set-window-size', (_event, arg1, arg2) => {
 ipcMain.on('set-resizable', (_event, resizable) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     isUserResizing = Boolean(resizable);
-    mainWindow.setResizable(isUserResizing);
+    // Note: Do NOT call mainWindow.setResizable(true) on Windows for a transparent frameless window!
+    // It triggers native WM_NCHITTEST non-client hit-testing with no native window frame,
+    // which causes the mouse cursor to glitch into an 'undefined' / broken pattern on Windows.
+    // Window resizing is handled smoothly via corner pointer events and setWindowSize / setBounds.
     if (isUserResizing) {
-      const isCompact = (currentWindowHeight <= 120);
-      const isMini = (currentWindowHeight <= 70);
-      mainWindow.setMinimumSize(isMini ? 160 : (isCompact ? 300 : 340), isMini ? 44 : (isCompact ? 64 : 140));
+      const isCompact = (currentWindowHeight <= 100);
+      const isMini = (currentWindowHeight <= 60);
+      mainWindow.setMinimumSize(isMini ? 56 : (isCompact ? 280 : 320), isMini ? 56 : (isCompact ? 56 : 140));
       mainWindow.setMaximumSize(2560, 1440);
     } else {
       mainWindow.setMinimumSize(currentWindowWidth, currentWindowHeight);
@@ -1139,7 +1375,12 @@ ipcMain.on('close-settings-window', () => {
   }
 });
 
-ipcMain.on('update-setting', (_event, { key, value }) => {
+ipcMain.on('update-setting', (_event, payload) => {
+  if (!payload || typeof payload !== 'object') return;
+  const { key, value } = payload;
+  if (typeof key !== 'string' || !ALLOWED_SETTING_KEYS.has(key)) return;
+  if (key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+
   const current = loadSettings();
   current[key] = value;
   saveSettings(current);
@@ -1155,6 +1396,7 @@ ipcMain.on('update-setting', (_event, { key, value }) => {
 });
 
 ipcMain.on('preview-layout-mode', (_event, mode) => {
+  if (typeof mode !== 'string') return;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('preview-layout-mode', mode);
   }
@@ -1274,6 +1516,17 @@ function analyzeBitmapColors(buffer) {
     };
   }
 
+  let tertiary = null;
+  for (let i = 1; i < buckets.length; i++) {
+    const c = buckets[i];
+    const dist1 = Math.abs(c.r - primary.r) + Math.abs(c.g - primary.g) + Math.abs(c.b - primary.b);
+    const dist2 = Math.abs(c.r - secondary.r) + Math.abs(c.g - secondary.g) + Math.abs(c.b - secondary.b);
+    if (dist1 > 60 && dist2 > 60) {
+      tertiary = c;
+      break;
+    }
+  }
+
   const toHex = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
   const authenticPrimary = `#${toHex(primary.r)}${toHex(primary.g)}${toHex(primary.b)}`;
   let accent = authenticPrimary;
@@ -1288,6 +1541,7 @@ function analyzeBitmapColors(buffer) {
     primary: authenticPrimary,
     accent,
     secondary: `#${toHex(secondary.r)}${toHex(secondary.g)}${toHex(secondary.b)}`,
+    tertiary: tertiary ? `#${toHex(tertiary.r)}${toHex(tertiary.g)}${toHex(tertiary.b)}` : null,
     isDark,
     luminance: avgLuminance
   };
@@ -1361,6 +1615,7 @@ ipcMain.handle('get-theme', () => {
 });
 
 ipcMain.on('set-theme', (_event, theme) => {
+  if (typeof theme !== 'string' || !['system', 'dark', 'light', 'auto'].includes(theme)) return;
   applyTheme(theme);
   const s = loadSettings();
   s.theme = theme;
@@ -1407,16 +1662,24 @@ ipcMain.on('apply-manual-lyrics', (_event, trackData) => {
 });
 
 ipcMain.on('set-temp-ignore-mouse-events', (_event, ignore) => {
-  if (mainWindow && !mainWindow.isDestroyed() && isClickThrough) {
-    if (ignore) {
-      mainWindow.setIgnoreMouseEvents(true, { forward: true });
-    } else {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (isClickThrough) {
       mainWindow.setIgnoreMouseEvents(false);
+    } else {
+      if (ignore) {
+        mainWindow.setIgnoreMouseEvents(true, { forward: true });
+      } else {
+        mainWindow.setIgnoreMouseEvents(false);
+      }
     }
   }
 });
 
-ipcMain.handle('manual-search-lyrics', async (_event, { title, artist }) => {
+ipcMain.handle('manual-search-lyrics', async (_event, payload) => {
+  if (!payload || typeof payload !== 'object') return null;
+  const title = typeof payload.title === 'string' ? payload.title.slice(0, 300) : '';
+  const artist = typeof payload.artist === 'string' ? payload.artist.slice(0, 300) : '';
+  if (!title && !artist) return null;
   return await lyricsService.getTrackData(artist, title, '', 0, true);
 });
 
