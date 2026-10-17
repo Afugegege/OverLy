@@ -1,7 +1,7 @@
 {
   "name": "overly",
   "productName": "overLy",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Lightweight floating synced lyrics overlay for Windows",
   "main": "main.js",
   "author": "Afugegege",

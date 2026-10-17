@@ -23,36 +23,48 @@ if (!token) {
 
 const owner = 'Afugegege';
 const repo = 'OverLy';
-const tag = 'v1.0.2';
-const releaseName = 'overLy v1.0.2 — Fast Lyrics Sync, Ad & Video Filter, and Dynamic Album Gradient';
+const pkg = require('../package.json');
+const tag = 'v' + pkg.version;
+const releaseName = `overLy ${tag} — Setup Polish, Unpinned Fullscreen & Accurate Lyrics/Art Matching`;
 
-const releaseBody = `## What's Changed in v1.0.2
+const distDir = path.join(__dirname, '..', 'dist');
 
-### 🚀 Ultra-Fast Lyrics Sync & "Play Next" Pre-Search
-- **Instantaneous (0 ms) Lyrics Loading**: Implemented persistent disk caching in \`userData/lyrics_cache.json\` so previously played tracks load immediately without network delay.
-- **Decoupled Lyrics Fetching**: Lyrics stream onto the screen in ~150–250 ms without waiting for heavy album artwork searches.
-- **Album Tracklist Predictor**: While listening to a song from an album or EP, overLy automatically predicts upcoming songs and pre-caches their lyrics in the background.
+function getChecksumContent() {
+  const sumsPath = path.join(distDir, 'SHA256SUMS.txt');
+  if (fs.existsSync(sumsPath)) {
+    return fs.readFileSync(sumsPath, 'utf8').trim();
+  }
+  return '';
+}
 
-### 🛡️ Ad, Video, and Non-Music Differentiation
-- **No More Lyrics for Ads & Videos**: Identifies Spotify ads, YouTube/browser ads, and video players (VLC, PotPlayer, MPV, Windows Media Player, Netflix, etc.) via native SMTC playback types.
-- Completely skips lyrics searching for non-music media and displays clean, non-intrusive status badges (\`Ad\`, \`Video\`).
+function getReleaseBody() {
+  const checksums = getChecksumContent();
+  return `## What's Changed in ${tag}
 
-### 🎨 Visual & Layout Polish
-- **Dynamic 3-Stop Album Art Gradient**: The pill border progress bar now flows horizontally with colors extracted directly from the album art (dominant, secondary, and highlight).
-- **Minimized Action Drawer Auto-Contract**: Added an OS-level cursor bounds monitor so the round album orb contracts immediately when unhovered.
-- **Refined Alignment**: Fixed progress bar border geometry and improved lyric contrast in light mode.
+### 🖥️ Fullscreen Window Behavior
+- **Windowed Fullscreen**: When entering Immersive Fullscreen mode, overLy is no longer pinned/always-on-top, behaving like a regular full-screen window that respects Alt-Tab and multitasking. Exiting fullscreen restores your desired pin state.
+
+### 🎨 Shadow-Free Clean Aesthetic
+- **Zero Square Shadows Across All Layouts**: Completely removed the dark rectangular compositor boundary artifact in immersive mode, and enforced zero drop shadows behind the lyrics viewport and window across Card, Pill, Lyrics, Minimized, and Immersive layouts.
+- **Frameless Window Consistency**: Removed native Windows DWM window resizing drop shadows on transparent surfaces.
+
+### 🎵 High-Accuracy Lyrics & Album Artwork Matching
+- **Strict Artist Verification**: Fixed iTunes, Deezer, and Kugou artwork matchers to strictly verify artist names, completely preventing unrelated songs with similar titles from being fetched.
+- **DJ, Demo & Cover Guards**: Added strict mismatch guards so original songs are never hijacked by DJ mixes, demos, instrumental backing tracks, or covers (and vice versa).
+- **Persistent Toolbar Refetch**: Toolbar refetch now remembers manual lyric queries instead of falling back to raw uncleaned strings.
+
+### ⚙️ Setup Wizard Improvements
+- **First-Run Persistence**: Fixed setup wizard auto-popup so it only appears once on initial installation and does not pop up on every subsequent launch.
+- **Minimalist Balanced Design**: Streamlined the left setup banner with clean vertical alignment and refined aesthetics in harmony with the rest of the application.
 
 ---
 
 ### Verification & Checksums (SHA-256)
 \`\`\`
-1343a6cdd8dfe499c8a845f58f791f7252065fc3409632256d81958ea4c6f2d5 *overLy Setup 1.0.2.exe
-ef4e1b3dd35e65b6ee0c772058f71c0cfd8bf5ac60f006ec0c4ae27fe63c5731 *overLy 1.0.2.exe
-0acc493e76b27d0e4835daccc44083e7e4f5d9259d559479fb0c5e19b494bfaf *overLy-1.0.2-win.zip
+${checksums || 'See SHA256SUMS.txt'}
 \`\`\`
 `;
-
-const distDir = path.join(__dirname, '..', 'dist');
+}
 
 async function main() {
   const headers = {
@@ -61,12 +73,20 @@ async function main() {
     'Accept': 'application/vnd.github.v3+json'
   };
 
+  const releaseBody = getReleaseBody();
+
   console.log(`Checking existing release for ${tag}...`);
   let release = null;
   const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/tags/${tag}`, { headers });
   if (getRes.ok) {
     release = await getRes.json();
     console.log(`Found existing release: ID ${release.id}`);
+    // Update release body if changed
+    await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/${release.id}`, {
+      method: 'PATCH',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: releaseBody, name: releaseName })
+    });
   } else if (getRes.status === 404) {
     console.log(`Creating new release for ${tag}...`);
     const createRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases`, {
@@ -95,9 +115,9 @@ async function main() {
   const existingAssets = release.assets || [];
 
   const filesToUpload = [
-    { name: 'overLy Setup 1.0.2.exe', type: 'application/vnd.microsoft.portable-executable' },
-    { name: 'overLy 1.0.2.exe', type: 'application/vnd.microsoft.portable-executable' },
-    { name: 'overLy-1.0.2-win.zip', type: 'application/zip' },
+    { name: `overLy Setup ${pkg.version}.exe`, type: 'application/vnd.microsoft.portable-executable' },
+    { name: `overLy ${pkg.version}.exe`, type: 'application/vnd.microsoft.portable-executable' },
+    { name: `overLy-${pkg.version}-win.zip`, type: 'application/zip' },
     { name: 'latest.yml', type: 'text/yaml' },
     { name: 'SHA256SUMS.txt', type: 'text/plain' }
   ];

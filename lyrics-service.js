@@ -261,70 +261,122 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 4500) {
   }
 }
 
-async function fetchFromDeezer(query, targetTitle = '') {
+function matchArtist(candArtist, targetArtist) {
+  if (!targetArtist) return true;
+  if (!candArtist) return false;
+  const normCand = normalizeCJKVariants(candArtist).toLowerCase().trim();
+  const normTarget = normalizeCJKVariants(targetArtist).toLowerCase().trim();
+  if (normCand === normTarget) return true;
+  if (normCand.includes(normTarget) || normTarget.includes(normCand)) return true;
+  const targetTokens = normTarget.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(w => w.length > 0);
+  const candTokens = normCand.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(w => w.length > 0);
+  return targetTokens.some(t => candTokens.includes(t));
+}
+
+function matchTitle(candTitle, targetTitle) {
+  if (!targetTitle) return true;
+  if (!candTitle) return false;
+  const normCand = normalizeCJKVariants(cleanTitle(candTitle)).toLowerCase().trim();
+  const normTarget = normalizeCJKVariants(cleanTitle(targetTitle)).toLowerCase().trim();
+  if (normCand === normTarget) return true;
+  if (normCand.includes(normTarget) || normTarget.includes(normCand)) return true;
+  return false;
+}
+
+function hasVersionMismatch(candTitle, targetTitle) {
+  const versionRegex = /(?:remix|mix\b|club|acoustic|live|slowed|speed|sped|vip|edit|rework|flip|dub\b|extended|instrumental|version|cover|dj|demo|伴奏|翻唱|现场)/i;
+  const targetHas = versionRegex.test(targetTitle || '');
+  const candHas = versionRegex.test(candTitle || '');
+  if (!targetHas && candHas) return true;
+  if (!/\bdj\b/i.test(targetTitle || '') && /\bdj\b/i.test(candTitle || '')) return true;
+  if (!/\bdemo\b/i.test(targetTitle || '') && /\bdemo\b/i.test(candTitle || '')) return true;
+  return false;
+}
+
+async function fetchFromDeezer(query, targetTitle = '', targetArtist = '') {
   try {
-    const res = await fetchWithTimeout('https://api.deezer.com/search?q=' + encodeURIComponent(query) + '&limit=5', {}, 3500);
+    const res = await fetchWithTimeout('https://api.deezer.com/search?q=' + encodeURIComponent(query) + '&limit=6', {}, 3500);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data?.data) && data.data.length > 0) {
-        if (targetTitle) {
-          const normTarget = normalizeCJKVariants(cleanTitle(targetTitle)).toLowerCase();
-          const match = data.data.find(d => {
-            const track = normalizeCJKVariants(d.title || '').toLowerCase();
-            const alb = normalizeCJKVariants(d.album?.title || '').toLowerCase();
-            return track.includes(normTarget) || normTarget.includes(track) || alb.includes(normTarget);
+        let match = null;
+        if (targetTitle || targetArtist) {
+          match = data.data.find(d => {
+            if (targetArtist && !matchArtist(d.artist?.name, targetArtist)) return false;
+            if (targetTitle && !matchTitle(d.title, targetTitle) && !matchTitle(d.album?.title, targetTitle)) return false;
+            if (hasVersionMismatch(d.title, targetTitle)) return false;
+            return true;
           });
-          if (match?.album) {
-            const alb = match.album;
-            return alb.cover_xl || alb.cover_big || alb.cover_medium || alb.cover || null;
-          }
         }
-        const alb = data.data[0].album;
-        return alb?.cover_xl || alb?.cover_big || alb?.cover_medium || alb?.cover || null;
+        if (!match && !targetArtist) {
+          match = data.data[0];
+        }
+        if (match?.album) {
+          const alb = match.album;
+          return alb.cover_xl || alb.cover_big || alb.cover_medium || alb.cover || null;
+        }
       }
     }
   } catch (err) {}
   return null;
 }
 
-async function fetchFromITunes(query, country = '', targetTitle = '') {
+async function fetchFromITunes(query, country = '', targetTitle = '', targetArtist = '') {
   try {
     const countryParam = country ? `&country=${country}` : '';
-    const res = await fetchWithTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=5${countryParam}`, {}, 3500);
+    const res = await fetchWithTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=6${countryParam}`, {}, 3500);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data?.results) && data.results.length > 0) {
-        if (targetTitle) {
-          const normTarget = normalizeCJKVariants(cleanTitle(targetTitle)).toLowerCase();
-          const match = data.results.find(r => {
-            const track = normalizeCJKVariants(r.trackName || '').toLowerCase();
-            const alb = normalizeCJKVariants(r.collectionName || '').toLowerCase();
-            return track.includes(normTarget) || normTarget.includes(track) || alb.includes(normTarget);
+        let match = null;
+        if (targetTitle || targetArtist) {
+          match = data.results.find(r => {
+            if (targetArtist && !matchArtist(r.artistName, targetArtist)) return false;
+            if (targetTitle && !matchTitle(r.trackName, targetTitle) && !matchTitle(r.collectionName, targetTitle)) return false;
+            if (hasVersionMismatch(r.trackName, targetTitle)) return false;
+            return true;
           });
-          if (match && match.artworkUrl100) {
-            return match.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
-          }
         }
-        return data.results[0].artworkUrl100?.replace('100x100bb.jpg', '600x600bb.jpg') || null;
+        if (!match && !targetArtist) {
+          match = data.results[0];
+        }
+        if (match && match.artworkUrl100) {
+          return match.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+        }
       }
     }
   } catch (err) {}
   return null;
 }
 
-async function fetchFromKugou(query) {
+async function fetchFromKugou(query, targetTitle = '', targetArtist = '') {
   try {
-    const sRes = await fetchWithTimeout(`http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=${encodeURIComponent(query)}&page=1&pagesize=1`, {}, 3500);
+    const sRes = await fetchWithTimeout(`http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=${encodeURIComponent(query)}&page=1&pagesize=6`, {}, 3500);
     if (!sRes.ok) return null;
     const sData = await sRes.json();
-    const hash = sData?.data?.info?.[0]?.hash;
-    if (!hash) return null;
-    const infoRes = await fetchWithTimeout(`http://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=${hash}`, {}, 3500);
+    const songs = sData?.data?.info;
+    if (!Array.isArray(songs) || songs.length === 0) return null;
+
+    let match = null;
+    if (targetTitle || targetArtist) {
+      match = songs.find(s => {
+        if (targetArtist && !matchArtist(s.singername, targetArtist)) return false;
+        if (targetTitle && !matchTitle(s.songname, targetTitle)) return false;
+        if (hasVersionMismatch(s.songname, targetTitle)) return false;
+        return true;
+      });
+    }
+    if (!match && (!targetArtist || matchArtist(songs[0].singername, targetArtist))) {
+      match = songs[0];
+    }
+    if (!match?.hash) return null;
+
+    const infoRes = await fetchWithTimeout(`http://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=${match.hash}`, {}, 3500);
     if (!infoRes.ok) return null;
     const info = await infoRes.json();
     const rawUrl = info.album_img || info.imgUrl;
     if (rawUrl) {
-      return rawUrl.replace('{size}', '400');
+      return rawUrl.replace('{size}', '600');
     }
   } catch (err) {}
   return null;
@@ -341,19 +393,21 @@ async function fetchCoverArt(artist, title, album = '') {
 
   const hasCJK = isCJK(`${artist} ${title}`);
 
-  // Tier 1: Clean artist + Clean title across providers
+  // Tier 1: Clean artist + Clean title across providers with strict artist verification
   const q1 = `${cArtist} ${cTitle}`.trim();
   if (q1) {
     let cover = null;
     if (hasCJK) {
-      cover = await fetchFromITunes(q1, 'TW', cTitle);
-      if (!cover) cover = await fetchFromITunes(q1, 'HK', cTitle);
-      if (!cover) cover = await fetchFromKugou(q1);
-      if (!cover) cover = await fetchFromDeezer(q1, cTitle);
+      // For CJK tracks, Kugou has by far the most accurate artwork catalog
+      cover = await fetchFromKugou(q1, cTitle, cArtist);
+      if (!cover) cover = await fetchFromITunes(q1, 'CN', cTitle, cArtist);
+      if (!cover) cover = await fetchFromITunes(q1, 'TW', cTitle, cArtist);
+      if (!cover) cover = await fetchFromITunes(q1, 'HK', cTitle, cArtist);
+      if (!cover) cover = await fetchFromDeezer(q1, cTitle, cArtist);
     } else {
-      cover = await fetchFromDeezer(q1, cTitle);
-      if (!cover) cover = await fetchFromITunes(q1, '', cTitle);
-      if (!cover) cover = await fetchFromKugou(q1);
+      cover = await fetchFromDeezer(q1, cTitle, cArtist);
+      if (!cover) cover = await fetchFromITunes(q1, '', cTitle, cArtist);
+      if (!cover) cover = await fetchFromKugou(q1, cTitle, cArtist);
     }
     if (cover) {
       coverArtCache.set(cacheKey, cover);
@@ -366,14 +420,15 @@ async function fetchCoverArt(artist, title, album = '') {
   if (qRaw && qRaw !== q1) {
     let cover = null;
     if (hasCJK) {
-      cover = await fetchFromITunes(qRaw, 'TW', title);
-      if (!cover) cover = await fetchFromITunes(qRaw, 'HK', title);
-      if (!cover) cover = await fetchFromKugou(qRaw);
-      if (!cover) cover = await fetchFromDeezer(qRaw, title);
+      cover = await fetchFromKugou(qRaw, title, artist);
+      if (!cover) cover = await fetchFromITunes(qRaw, 'CN', title, artist);
+      if (!cover) cover = await fetchFromITunes(qRaw, 'TW', title, artist);
+      if (!cover) cover = await fetchFromITunes(qRaw, 'HK', title, artist);
+      if (!cover) cover = await fetchFromDeezer(qRaw, title, artist);
     } else {
-      cover = await fetchFromDeezer(qRaw, title);
-      if (!cover) cover = await fetchFromITunes(qRaw, '', title);
-      if (!cover) cover = await fetchFromKugou(qRaw);
+      cover = await fetchFromDeezer(qRaw, title, artist);
+      if (!cover) cover = await fetchFromITunes(qRaw, '', title, artist);
+      if (!cover) cover = await fetchFromKugou(qRaw, title, artist);
     }
     if (cover) {
       coverArtCache.set(cacheKey, cover);
@@ -381,35 +436,19 @@ async function fetchCoverArt(artist, title, album = '') {
     }
   }
 
-  // Tier 3: Clean title only (critical for localized / bilingual titles)
-  if (cTitle && cTitle !== q1) {
-    let cover = null;
-    if (hasCJK) {
-      cover = await fetchFromITunes(cTitle, 'TW', cTitle);
-      if (!cover) cover = await fetchFromKugou(cTitle);
-      if (!cover) cover = await fetchFromDeezer(cTitle, cTitle);
-    } else {
-      cover = await fetchFromDeezer(cTitle, cTitle);
-      if (!cover) cover = await fetchFromITunes(cTitle, '', cTitle);
-      if (!cover) cover = await fetchFromKugou(cTitle);
-    }
-    if (cover) {
-      coverArtCache.set(cacheKey, cover);
-      return cover;
-    }
-  }
-
-  // Tier 4: Clean artist + Album if album is provided
+  // Tier 3: Clean artist + Album if album is provided
   if (album) {
     const qAlbum = `${cArtist} ${cleanTitle(album)}`.trim();
     if (qAlbum) {
       let cover = null;
       if (hasCJK) {
-        cover = await fetchFromITunes(qAlbum, 'TW', album);
-        if (!cover) cover = await fetchFromDeezer(qAlbum, album);
+        cover = await fetchFromKugou(qAlbum, album, cArtist);
+        if (!cover) cover = await fetchFromITunes(qAlbum, 'CN', album, cArtist);
+        if (!cover) cover = await fetchFromITunes(qAlbum, 'TW', album, cArtist);
+        if (!cover) cover = await fetchFromDeezer(qAlbum, album, cArtist);
       } else {
-        cover = await fetchFromDeezer(qAlbum, album);
-        if (!cover) cover = await fetchFromITunes(qAlbum, '', album);
+        cover = await fetchFromDeezer(qAlbum, album, cArtist);
+        if (!cover) cover = await fetchFromITunes(qAlbum, '', album, cArtist);
       }
       if (cover) {
         coverArtCache.set(cacheKey, cover);
@@ -525,6 +564,19 @@ function scoreCandidate(item, targetArtist, targetTitle, targetDuration) {
   } else if (candFeat.isRemix) {
     versionScore -= 30; // Target is original, candidate is remix -> downrank
   }
+
+  // D. Strictest guards for DJ, Demo, Cover, and Instrumental
+  const isTargetDj = /\bdj\b/i.test(targetTitle);
+  const isCandDj = /\bdj\b/i.test(item.trackName || '') || /\bdj\b/i.test(item.artistName || '');
+  if (!isTargetDj && isCandDj) return -1;
+
+  const isTargetDemo = /\bdemo\b/i.test(targetTitle);
+  const isCandDemo = /\bdemo\b/i.test(item.trackName || '');
+  if (!isTargetDemo && isCandDemo) return -1;
+
+  const isTargetCover = /(?:cover|翻唱|伴奏|instrumental|piano\b|acoustic)/i.test(targetTitle);
+  const isCandCover = /(?:cover|翻唱|伴奏|instrumental|piano\b|acoustic)/i.test(item.trackName || '');
+  if (!isTargetCover && isCandCover) return -1;
 
   // 4. Lyrics Quality (Favor synced)
   let lyricsScore = item.syncedLyrics ? 30 : 5;
@@ -687,22 +739,30 @@ async function getLyricsFromKugou(rawArtist, rawTitle, album, duration) {
 
   for (const query of uniqueQueries) {
     try {
-      const searchUrl = `http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=${encodeURIComponent(query)}&page=1&pagesize=6`;
+      const searchUrl = `http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=${encodeURIComponent(query)}&page=1&pagesize=8`;
       const sRes = await fetchWithTimeout(searchUrl, {}, 4000);
       if (!sRes.ok) continue;
       const sData = await sRes.json();
       const songs = sData?.data?.info;
       if (!Array.isArray(songs) || songs.length === 0) continue;
 
-      // Pick best matching song based on duration & remix status
-      let selectedSong = songs[0];
+      // Filter out songs with artist mismatch or unwanted DJ/Demo/Remix
+      const validSongs = songs.filter(s => {
+        if (artist && !matchArtist(s.singername, artist)) return false;
+        if (title && !matchTitle(s.songname, title)) return false;
+        if (hasVersionMismatch(s.songname, title)) return false;
+        return true;
+      });
+      const candidatesList = validSongs.length > 0 ? validSongs : (artist ? [] : songs);
+      if (candidatesList.length === 0) continue;
+
+      let selectedSong = candidatesList[0];
       if (duration && duration > 0) {
         const maxDelta = targetFeat.isRemix ? 4 : 6;
-        const matched = songs.find(s => typeof s.duration === 'number' && Math.abs(s.duration - duration) <= maxDelta);
+        const matched = candidatesList.find(s => typeof s.duration === 'number' && Math.abs(s.duration - duration) <= maxDelta);
         if (matched) {
           selectedSong = matched;
         } else if (targetFeat.isRemix) {
-          // If playing a remix and no song matches duration, don't blindly accept original song with wrong duration
           continue;
         }
       }
@@ -760,17 +820,28 @@ async function getLyricsFromQQ(rawArtist, rawTitle, album, duration) {
 
   for (const query of uniqueQueries) {
     try {
-      const sUrl = `https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=${encodeURIComponent(query)}&format=json&n=3`;
+      const sUrl = `https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=${encodeURIComponent(query)}&format=json&n=6`;
       const sRes = await fetchWithTimeout(sUrl, {}, 3500);
       if (!sRes.ok) continue;
       const sData = await sRes.json();
       const songs = sData?.data?.song?.list;
       if (!Array.isArray(songs) || songs.length === 0) continue;
 
-      let song = songs[0];
+      // Filter out songs with artist mismatch or unwanted DJ/Demo/Remix
+      const validSongs = songs.filter(s => {
+        const singerNames = (s.singer || []).map(sg => sg.name).join(' ');
+        if (artist && !matchArtist(singerNames, artist)) return false;
+        if (title && !matchTitle(s.songname, title)) return false;
+        if (hasVersionMismatch(s.songname, title)) return false;
+        return true;
+      });
+      const candidatesList = validSongs.length > 0 ? validSongs : (artist ? [] : songs);
+      if (candidatesList.length === 0) continue;
+
+      let song = candidatesList[0];
       if (duration && duration > 0) {
         const maxDelta = targetFeat.isRemix ? 4 : 8;
-        const matched = songs.find(s => typeof s.interval === 'number' && Math.abs(s.interval - duration) <= maxDelta);
+        const matched = candidatesList.find(s => typeof s.interval === 'number' && Math.abs(s.interval - duration) <= maxDelta);
         if (matched) song = matched;
         else if (targetFeat.isRemix) continue;
       }

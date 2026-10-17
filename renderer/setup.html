@@ -15,10 +15,7 @@
     <!-- Window Custom Titlebar -->
     <header class="setup-titlebar">
       <div class="titlebar-left">
-        <svg class="titlebar-icon" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="9" stroke="#ff3040" stroke-width="2.2" stroke-dasharray="14 3"/>
-          <rect x="9.5" y="9.5" width="5" height="5" rx="1.5" transform="rotate(45 12 12)" fill="#ff3040"/>
-        </svg>
+        <img class="titlebar-icon" src="../assets/icon.png" alt="overLy">
         <span class="titlebar-text">overLy Setup</span>
       </div>
       <div class="titlebar-controls">
@@ -38,55 +35,57 @@
         <!-- Top Branding -->
         <div class="sidebar-brand-header">
           <div class="brand-logo-disc">
-            <svg class="brand-logo-svg" viewBox="0 0 100 100" fill="none">
-              <circle cx="50" cy="50" r="38" stroke="#1f2937" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="148 55" transform="rotate(-30 50 50)"/>
-              <circle cx="78" cy="27" r="7.5" fill="#ff3040"/>
-              <rect x="37" y="37" width="26" height="26" rx="7" transform="rotate(45 50 50)" fill="#ff3040"/>
-            </svg>
+            <img class="brand-logo-img" src="../assets/icon.png" alt="overLy">
           </div>
           <div class="brand-text-row">
             <span class="brand-text-main">over</span><span class="brand-text-accent">Ly</span>
           </div>
+          <p class="brand-tagline">Floating lyrics for Windows</p>
         </div>
 
-        <!-- Music & Lyrics Preview Card -->
-        <div class="lyrics-preview-card" aria-hidden="true">
-          <div class="preview-card-header">
-            <!-- Blurred Album Cover filled with vibrant dynamic color -->
-            <div class="preview-album-art">
-              <div class="album-art-color-layer"></div>
-              <div class="album-art-glow"></div>
+        <!-- Authentic overLy Floating Card Overlay Preview (Mosaiced with Colorful Pills) -->
+        <div class="app-floating-card mosaic-floating-card" aria-hidden="true">
+          <!-- Track Info Row: Mosaic Album Art & Title / Artist Pills -->
+          <div class="preview-track-row">
+            <div class="preview-album-art mosaic-art">
+              <div class="mosaic-art-pills">
+                <span class="art-pill pill-red"></span>
+                <span class="art-pill pill-pink"></span>
+                <span class="art-pill pill-purple"></span>
+                <span class="art-pill pill-cyan"></span>
+              </div>
             </div>
-
-            <!-- Blurred Pill Bars replacing Song Title & Artist -->
-            <div class="preview-track-meta">
-              <div class="pill-bar pill-title"></div>
-              <div class="pill-bar pill-artist"></div>
-            </div>
-
-            <!-- Heart Icon -->
-            <div class="preview-heart-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-              </svg>
+            <div class="preview-track-meta mosaic-meta">
+              <div class="mosaic-pill title-pill"></div>
+              <div class="mosaic-pill artist-pill"></div>
             </div>
           </div>
 
-          <!-- Progress Bar & Timestamps -->
-          <div class="preview-scrubber-track">
-            <div class="preview-scrubber-fill"></div>
-          </div>
-          <div class="preview-scrubber-times">
-            <span>2:14</span>
-            <span>4:03</span>
+          <!-- Synced Lyrics Section: Different Color Rounded Pill Shapes -->
+          <div class="preview-lyrics-stack mosaic-lyrics">
+            <div class="mosaic-lyric-row row-prev">
+              <span class="mosaic-pill pill-dim pill-w36"></span>
+              <span class="mosaic-pill pill-soft-blue pill-w54"></span>
+              <span class="mosaic-pill pill-dim pill-w40"></span>
+            </div>
+            <div class="mosaic-lyric-row row-active">
+              <span class="mosaic-pill pill-red-glow pill-w38"></span>
+              <span class="mosaic-pill pill-pink-glow pill-w56"></span>
+              <span class="mosaic-pill pill-purple-glow pill-w44"></span>
+              <span class="mosaic-pill pill-cyan-glow pill-w34"></span>
+            </div>
+            <div class="mosaic-lyric-row row-next">
+              <span class="mosaic-pill pill-dim pill-w42"></span>
+              <span class="mosaic-pill pill-soft-amber pill-w48"></span>
+              <span class="mosaic-pill pill-dim pill-w38"></span>
+            </div>
           </div>
 
-          <!-- Blurred Pill Bars replacing Lyrics -->
-          <div class="preview-lyrics-lines">
-            <div class="pill-bar lyric-pill lyric-1"></div>
-            <div class="pill-bar lyric-pill lyric-active"></div>
-            <div class="pill-bar lyric-pill lyric-3"></div>
-            <div class="pill-bar lyric-pill lyric-4"></div>
+          <!-- Progress Row -->
+          <div class="preview-progress-row">
+            <div class="preview-progress-track">
+              <div class="preview-progress-fill"></div>
+            </div>
           </div>
         </div>
       </aside>
@@ -135,12 +134,12 @@
             <!-- Feature 3 -->
             <div class="feature-item">
               <div class="feature-icon-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <circle cx="13.5" cy="6.5" r="1.5" fill="#ff3040"/>
-                  <circle cx="17.5" cy="10.5" r="1.5" fill="currentColor"/>
-                  <circle cx="8.5" cy="7.5" r="1.5" fill="currentColor"/>
-                  <circle cx="6.5" cy="12.5" r="1.5" fill="currentColor"/>
-                  <path d="M12 2C6.5 2 2 6.5 2 12c0 3.5 2.2 6.5 5.5 7.5.5.1.8-.3.8-.7v-1.1c0-.9.7-1.7 1.7-1.7h1c2.8 0 5-2.2 5-5 0-4.9-4-9-9-9z"/>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2a10 10 0 1 0 10 10c0-.8-.3-1.6-.9-2.1-.6-.6-.9-1.4-.9-2.2 0-1.1.9-2 2-2h.8A10 10 0 0 0 12 2z"/>
+                  <circle cx="8" cy="10" r="1.5" fill="#ff3040" stroke="none"/>
+                  <circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none"/>
+                  <circle cx="16" cy="10" r="1.5" fill="currentColor" stroke="none"/>
+                  <circle cx="9.5" cy="14.5" r="1.5" fill="currentColor" stroke="none"/>
                 </svg>
               </div>
               <div class="feature-text">

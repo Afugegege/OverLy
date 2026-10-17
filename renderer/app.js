@@ -512,7 +512,8 @@ function persistSettings() {
       autoMinimizeDelay: state.autoMinimizeDelay,
       autoMinimizeExpand: state.autoMinimizeExpand,
       autoMinimizeRehide: state.autoMinimizeRehide,
-      immersiveLayout: state.immersiveLayout
+      immersiveLayout: state.immersiveLayout,
+      hasCompletedSetup: true
     });
   }
 }
@@ -905,17 +906,7 @@ function setupEventListeners() {
     triggerLockAlert();
   }, true);
 
-  // When unlocked, pass through clicks in the transparent top 30px buffer above the card to background apps
-  window.addEventListener('pointermove', (e) => {
-    if (state.isLocked || state.isImmersive || state.mode === 'minimized') return;
-    const isAboveCard = e.clientY < 30;
-    if (isAboveCard) {
-      window.overlyAPI?.setTempIgnoreMouseEvents?.(true);
-    } else {
-      window.overlyAPI?.setTempIgnoreMouseEvents?.(false);
-    }
-  });
-
+  // Ensure window is interactive and not ignoring mouse events when unlocked
   if (overlayContainer) {
     overlayContainer.addEventListener('pointerenter', () => {
       if (!state.isLocked && window.overlyAPI?.setTempIgnoreMouseEvents) {
@@ -2614,78 +2605,111 @@ function updatePillBorderGradient(extractedColors = null) {
   if (!grad1 || !grad2) return;
 
   const isLight = document.body.classList.contains('theme-light');
+  const isAutoTheme = (state.accentColor === 'auto');
+  const shouldAdaptAlbum = isAutoTheme && (state.adaptAlbumColor !== false);
 
-  // Tune extracted album art colors to be vibrant, luminous and crisp on translucent glass
-  const tuneForBorder = (color, defaultLum = 0.62) => {
+  // Tune colors for glass overlay readability WITHOUT changing hue or forced saturation
+  const tuneForBorder = (color, minLum = 0.45, maxLum = 0.85) => {
     if (!color) return null;
     try {
       const rgb = hexToRgb(color);
       if (!rgb) return color;
       const hsl = hexToHsl(color);
       if (isLight) {
-        // Light mode: high-contrast readability against light glass (L ~ 0.28-0.45)
-        const l = Math.min(0.45, Math.max(0.28, hsl.l));
-        const s = Math.max(0.50, hsl.s);
-        return hslToHex(hsl.h, s, l);
+        // Light mode: high-contrast readability against light glass (L ~ 0.24-0.48)
+        const l = Math.min(0.48, Math.max(0.24, hsl.l));
+        return hslToHex(hsl.h, hsl.s, l);
       } else {
-        // Dark mode: jewel-toned glowing radiance (L ~ 0.58-0.76, S >= 0.55)
-        const l = Math.max(defaultLum, Math.min(0.76, hsl.l < 0.38 ? defaultLum : hsl.l));
-        const s = Math.max(0.55, hsl.s < 0.20 ? 0.65 : hsl.s);
-        return hslToHex(hsl.h, s, l);
+        // Dark mode: preserve authentic hue and natural saturation; ensure adequate luminosity
+        const l = Math.max(minLum, Math.min(maxLum, hsl.l));
+        return hslToHex(hsl.h, hsl.s, l);
       }
     } catch (_) {
       return color;
     }
   };
 
+  let stop1 = null;
+  let stop2 = null;
+  let stop3 = null;
+
   const colors = state.extractedCoverColors;
-  if (state.hasMedia && colors && (colors.primary || colors.accent)) {
+  if (shouldAdaptAlbum && state.hasMedia && colors && (colors.primary || colors.accent)) {
     const rawPrimary = colors.primary || colors.accent;
-    const rawSecondary = colors.secondary || colors.accent || rawPrimary;
-    const rawTertiary = colors.tertiary || colors.accent || colors.primary;
+    const rawSecondary = colors.secondary || null;
+    const rawTertiary = colors.tertiary || null;
 
-    const stop1 = tuneForBorder(rawPrimary, 0.60);
-    let stop2 = tuneForBorder(rawSecondary, 0.65);
-    let stop3 = tuneForBorder(rawTertiary, 0.70);
+    stop1 = tuneForBorder(rawPrimary, 0.48, 0.78);
 
-    // If stop1 and stop2 lack chromatic variance, apply a harmonic hue shift for a rich gradient
-    if (stop1 === stop2) {
+    if (rawSecondary && rawSecondary !== rawPrimary) {
+      stop3 = tuneForBorder(rawSecondary, 0.52, 0.82);
+    }
+    if (!stop3 || stop3 === stop1) {
+      // Natural harmonious highlight derived from stop1 without changing hue
       try {
         const hVal = hexToHsl(stop1);
-        const shiftedHue = (hVal.h + 0.12) % 1.0;
-        stop2 = hslToHex(shiftedHue, Math.max(0.60, hVal.s), isLight ? 0.38 : 0.68);
-      } catch (_) {}
-    }
-
-    // Ensure stop3 provides a distinct right-side tone
-    if (!colors.tertiary || stop3 === stop1 || stop3 === stop2) {
-      try {
-        const hVal = hexToHsl(stop2 || stop1);
-        const shiftedHue = (hVal.h + 0.08) % 1.0;
-        stop3 = hslToHex(shiftedHue, Math.max(0.60, hVal.s), isLight ? 0.42 : 0.72);
+        const l = isLight ? Math.max(0.20, hVal.l - 0.12) : Math.min(0.85, hVal.l + 0.16);
+        stop3 = hslToHex(hVal.h, hVal.s, l);
       } catch (_) {
-        stop3 = stop2;
+        stop3 = stop1;
       }
     }
 
-    grad1.setAttribute('stop-color', stop1);
-    grad2.setAttribute('stop-color', stop2);
-    if (grad3) {
-      grad3.setAttribute('stop-color', stop3);
+    if (rawTertiary && rawTertiary !== rawPrimary && rawTertiary !== rawSecondary) {
+      stop2 = tuneForBorder(rawTertiary, 0.50, 0.80);
+    }
+    if (!stop2 || stop2 === stop1 || stop2 === stop3) {
+      // Clean RGB midpoint between stop1 and stop3
+      try {
+        const rgb1 = hexToRgb(stop1);
+        const rgb3 = hexToRgb(stop3);
+        const midR = Math.round((rgb1.r + rgb3.r) / 2);
+        const midG = Math.round((rgb1.g + rgb3.g) / 2);
+        const midB = Math.round((rgb1.b + rgb3.b) / 2);
+        stop2 = rgbToHex(midR, midG, midB);
+      } catch (_) {
+        stop2 = stop1;
+      }
     }
   } else {
-    // Fallback when no media or no album art: use active app accent tokens
+    // When manual theme is selected or when no media / album art:
+    // Follow the active app theme tokens directly!
     const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff3366';
     const accentLight = getComputedStyle(document.documentElement).getPropertyValue('--accent-light').trim() || accent;
-    const tunedAccent = tuneForBorder(accent, 0.60);
-    const tunedLight = tuneForBorder(accentLight, 0.70);
+    const accentText = getComputedStyle(document.documentElement).getPropertyValue('--accent-text').trim() || accent;
 
-    grad1.setAttribute('stop-color', tunedAccent);
-    grad2.setAttribute('stop-color', tunedLight);
-    if (grad3) {
-      grad3.setAttribute('stop-color', tunedAccent);
+    stop1 = accentText || accent;
+    stop3 = accentLight || accent;
+
+    try {
+      const rgb1 = hexToRgb(stop1);
+      const rgb3 = hexToRgb(stop3);
+      if (rgb1 && rgb3) {
+        const midR = Math.round((rgb1.r + rgb3.r) / 2);
+        const midG = Math.round((rgb1.g + rgb3.g) / 2);
+        const midB = Math.round((rgb1.b + rgb3.b) / 2);
+        stop2 = rgbToHex(midR, midG, midB);
+      } else {
+        stop2 = stop1;
+      }
+    } catch (_) {
+      stop2 = stop1;
     }
   }
+
+  // Update SVG gradient stops and CSS custom properties
+  grad1.setAttribute('stop-color', stop1);
+  grad1.style.stopColor = stop1;
+  grad2.setAttribute('stop-color', stop2);
+  grad2.style.stopColor = stop2;
+  if (grad3) {
+    grad3.setAttribute('stop-color', stop3);
+    grad3.style.stopColor = stop3;
+  }
+
+  document.documentElement.style.setProperty('--pill-stop-1', stop1);
+  document.documentElement.style.setProperty('--pill-stop-2', stop2);
+  document.documentElement.style.setProperty('--pill-stop-3', stop3);
 }
 
 function getNeutralAccentColor() {
@@ -3225,7 +3249,7 @@ function renderTrackInfo() {
 }
 
 function hasAnyLyrics() {
-  if (state.hasSynced && state.lyrics && state.lyrics.length > 0) return true;
+  if (state.lyrics && state.lyrics.length > 0) return true;
   if (state.plainLyrics && state.plainLyrics.trim().length > 0) return true;
   return false;
 }
@@ -3237,7 +3261,7 @@ function isInstrumentalOrNoLyrics() {
   // If actively fetching lyrics, do NOT treat as instrumental yet
   if (state.isFetchingLyrics) return false;
 
-  const hasSynced = Boolean(state.hasSynced && state.lyrics && state.lyrics.length > 0);
+  const hasSynced = Boolean(state.lyrics && state.lyrics.length > 0);
   const hasPlain = Boolean(state.plainLyrics && state.plainLyrics.trim().length > 0);
 
   // If literally 0 lyrics found after fetching completed
@@ -3315,7 +3339,8 @@ function updatePillInstrumentalView() {
   const isInst = !hasLyrics && isInstrumentalOrNoLyrics();
 
   if (hasLyrics) {
-    // If lyrics are available, STRICTLY show lyrics row and NEVER audio visualizer
+    // If lyrics are available, STRICTLY show lyrics row and NEVER audio visualizer or retry
+    document.body.classList.remove('no-lyrics-collapsed');
     pillVisWrap.style.display = 'none';
     if (pillLyricWrap) pillLyricWrap.style.display = 'flex';
     pillText.style.display = '';
@@ -3325,7 +3350,7 @@ function updatePillInstrumentalView() {
 
     // Ensure pill text shows lyrics immediately
     if (!pillText.textContent || pillText.textContent === 'Searching lyrics...' || pillText.textContent === 'No lyrics' || pillText.textContent === 'Listening for playback') {
-      if (state.hasSynced && state.lyrics.length > 0) {
+      if (state.lyrics && state.lyrics.length > 0) {
         const idx = state.activeLyricIndex >= 0 ? state.activeLyricIndex : 0;
         pillText.textContent = state.lyrics[idx]?.text || state.title;
       }
@@ -3336,6 +3361,7 @@ function updatePillInstrumentalView() {
 
   if (isInst) {
     // Confirmed pure instrumental or 0 lyrics: show visualizer
+    document.body.classList.add('no-lyrics-collapsed');
     if (pillLyricWrap) pillLyricWrap.style.display = 'none';
     pillText.style.display = 'none';
     pillVisWrap.style.display = 'flex';
@@ -3349,6 +3375,7 @@ function updatePillInstrumentalView() {
     }
   } else {
     // Searching or loading: show text without visualizer
+    document.body.classList.remove('no-lyrics-collapsed');
     pillVisWrap.style.display = 'none';
     if (pillLyricWrap) pillLyricWrap.style.display = 'flex';
     pillText.style.display = '';
@@ -3849,8 +3876,9 @@ function updatePillLyric(text) {
   const pillEqualizer = document.getElementById('pillLyricEqualizer');
 
   if (hasAnyLyrics()) {
-    // There ARE lyrics: strictly display lyric text, NEVER visualizer
-    if (pillVisWrap && pillVisWrap.style.display !== 'none') {
+    document.body.classList.remove('no-lyrics-collapsed');
+    // There ARE lyrics: strictly display lyric text, NEVER visualizer or retry
+    if (pillVisWrap) {
       pillVisWrap.style.display = 'none';
     }
     if (pillLyricWrap && pillLyricWrap.style.display !== 'flex') {
@@ -3872,12 +3900,14 @@ function updatePillLyric(text) {
   }
 
   if (isInstrumentalOrNoLyrics()) {
+    document.body.classList.add('no-lyrics-collapsed');
     updatePillInstrumentalView();
     return;
   }
 
+  document.body.classList.remove('no-lyrics-collapsed');
   // Ensure pill lyric container and wrap are visible and visualizer is hidden
-  if (pillVisWrap && pillVisWrap.style.display !== 'none') {
+  if (pillVisWrap) {
     pillVisWrap.style.display = 'none';
   }
   if (pillLyricWrap && pillLyricWrap.style.display !== 'flex') {

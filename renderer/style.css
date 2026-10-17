@@ -1294,6 +1294,18 @@ body.theme-light .pill-border-track {
   will-change: stroke-dashoffset, opacity;
 }
 
+#pillGradStop1 {
+  stop-color: var(--pill-stop-1, var(--accent));
+}
+
+#pillGradStop2 {
+  stop-color: var(--pill-stop-2, var(--accent-light, var(--accent)));
+}
+
+#pillGradStop3 {
+  stop-color: var(--pill-stop-3, var(--accent-light, var(--accent)));
+}
+
 body.mode-pill .top-bar,
 body.mode-collapsed .top-bar {
   display: none !important; /* Collapsed Pill is super compact */
@@ -1311,6 +1323,7 @@ body.mode-collapsed .overlay-main {
 
 body.mode-pill .track-header,
 body.mode-collapsed .track-header {
+  position: static !important;
   height: 100%;
   display: flex;
   align-items: center;
@@ -3355,6 +3368,22 @@ body.mode-collapsed .media-controls #btnPillSearch {
   display: none !important;
 }
 
+/* Strictly hide visualizer & retry button in pill view whenever lyrics are present */
+body:not(.no-lyrics-collapsed) #pillVisualizer,
+body:not(.no-lyrics-collapsed) .pill-visualizer-wrap,
+body:not(.no-lyrics-collapsed) #btnPillVisRetry {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Strictly hide lyric text wrap when in instrumental / no-lyrics mode */
+body.no-lyrics-collapsed #pillLyricWrap,
+body.no-lyrics-collapsed #pillLyricText {
+  display: none !important;
+}
+
 /* ==========================================================================
    OverLy — Immersive Mode (Fullscreen Cinematic Lyrics Experience)
    ========================================================================== */
@@ -3933,6 +3962,10 @@ body.fetching-lyrics .vinyl-disc-graphic {
   justify-content: center;
   min-width: 0;
   position: relative;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -3942,8 +3975,13 @@ body.fetching-lyrics .vinyl-disc-graphic {
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
-  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.25) 5%, black 18%, black 82%, rgba(0, 0, 0, 0.25) 95%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.25) 5%, black 18%, black 82%, rgba(0, 0, 0, 0.25) 95%, transparent 100%);
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
   scroll-behavior: smooth;
   scrollbar-width: none;
 }
@@ -4477,3 +4515,43 @@ body.is-unfetched .unfetched-stage {
     opacity: 0.55;
   }
 }
+
+/* ==========================================================================
+   Complete Elimination of Square Shadows across All Layouts & Lyrics Views
+   ========================================================================== */
+html,
+body,
+.overlay-container,
+#overlayContainer,
+.lyrics-scroll-area,
+#lyricsScrollArea,
+.lyrics-list,
+#lyricsList,
+.immersive-view,
+#immersiveView,
+.immersive-stage,
+.immersive-right,
+.immersive-lyrics-viewport,
+.immersive-lyrics-list,
+body.mode-card .overlay-container,
+body.mode-normal .overlay-container,
+body.mode-pill .overlay-container,
+body.mode-collapsed .overlay-container,
+body.mode-lyrics .overlay-container,
+body.mode-expanded .overlay-container,
+body.mode-minimized .overlay-container,
+body.mode-immersive .overlay-container {
+  box-shadow: none !important;
+}
+
+.lyrics-scroll-area,
+.lyrics-list,
+.immersive-lyrics-viewport,
+.immersive-lyrics-list {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+

@@ -60,7 +60,7 @@ const defaultSettings = {
   autoMinimizeRehide: true,
   visualizerStyle: 'spectrum', // 'spectrum' | 'wave' | 'pulse' | 'minimal'
   immersiveLayout: 'split', // 'split' | 'centered'
-  hasCompletedSetup: false
+  hasCompletedSetup: true
 };
 
 const ALLOWED_SETTING_KEYS = new Set([
@@ -104,7 +104,10 @@ function saveSettings(settings) {
       clearTimeout(debouncedSaveSettingsTimer);
       debouncedSaveSettingsTimer = null;
     }
-    const sanitized = sanitizeSettings(settings);
+    const current = cachedSettings || (fs.existsSync(settingsPath) ? loadSettings() : defaultSettings);
+    const merged = { ...current, ...(settings || {}) };
+    merged.hasCompletedSetup = true;
+    const sanitized = sanitizeSettings(merged);
     cachedSettings = sanitized;
     fs.writeFileSync(settingsPath, JSON.stringify(sanitized, null, 2), 'utf8');
   } catch (e) {
@@ -114,7 +117,10 @@ function saveSettings(settings) {
 
 function debouncedSaveSettings(settings, delay = 350) {
   try {
-    cachedSettings = sanitizeSettings(settings);
+    const current = cachedSettings || loadSettings();
+    const merged = { ...current, ...(settings || {}) };
+    merged.hasCompletedSetup = true;
+    cachedSettings = sanitizeSettings(merged);
   } catch (_) {}
   if (debouncedSaveSettingsTimer) {
     clearTimeout(debouncedSaveSettingsTimer);
@@ -211,7 +217,7 @@ function createWindow() {
     resizable: false,
     maximizable: false,
     skipTaskbar: false,
-    show: Boolean(settings.hasCompletedSetup && !process.argv.includes('--setup')),
+    show: !process.argv.includes('--setup'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -229,7 +235,8 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  if (!settings.hasCompletedSetup || process.argv.includes('--setup')) {
+  const isSetupExplicit = process.argv.includes('--setup');
+  if (isSetupExplicit) {
     setTimeout(() => {
       openSetupWindow();
     }, 350);
@@ -833,6 +840,11 @@ function openSetupWindow() {
 
   setupWindow.on('closed', () => {
     setupWindow = null;
+    const s = loadSettings();
+    if (!s.hasCompletedSetup) {
+      s.hasCompletedSetup = true;
+      saveSettings(s);
+    }
     if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
       mainWindow.show();
       mainWindow.focus();
@@ -854,6 +866,11 @@ ipcMain.on('close-setup-wizard', () => {
   if (setupWindow && !setupWindow.isDestroyed()) {
     setupWindow.close();
     setupWindow = null;
+  }
+  const s = loadSettings();
+  if (!s.hasCompletedSetup) {
+    s.hasCompletedSetup = true;
+    saveSettings(s);
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.show();
@@ -927,7 +944,9 @@ ipcMain.on('set-click-through', (_event, locked) => {
 ipcMain.on('set-always-on-top', (_event, pinned) => {
   isAlwaysOnTop = Boolean(pinned);
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.setAlwaysOnTop(isAlwaysOnTop, isAlwaysOnTop ? 'screen-saver' : 'normal');
+    if (!isImmersiveMode) {
+      mainWindow.setAlwaysOnTop(isAlwaysOnTop, isAlwaysOnTop ? 'screen-saver' : 'normal');
+    }
   }
   updateTray();
 });
@@ -951,8 +970,9 @@ ipcMain.on('enter-immersive', (_event, fromAutoMinRestore) => {
   }
 
   isImmersiveMode = true;
-  mainWindow.setResizable(true);
-  mainWindow.setMaximizable(true);
+  mainWindow.setHasShadow(false);
+  mainWindow.setResizable(false);
+  mainWindow.setMaximizable(false);
   mainWindow.setMinimumSize(60, 60);
   mainWindow.setMaximumSize(10000, 10000);
 
@@ -960,9 +980,8 @@ ipcMain.on('enter-immersive', (_event, fromAutoMinRestore) => {
   mainWindow.setBounds(display.bounds);
   mainWindow.setFullScreen(true);
 
-  if (isAlwaysOnTop) {
-    mainWindow.setAlwaysOnTop(true, 'screen-saver');
-  }
+  // In full screen mode it should NOT be pinned, it will just be a normal window
+  mainWindow.setAlwaysOnTop(false);
   mainWindow.webContents.send('immersive-mode-changed', true);
 });
 
@@ -972,8 +991,15 @@ ipcMain.on('exit-immersive', (_event, restoreBounds) => {
 
   mainWindow.setFullScreen(false);
   mainWindow.setMaximizable(false);
+  mainWindow.setResizable(false);
+  mainWindow.setHasShadow(false);
+
+  // Restore always-on-top pin state if enabled in settings
+  if (isAlwaysOnTop) {
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  }
+
   if (restoreBounds === false) {
-    mainWindow.setResizable(false);
     mainWindow.webContents.send('immersive-mode-changed', false);
     return;
   }
@@ -983,10 +1009,12 @@ ipcMain.on('exit-immersive', (_event, restoreBounds) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setBounds(target);
         mainWindow.setResizable(false);
+        mainWindow.setHasShadow(false);
       }
     }, 60);
   } else {
     mainWindow.setResizable(false);
+    mainWindow.setHasShadow(false);
   }
   mainWindow.webContents.send('immersive-mode-changed', false);
 });
@@ -1654,9 +1682,15 @@ nativeTheme.on('updated', () => {
   }
 });
 
+const manualTrackOverrides = new Map();
+
 ipcMain.on('apply-manual-lyrics', (_event, trackData) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     currentTrackData = trackData;
+    if (lastMediaData?.title) {
+      const trackKey = `${(lastMediaData.artist || '').toLowerCase()}:::${lastMediaData.title.toLowerCase()}`;
+      manualTrackOverrides.set(trackKey, trackData);
+    }
     mainWindow.webContents.send('manual-lyrics-applied', trackData);
   }
 });
@@ -1680,7 +1714,12 @@ ipcMain.handle('manual-search-lyrics', async (_event, payload) => {
   const title = typeof payload.title === 'string' ? payload.title.slice(0, 300) : '';
   const artist = typeof payload.artist === 'string' ? payload.artist.slice(0, 300) : '';
   if (!title && !artist) return null;
-  return await lyricsService.getTrackData(artist, title, '', 0, true);
+  const res = await lyricsService.getTrackData(artist, title, '', 0, true);
+  if (res && lastMediaData?.title) {
+    const trackKey = `${(lastMediaData.artist || '').toLowerCase()}:::${lastMediaData.title.toLowerCase()}`;
+    manualTrackOverrides.set(trackKey, { ...res, manualSearchQuery: { title, artist } });
+  }
+  return res;
 });
 
 ipcMain.handle('retry-lyrics', async () => {
@@ -1688,11 +1727,22 @@ ipcMain.handle('retry-lyrics', async () => {
     smtcService.sendCommand('refresh');
   }
   if (!lastMediaData || !lastMediaData.title) return null;
-  const artist = lastMediaData.artist || '';
-  const title = lastMediaData.title || '';
+  let artist = lastMediaData.artist || '';
+  let title = lastMediaData.title || '';
   const album = lastMediaData.album || '';
   const duration = lastMediaData.duration || 0;
   const trackKey = `${artist.toLowerCase()}:::${title.toLowerCase()}`;
+
+  // If user previously manually applied lyrics or searched for this track, honor that query / override!
+  let manualQuery = null;
+  if (manualTrackOverrides.has(trackKey)) {
+    const override = manualTrackOverrides.get(trackKey);
+    if (override?.manualSearchQuery) {
+      manualQuery = override.manualSearchQuery;
+      artist = manualQuery.artist || artist;
+      title = manualQuery.title || title;
+    }
+  }
 
   if (currentTrackData) {
     currentTrackData.isFetchingLyrics = true;
@@ -1714,6 +1764,9 @@ ipcMain.handle('retry-lyrics', async () => {
         coverUrl: freshData.coverUrl || nativeThumb,
         isFetchingLyrics: false
       };
+      if (manualQuery) {
+        manualTrackOverrides.set(trackKey, { ...currentTrackData, manualSearchQuery: manualQuery });
+      }
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('media-update', {
           ...lastMediaData,
