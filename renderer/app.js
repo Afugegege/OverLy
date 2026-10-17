@@ -2243,6 +2243,13 @@ function contractMiniDrawerWindow(immediate = false) {
 }
 
 function getTargetWindowDimensions(mode = state.mode) {
+  const isIdle = (!state.hasMedia || !state.title);
+  if (isIdle && !state.isImmersive) {
+    if (mode === 'minimized' || mode === 'mini') {
+      return { width: 56, height: 56 };
+    }
+    return { width: 420, height: 76 };
+  }
   if (mode === 'minimized' || mode === 'mini') {
     return { width: 56, height: 56 };
   } else if (mode === 'collapsed' || mode === 'pill') {
@@ -3110,6 +3117,8 @@ function renderTrackInfo() {
 
   updatePillHoverTitle();
 
+  const wasUnfetched = document.body.classList.contains('is-unfetched');
+
   if (!state.hasMedia || !state.title) {
     document.body.classList.add('is-unfetched');
     trackTitle.textContent = 'No playing';
@@ -3119,6 +3128,9 @@ function renderTrackInfo() {
     updatePillLyricsBadge();
     if (state.mode !== 'minimized') {
       updatePillLyric('');
+    }
+    if (!wasUnfetched) {
+      updateWindowDimensionsForLyrics();
     }
     if (state.lastExtractedPrimary || state.extractedCoverColors) {
       state.lastExtractedPrimary = null;
@@ -3145,6 +3157,9 @@ function renderTrackInfo() {
   }
 
   document.body.classList.remove('is-unfetched');
+  if (wasUnfetched) {
+    updateWindowDimensionsForLyrics();
+  }
 
   trackTitle.textContent = state.title;
   trackArtist.textContent = state.artist || 'Unknown Artist';

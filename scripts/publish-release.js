@@ -25,7 +25,7 @@ const owner = 'Afugegege';
 const repo = 'OverLy';
 const pkg = require('../package.json');
 const tag = 'v' + pkg.version;
-const releaseName = `overLy ${tag} — Setup Polish, Unpinned Fullscreen & Accurate Lyrics/Art Matching`;
+const releaseName = `overLy ${tag} — Compact Idle Bar & Setup Installer Integration`;
 
 const distDir = path.join(__dirname, '..', 'dist');
 
@@ -41,21 +41,17 @@ function getReleaseBody() {
   const checksums = getChecksumContent();
   return `## What's Changed in ${tag}
 
-### 🖥️ Fullscreen Window Behavior
-- **Windowed Fullscreen**: When entering Immersive Fullscreen mode, overLy is no longer pinned/always-on-top, behaving like a regular full-screen window that respects Alt-Tab and multitasking. Exiting fullscreen restores your desired pin state.
+### 🪟 Compact Idle State (No Empty Void)
+- **Sleek 76px Idle Bar**: When nothing is playing, the overlay automatically collapses into a sleek, minimalist 76px compact bar instead of occupying a huge empty screen void (such as the 490px expanded card).
+- **Smooth Auto-Expansion**: The moment media starts playing, overLy smoothly animates and blooms into your chosen layout mode (Card, Expanded, Lyrics, or Pill) with full art, lyrics, and controls.
 
-### 🎨 Shadow-Free Clean Aesthetic
-- **Zero Square Shadows Across All Layouts**: Completely removed the dark rectangular compositor boundary artifact in immersive mode, and enforced zero drop shadows behind the lyrics viewport and window across Card, Pill, Lyrics, Minimized, and Immersive layouts.
-- **Frameless Window Consistency**: Removed native Windows DWM window resizing drop shadows on transparent surfaces.
+### ⚙️ Setup Exe Installer Hook
+- **Launch Setup from Installer**: Running \`overLy Setup ...exe\` now reliably launches the Setup Wizard upon installation completion so you can configure layout and preferences immediately.
+- **Normal Startup Silence**: Normal launches (from shortcut, start menu, tray, or autostart) never pop up the setup wizard.
 
-### 🎵 High-Accuracy Lyrics & Album Artwork Matching
-- **Strict Artist Verification**: Fixed iTunes, Deezer, and Kugou artwork matchers to strictly verify artist names, completely preventing unrelated songs with similar titles from being fetched.
-- **DJ, Demo & Cover Guards**: Added strict mismatch guards so original songs are never hijacked by DJ mixes, demos, instrumental backing tracks, or covers (and vice versa).
-- **Persistent Toolbar Refetch**: Toolbar refetch now remembers manual lyric queries instead of falling back to raw uncleaned strings.
-
-### ⚙️ Setup Wizard Improvements
-- **First-Run Persistence**: Fixed setup wizard auto-popup so it only appears once on initial installation and does not pop up on every subsequent launch.
-- **Minimalist Balanced Design**: Streamlined the left setup banner with clean vertical alignment and refined aesthetics in harmony with the rest of the application.
+### 🖥️ Fullscreen & Aesthetic Refinements
+- **Unpinned Fullscreen**: Fullscreen immersive mode acts as a standard window (not pinned always-on-top) for smooth multitasking.
+- **Zero Shadows**: Drop shadows and compositor boxes behind lyrics viewports have been eliminated across all modes.
 
 ---
 

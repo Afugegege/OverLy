@@ -1,7 +1,7 @@
 {
   "name": "overly",
   "productName": "overLy",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Lightweight floating synced lyrics overlay for Windows",
   "main": "main.js",
   "author": "Afugegege",
@@ -99,7 +99,7 @@
       "createStartMenuShortcut": true,
       "shortcutName": "overLy",
       "uninstallDisplayName": "overLy - Floating Lyrics",
-      "runAfterFinish": true,
+      "runAfterFinish": false,
       "installerSidebar": "assets/installerSidebar.bmp",
       "uninstallerSidebar": "assets/uninstallerSidebar.bmp",
       "installerHeader": "assets/installerHeader.bmp",

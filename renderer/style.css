@@ -4352,17 +4352,40 @@ body.is-unfetched.theme-light .icon-btn.active {
   box-shadow: none !important;
 }
 
-/* Card / Expanded layout adjustments when unfetched */
+/* Card / Expanded layout adjustments when unfetched: Sleek compact 76px bar */
+body:not(.mode-pill):not(.mode-collapsed):not(.mode-minimized).is-unfetched .overlay-container {
+  height: 76px !important;
+  max-height: 76px !important;
+  border-radius: 18px !important;
+  padding: 8px 12px 10px 12px !important;
+  box-sizing: border-box !important;
+}
+
+body:not(.mode-pill):not(.mode-collapsed):not(.mode-minimized).is-unfetched .overlay-header {
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 4px !important;
+  margin-bottom: 2px !important;
+}
+
 body:not(.mode-pill):not(.mode-collapsed):not(.mode-minimized).is-unfetched .overlay-main {
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
-  min-height: 130px !important;
-  padding: 16px 20px !important;
+  min-height: 0 !important;
+  height: 26px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
 }
 
 /* Pill layout adjustments when unfetched */
+body.mode-pill.is-unfetched .overlay-container,
+body.mode-collapsed.is-unfetched .overlay-container {
+  height: 76px !important;
+  max-height: 76px !important;
+}
+
 body.mode-pill.is-unfetched .overlay-main,
 body.mode-collapsed.is-unfetched .overlay-main {
   height: 100% !important;

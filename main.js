@@ -172,7 +172,12 @@ function createWindow() {
     expanded: { width: 440, height: 490 }
   };
   const currentMode = settings.mode || 'card';
-  const targetSize = modeSizes[currentMode] || modeSizes.card;
+  const normMode = normalizeMode(currentMode);
+  const isMini = (normMode === 'minimized');
+  const isInitialIdle = !currentTrackData || !currentTrackData.title;
+  const targetSize = isInitialIdle
+    ? (isMini ? { width: 56, height: 56 } : { width: 420, height: 76 })
+    : (modeSizes[currentMode] || modeSizes.card);
 
   const defaultWidth = targetSize.width;
   const defaultHeight = targetSize.height;
@@ -183,7 +188,6 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const wa = primaryDisplay.workArea;
 
-  const normMode = normalizeMode(currentMode);
   if (settings.layoutPositions && settings.layoutPositions[normMode] && typeof settings.layoutPositions[normMode].x === 'number') {
     x = settings.layoutPositions[normMode].x;
     y = settings.layoutPositions[normMode].y;
@@ -199,6 +203,17 @@ function createWindow() {
   // Ensure initial position is clamped safely on screen
   x = Math.max(wa.x, Math.min(wa.x + wa.width - defaultWidth, x));
   y = Math.max(wa.y, Math.min(wa.y + wa.height - defaultHeight, y));
+
+  const setupMarkerPath = path.join(app.getPath('userData'), '.run_setup');
+  let hasSetupMarker = false;
+  try {
+    if (fs.existsSync(setupMarkerPath)) {
+      hasSetupMarker = true;
+      fs.unlinkSync(setupMarkerPath);
+    }
+  } catch (_) {}
+
+  const isSetupExplicit = process.argv.includes('--setup') || hasSetupMarker;
 
   mainWindow = new BrowserWindow({
     x,
@@ -217,7 +232,7 @@ function createWindow() {
     resizable: false,
     maximizable: false,
     skipTaskbar: false,
-    show: !process.argv.includes('--setup'),
+    show: !isSetupExplicit,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -235,7 +250,6 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  const isSetupExplicit = process.argv.includes('--setup');
   if (isSetupExplicit) {
     setTimeout(() => {
       openSetupWindow();
