@@ -25,7 +25,7 @@ const owner = 'Afugegege';
 const repo = 'OverLy';
 const pkg = require('../package.json');
 const tag = 'v' + pkg.version;
-const releaseName = `overLy ${tag} — Compact Idle Bar & Setup Installer Integration`;
+const releaseName = `overLy ${tag} — Immersive Studio Customizer, Centered Dock & Multi-Source Artwork`;
 
 const distDir = path.join(__dirname, '..', 'dist');
 
@@ -41,17 +41,18 @@ function getReleaseBody() {
   const checksums = getChecksumContent();
   return `## What's Changed in ${tag}
 
-### 🪟 Compact Idle State (No Empty Void)
-- **Sleek 76px Idle Bar**: When nothing is playing, the overlay automatically collapses into a sleek, minimalist 76px compact bar instead of occupying a huge empty screen void (such as the 490px expanded card).
-- **Smooth Auto-Expansion**: The moment media starts playing, overLy smoothly animates and blooms into your chosen layout mode (Card, Expanded, Lyrics, or Pill) with full art, lyrics, and controls.
+### 🎨 Immersive Fullscreen Customizer Panel
+- **Real-Time Lyrics Text Sizing**: Dynamic lyrics text size slider (14px–38px) with instant preset buttons (Small, Default, Large, XL).
+- **Background Contrast Dimmer**: Smooth slider (10%–90%) for the perfect balance between artwork ambiance and lyric readability.
+- **Stage Layout Switcher**: Instant switching between Split View (artwork left, lyrics right) and Centered View (focused centered lyrics stage).
+- **Live Timing Calibration & Lyric Glow**: Precision live sync offset adjustment (±0.5s) and album-colored halo glow toggle for the active singing line.
 
-### ⚙️ Setup Exe Installer Hook
-- **Launch Setup from Installer**: Running \`overLy Setup ...exe\` now reliably launches the Setup Wizard upon installation completion so you can configure layout and preferences immediately.
-- **Normal Startup Silence**: Normal launches (from shortcut, start menu, tray, or autostart) never pop up the setup wizard.
+### 🎛️ Centered Bottom Playback Dock
+- **Integrated Dock Controls**: Floating centered bottom playback dock in fullscreen immersive mode with centered Previous, Play/Pause, Next controls and interactive timeline seeker.
 
-### 🖥️ Fullscreen & Aesthetic Refinements
-- **Unpinned Fullscreen**: Fullscreen immersive mode acts as a standard window (not pinned always-on-top) for smooth multitasking.
-- **Zero Shadows**: Drop shadows and compositor boxes behind lyrics viewports have been eliminated across all modes.
+### 🖼️ High-Resolution Artwork & Fallback Engine
+- **Multi-Source Scraping**: Integrated QQ Music and Kugou high-res artwork scrapers alongside iTunes multi-region stores (TW, HK, CN, JP) and Deezer.
+- **Safe Proxy Fetching**: Safe IPC pipeline resolving artwork without referrer or CORS blocks.
 
 ---
 
@@ -112,6 +113,7 @@ async function main() {
 
   const filesToUpload = [
     { name: `overLy Setup ${pkg.version}.exe`, type: 'application/vnd.microsoft.portable-executable' },
+    { name: `overLy Setup ${pkg.version}.zip`, type: 'application/zip' },
     { name: `overLy ${pkg.version}.exe`, type: 'application/vnd.microsoft.portable-executable' },
     { name: `overLy-${pkg.version}-win.zip`, type: 'application/zip' },
     { name: 'latest.yml', type: 'text/yaml' },

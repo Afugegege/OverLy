@@ -181,25 +181,35 @@ function normalizeCJKVariants(text) {
 }
 
 function extractTrackAndArtist(rawArtist, rawTitle) {
-  let artist = normalizeText(rawArtist || '');
-  let title = normalizeText(rawTitle || '');
+  let artist = normalizeText(rawArtist || '').trim();
+  let title = normalizeText(rawTitle || '').trim();
 
   // Strip YouTube Topic suffix
   if (artist.endsWith(' - Topic')) {
     artist = artist.replace(/\s*-\s*Topic$/i, '').trim();
   }
 
+  const isGenericOrBrowser = (a) => !a || /^(youtube|spotify|apple|browser|chrome|google chrome|edge|msedge|firefox|opera|brave|unknown|none|media player|vlc|player|web|desktop)$/i.test(a.trim());
+
   // Handle "Artist - Track" formatted inside title
   if (title.includes(' - ')) {
-    const parts = title.split(/\s*-\s*/);
-    if (parts.length === 2) {
-      if (!artist || /^(youtube|spotify|apple|browser|chrome|edge)$/i.test(artist)) {
-        artist = parts[0].trim();
-        title = parts[1].trim();
-      } else if (parts[0].toLowerCase() === artist.toLowerCase()) {
-        title = parts[1].trim();
+    const firstDash = title.indexOf(' - ');
+    const partArtist = title.substring(0, firstDash).trim();
+    const partTitle = title.substring(firstDash + 3).trim();
+
+    if (partArtist && partTitle) {
+      if (isGenericOrBrowser(artist)) {
+        artist = partArtist;
+        title = partTitle;
+      } else if (partArtist.toLowerCase() === artist.toLowerCase()) {
+        title = partTitle;
       }
     }
+  }
+
+  // If artist is still a browser name or unknown, clear it so search doesn't fail
+  if (isGenericOrBrowser(artist)) {
+    artist = '';
   }
 
   return { artist, title };
@@ -284,7 +294,7 @@ function matchTitle(candTitle, targetTitle) {
 }
 
 function hasVersionMismatch(candTitle, targetTitle) {
-  const versionRegex = /(?:remix|mix\b|club|acoustic|live|slowed|speed|sped|vip|edit|rework|flip|dub\b|extended|instrumental|version|cover|dj|demo|伴奏|翻唱|现场)/i;
+  const versionRegex = /(?:remix|club|acoustic|live|slowed|speed|sped|vip|rework|flip|dub\b|instrumental|karaoke|cover|dj|demo|伴奏|翻唱|现场)/i;
   const targetHas = versionRegex.test(targetTitle || '');
   const candHas = versionRegex.test(candTitle || '');
   if (!targetHas && candHas) return true;
@@ -293,27 +303,93 @@ function hasVersionMismatch(candTitle, targetTitle) {
   return false;
 }
 
+function ensureHttps(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('http://')) {
+    return url.replace(/^http:\/\//i, 'https://');
+  }
+  return url;
+}
+
+function findBestArtworkCandidate(items, targetTitle, targetArtist, getArtist, getTitle, getAlbum = null) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+
+  const normTargetTitle = normalizeCJKVariants(cleanTitle(targetTitle || '')).toLowerCase().trim();
+  const normTargetArtist = normalizeCJKVariants(cleanArtist(targetArtist || '')).toLowerCase().trim();
+  const targetHasCJK = isCJK(normTargetArtist);
+
+  let bestItem = null;
+  let bestScore = -1;
+
+  for (const item of items) {
+    const rawCandArtist = getArtist ? getArtist(item) : '';
+    const rawCandTitle = getTitle ? getTitle(item) : '';
+    const rawCandAlbum = getAlbum ? getAlbum(item) : '';
+
+    const normCandTitle = normalizeCJKVariants(cleanTitle(rawCandTitle || '')).toLowerCase().trim();
+    const normCandArtist = normalizeCJKVariants(cleanArtist(rawCandArtist || '')).toLowerCase().trim();
+    const normCandAlbum = normalizeCJKVariants(cleanTitle(rawCandAlbum || '')).toLowerCase().trim();
+
+    const versionMismatch = hasVersionMismatch(rawCandTitle, targetTitle);
+    const exactTitleMatch = normTargetTitle && (normCandTitle === normTargetTitle || normCandAlbum === normTargetTitle);
+    const subTitleMatch = normTargetTitle && (normCandTitle.includes(normTargetTitle) || normTargetTitle.includes(normCandTitle) || (normCandAlbum && normCandAlbum.includes(normTargetTitle)));
+    const artistMatch = matchArtist(rawCandArtist, targetArtist);
+
+    let score = 0;
+    if (artistMatch && exactTitleMatch && !versionMismatch) {
+      score = 100;
+    } else if (artistMatch && subTitleMatch && !versionMismatch) {
+      score = 85;
+    } else if (exactTitleMatch && !versionMismatch) {
+      const candHasCJK = isCJK(normCandArtist);
+      if (normTargetArtist && (targetHasCJK !== candHasCJK)) {
+        score = 90; // High confidence: provider alias mapping (e.g., WeiBird <-> 韦礼安 / 韋禮安)
+      } else if (normTargetArtist) {
+        score = 75;
+      } else {
+        score = 80;
+      }
+    } else if (artistMatch && exactTitleMatch && versionMismatch) {
+      score = 65;
+    } else if (subTitleMatch && !versionMismatch) {
+      const candHasCJK = isCJK(normCandArtist);
+      if (normTargetArtist && (targetHasCJK !== candHasCJK)) {
+        score = 70;
+      } else {
+        score = 60;
+      }
+    } else if (artistMatch && !targetTitle) {
+      score = 50;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestItem = item;
+      if (score === 100) break;
+    }
+  }
+
+  return bestScore >= 60 ? bestItem : (items.length > 0 && !targetArtist && !targetTitle ? items[0] : null);
+}
+
 async function fetchFromDeezer(query, targetTitle = '', targetArtist = '') {
   try {
     const res = await fetchWithTimeout('https://api.deezer.com/search?q=' + encodeURIComponent(query) + '&limit=6', {}, 3500);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data?.data) && data.data.length > 0) {
-        let match = null;
-        if (targetTitle || targetArtist) {
-          match = data.data.find(d => {
-            if (targetArtist && !matchArtist(d.artist?.name, targetArtist)) return false;
-            if (targetTitle && !matchTitle(d.title, targetTitle) && !matchTitle(d.album?.title, targetTitle)) return false;
-            if (hasVersionMismatch(d.title, targetTitle)) return false;
-            return true;
-          });
-        }
-        if (!match && !targetArtist) {
-          match = data.data[0];
-        }
+        const match = findBestArtworkCandidate(
+          data.data,
+          targetTitle,
+          targetArtist,
+          d => d.artist?.name,
+          d => d.title,
+          d => d.album?.title
+        );
         if (match?.album) {
           const alb = match.album;
-          return alb.cover_xl || alb.cover_big || alb.cover_medium || alb.cover || null;
+          const url = alb.cover_xl || alb.cover_big || alb.cover_medium || alb.cover || null;
+          return ensureHttps(url);
         }
       }
     }
@@ -328,22 +404,45 @@ async function fetchFromITunes(query, country = '', targetTitle = '', targetArti
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data?.results) && data.results.length > 0) {
-        let match = null;
-        if (targetTitle || targetArtist) {
-          match = data.results.find(r => {
-            if (targetArtist && !matchArtist(r.artistName, targetArtist)) return false;
-            if (targetTitle && !matchTitle(r.trackName, targetTitle) && !matchTitle(r.collectionName, targetTitle)) return false;
-            if (hasVersionMismatch(r.trackName, targetTitle)) return false;
-            return true;
-          });
-        }
-        if (!match && !targetArtist) {
-          match = data.results[0];
-        }
+        const match = findBestArtworkCandidate(
+          data.results,
+          targetTitle,
+          targetArtist,
+          r => r.artistName,
+          r => r.trackName,
+          r => r.collectionName
+        );
         if (match && match.artworkUrl100) {
-          return match.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+          return ensureHttps(match.artworkUrl100.replace('100x100bb.jpg', '1000x1000bb.jpg'));
         }
       }
+    }
+  } catch (err) {}
+  return null;
+}
+
+async function fetchFromQQ(query, targetTitle = '', targetArtist = '') {
+  try {
+    const sUrl = `https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=${encodeURIComponent(query)}&format=json&n=6`;
+    const sRes = await fetchWithTimeout(sUrl, {}, 3500);
+    if (!sRes.ok) return null;
+    const sData = await sRes.json();
+    const songs = sData?.data?.song?.list;
+    if (!Array.isArray(songs) || songs.length === 0) return null;
+
+    const match = findBestArtworkCandidate(
+      songs,
+      targetTitle,
+      targetArtist,
+      s => (s.singer || []).map(sg => sg.name).join(' '),
+      s => s.songname,
+      s => s.albumname
+    );
+    if (match?.albummid && match.albummid !== '00000000000000') {
+      return `https://y.qq.com/music/photo_new/T002R800x800M000${match.albummid}.jpg`;
+    }
+    if (match?.album?.mid) {
+      return `https://y.qq.com/music/photo_new/T002R800x800M000${match.album.mid}.jpg`;
     }
   } catch (err) {}
   return null;
@@ -351,41 +450,41 @@ async function fetchFromITunes(query, country = '', targetTitle = '', targetArti
 
 async function fetchFromKugou(query, targetTitle = '', targetArtist = '') {
   try {
-    const sRes = await fetchWithTimeout(`http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=${encodeURIComponent(query)}&page=1&pagesize=6`, {}, 3500);
-    if (!sRes.ok) return null;
+    const sRes = await fetchWithTimeout(`http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=${encodeURIComponent(query)}&page=1&pagesize=6`, {}, 3500)
+      .catch(() => fetchWithTimeout(`https://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=${encodeURIComponent(query)}&page=1&pagesize=6`, {}, 3500));
+    if (!sRes || !sRes.ok) return null;
     const sData = await sRes.json();
     const songs = sData?.data?.info;
     if (!Array.isArray(songs) || songs.length === 0) return null;
 
-    let match = null;
-    if (targetTitle || targetArtist) {
-      match = songs.find(s => {
-        if (targetArtist && !matchArtist(s.singername, targetArtist)) return false;
-        if (targetTitle && !matchTitle(s.songname, targetTitle)) return false;
-        if (hasVersionMismatch(s.songname, targetTitle)) return false;
-        return true;
-      });
-    }
-    if (!match && (!targetArtist || matchArtist(songs[0].singername, targetArtist))) {
-      match = songs[0];
-    }
+    const match = findBestArtworkCandidate(
+      songs,
+      targetTitle,
+      targetArtist,
+      s => s.singername,
+      s => s.songname
+    );
     if (!match?.hash) return null;
 
-    const infoRes = await fetchWithTimeout(`http://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=${match.hash}`, {}, 3500);
-    if (!infoRes.ok) return null;
+    const infoRes = await fetchWithTimeout(`https://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=${match.hash}`, {}, 3500)
+      .catch(() => fetchWithTimeout(`http://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=${match.hash}`, {}, 3500));
+    if (!infoRes || !infoRes.ok) return null;
     const info = await infoRes.json();
     const rawUrl = info.album_img || info.imgUrl;
     if (rawUrl) {
-      return rawUrl.replace('{size}', '600');
+      return ensureHttps(rawUrl.replace('{size}', '600'));
     }
   } catch (err) {}
   return null;
 }
 
-async function fetchCoverArt(artist, title, album = '') {
+async function fetchCoverArt(rawArtist, rawTitle, rawAlbum = '') {
+  if (!rawTitle && !rawAlbum) return null;
+  const { artist, title } = extractTrackAndArtist(rawArtist, rawTitle);
+  const album = rawAlbum || '';
   const cTitle = cleanTitle(title);
   const cArtist = cleanArtist(artist);
-  const cacheKey = `${(cArtist || '').toLowerCase()}:::${(cTitle || title || '').toLowerCase()}`;
+  const cacheKey = `${(cArtist || artist || '').toLowerCase()}:::${(cTitle || title || '').toLowerCase()}`;
 
   if (coverArtCache.has(cacheKey)) {
     return coverArtCache.get(cacheKey);
@@ -393,67 +492,86 @@ async function fetchCoverArt(artist, title, album = '') {
 
   const hasCJK = isCJK(`${artist} ${title}`);
 
-  // Tier 1: Clean artist + Clean title across providers with strict artist verification
+  // Tier 1: Cleaned artist + Cleaned title across providers
   const q1 = `${cArtist} ${cTitle}`.trim();
   if (q1) {
     let cover = null;
     if (hasCJK) {
-      // For CJK tracks, Kugou has by far the most accurate artwork catalog
-      cover = await fetchFromKugou(q1, cTitle, cArtist);
-      if (!cover) cover = await fetchFromITunes(q1, 'CN', cTitle, cArtist);
+      cover = await fetchFromQQ(q1, cTitle, cArtist);
       if (!cover) cover = await fetchFromITunes(q1, 'TW', cTitle, cArtist);
       if (!cover) cover = await fetchFromITunes(q1, 'HK', cTitle, cArtist);
+      if (!cover) cover = await fetchFromKugou(q1, cTitle, cArtist);
+      if (!cover) cover = await fetchFromITunes(q1, 'CN', cTitle, cArtist);
+      if (!cover) cover = await fetchFromITunes(q1, 'JP', cTitle, cArtist);
+      if (!cover) cover = await fetchFromITunes(q1, '', cTitle, cArtist);
       if (!cover) cover = await fetchFromDeezer(q1, cTitle, cArtist);
     } else {
       cover = await fetchFromDeezer(q1, cTitle, cArtist);
       if (!cover) cover = await fetchFromITunes(q1, '', cTitle, cArtist);
+      if (!cover) cover = await fetchFromQQ(q1, cTitle, cArtist);
       if (!cover) cover = await fetchFromKugou(q1, cTitle, cArtist);
     }
     if (cover) {
+      cover = ensureHttps(cover);
       coverArtCache.set(cacheKey, cover);
       return cover;
     }
   }
 
-  // Tier 2: Raw artist + Raw title if different from cleaned
-  const qRaw = `${artist} ${title}`.trim();
-  if (qRaw && qRaw !== q1) {
-    let cover = null;
-    if (hasCJK) {
-      cover = await fetchFromKugou(qRaw, title, artist);
-      if (!cover) cover = await fetchFromITunes(qRaw, 'CN', title, artist);
-      if (!cover) cover = await fetchFromITunes(qRaw, 'TW', title, artist);
-      if (!cover) cover = await fetchFromITunes(qRaw, 'HK', title, artist);
-      if (!cover) cover = await fetchFromDeezer(qRaw, title, artist);
-    } else {
-      cover = await fetchFromDeezer(qRaw, title, artist);
-      if (!cover) cover = await fetchFromITunes(qRaw, '', title, artist);
-      if (!cover) cover = await fetchFromKugou(qRaw, title, artist);
-    }
-    if (cover) {
-      coverArtCache.set(cacheKey, cover);
-      return cover;
-    }
-  }
-
-  // Tier 3: Clean artist + Album if album is provided
+  // Tier 2: Cleaned artist + Album (if album provided)
   if (album) {
     const qAlbum = `${cArtist} ${cleanTitle(album)}`.trim();
-    if (qAlbum) {
+    if (qAlbum && qAlbum !== q1) {
       let cover = null;
       if (hasCJK) {
-        cover = await fetchFromKugou(qAlbum, album, cArtist);
+        cover = await fetchFromQQ(qAlbum, album, cArtist);
+        if (!cover) cover = await fetchFromKugou(qAlbum, album, cArtist);
         if (!cover) cover = await fetchFromITunes(qAlbum, 'CN', album, cArtist);
-        if (!cover) cover = await fetchFromITunes(qAlbum, 'TW', album, cArtist);
         if (!cover) cover = await fetchFromDeezer(qAlbum, album, cArtist);
       } else {
         cover = await fetchFromDeezer(qAlbum, album, cArtist);
         if (!cover) cover = await fetchFromITunes(qAlbum, '', album, cArtist);
+        if (!cover) cover = await fetchFromQQ(qAlbum, album, cArtist);
       }
       if (cover) {
+        cover = ensureHttps(cover);
         coverArtCache.set(cacheKey, cover);
         return cover;
       }
+    }
+  }
+
+  // Tier 3: Raw artist + Raw title (if different from Tier 1)
+  const qRaw = `${artist} ${title}`.trim();
+  if (qRaw && qRaw !== q1) {
+    let cover = null;
+    if (hasCJK) {
+      cover = await fetchFromQQ(qRaw, title, artist);
+      if (!cover) cover = await fetchFromKugou(qRaw, title, artist);
+      if (!cover) cover = await fetchFromITunes(qRaw, 'CN', title, artist);
+      if (!cover) cover = await fetchFromDeezer(qRaw, title, artist);
+    } else {
+      cover = await fetchFromDeezer(qRaw, title, artist);
+      if (!cover) cover = await fetchFromITunes(qRaw, '', title, artist);
+      if (!cover) cover = await fetchFromQQ(qRaw, title, artist);
+      if (!cover) cover = await fetchFromKugou(qRaw, title, artist);
+    }
+    if (cover) {
+      cover = ensureHttps(cover);
+      coverArtCache.set(cacheKey, cover);
+      return cover;
+    }
+  }
+
+  // Tier 4: Title only fallback (if artist was unavailable or unrecognized)
+  if (cTitle && !cArtist) {
+    let cover = await fetchFromDeezer(cTitle, cTitle, '');
+    if (!cover) cover = await fetchFromITunes(cTitle, '', cTitle, '');
+    if (!cover) cover = await fetchFromQQ(cTitle, cTitle, '');
+    if (cover) {
+      cover = ensureHttps(cover);
+      coverArtCache.set(cacheKey, cover);
+      return cover;
     }
   }
 
@@ -913,6 +1031,17 @@ async function getTrackData(rawArtist, rawTitle, album = '', duration = 0, force
       if (!cached.coverUrl && (existingCoverUrl || coverArtCache.has(coverKey))) {
         cached.coverUrl = existingCoverUrl || coverArtCache.get(coverKey);
       }
+      if (cached.coverUrl) {
+        return cached;
+      }
+      // If cached entry has lyrics but NO coverUrl, fetch cover artwork so it is not permanently missing
+      const coverUrl = await fetchCoverArt(artist, title, album);
+      const finalCoverUrl = ensureHttps(coverUrl);
+      if (finalCoverUrl) {
+        cached.coverUrl = finalCoverUrl;
+        coverArtCache.set(coverKey, finalCoverUrl);
+        savePersistentLyricsCache();
+      }
       return cached;
     }
   }
@@ -930,8 +1059,9 @@ async function getTrackData(rawArtist, rawTitle, album = '', duration = 0, force
     artworkPromise
   ]);
 
-  if (coverUrl) {
-    coverArtCache.set(coverKey, coverUrl);
+  const finalCoverUrl = ensureHttps(coverUrl);
+  if (finalCoverUrl) {
+    coverArtCache.set(coverKey, finalCoverUrl);
   }
 
   let parsedLyrics = [];
@@ -950,7 +1080,7 @@ async function getTrackData(rawArtist, rawTitle, album = '', duration = 0, force
     title,
     artist: artist || 'Unknown Artist',
     album: album || '',
-    coverUrl: coverUrl || null,
+    coverUrl: finalCoverUrl || null,
     hasSynced,
     lyrics: parsedLyrics,
     plainLyrics
@@ -1011,8 +1141,11 @@ async function fetchLyricsOnly(rawArtist, rawTitle, album = '', duration = 0, fo
 
   if (hasSynced || plainLyrics) {
     const existing = cache.get(key);
+    const coverKey = `${cleanArtist(artist).toLowerCase()}:::${cleanTitle(title).toLowerCase()}`;
     if (existing?.coverUrl) {
       result.coverUrl = existing.coverUrl;
+    } else if (coverArtCache.has(coverKey)) {
+      result.coverUrl = coverArtCache.get(coverKey);
     }
     cache.set(key, result);
     savePersistentLyricsCache();

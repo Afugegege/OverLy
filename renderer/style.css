@@ -29,6 +29,9 @@
   --aura-color2: rgba(255, 48, 64, 0.10);
   
   --lyric-font-size: 18px;
+  --immersive-font-size: 22px;
+  --immersive-bg-dim: 0.50;
+  --lyric-glow-color: rgba(var(--accent-rgb, 255, 48, 64), 0.45);
   --pill-radius: 9999px;
   --card-radius: 24px;
 }
@@ -3514,64 +3517,79 @@ body.mode-immersive #resizeHandle {
 .immersive-bg-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 45% 45%, rgba(0, 0, 0, 0.04) 0%, rgba(6, 8, 14, 0.38) 58%, rgba(4, 5, 10, 0.72) 100%);
+  background: radial-gradient(circle at 45% 45%, rgba(0, 0, 0, calc(var(--immersive-bg-dim, 0.50) * 0.45)) 0%, rgba(6, 8, 14, calc(var(--immersive-bg-dim, 0.50) * 0.85)) 58%, rgba(4, 5, 10, calc(var(--immersive-bg-dim, 0.50) * 1.35)) 100%),
+              rgba(0, 0, 0, calc(var(--immersive-bg-dim, 0.50) * 0.55));
   pointer-events: none;
+  transition: background 0.3s ease;
 }
 
+/* Album Art Themed Top Header Bar */
 /* Album Art Themed Top Header Bar */
 .immersive-top-bar {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 76px;
+  height: 72px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 44px;
   z-index: 30;
-  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  transition: none !important;
 }
 
-.immersive-brand {
+.immersive-brand,
+.immersive-top-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  margin: 0;
+  padding: 0;
+  pointer-events: auto;
 }
 
+/* Symmetrical Top Pills — Exact Shared Design & Precision Alignment */
 .immersive-badge {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: #ffffff !important;
-  background: rgba(18, 20, 28, 0.76);
-  padding: 6px 16px;
-  border-radius: 9999px;
-  border: 1.5px solid rgba(var(--accent-rgb, 255, 48, 64), 0.50);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 16px rgba(var(--accent-rgb, 255, 48, 64), 0.30);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  user-select: none;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  height: 30px;
+  padding: 0 13px;
+  border-radius: 9999px;
+  background: rgba(18, 20, 28, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff !important;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-sizing: border-box;
+  line-height: 1;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 0 12px rgba(var(--accent-rgb, 255, 48, 64), 0.14);
+  user-select: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.immersive-badge:hover {
+  background: rgba(var(--accent-rgb, 255, 48, 64), 0.18);
+  border-color: rgba(var(--accent-rgb, 255, 48, 64), 0.55);
 }
 
 .immersive-badge-dot {
-  width: 6.5px;
-  height: 6.5px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--accent, #FF3040);
-  box-shadow: 0 0 8px var(--accent, #FF3040);
+  box-shadow: 0 0 7px var(--accent, #FF3040);
   flex-shrink: 0;
 }
 
 body.theme-light .immersive-badge {
   color: #ffffff !important;
-  background: rgba(18, 20, 28, 0.78);
-  border-color: rgba(var(--accent-rgb, 255, 48, 64), 0.55);
+  background: rgba(18, 20, 28, 0.74);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 body.theme-light .immersive-btn {
@@ -3649,9 +3667,9 @@ body.theme-light .immersive-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 72px 5vw 40px 5vw;
-  gap: clamp(48px, 6vw, 100px);
-  max-width: 1440px;
+  padding: 68px 5vw 124px 5vw;
+  gap: clamp(40px, 5.5vw, 90px);
+  max-width: min(1560px, 94vw);
   margin: 0 auto;
   width: 100%;
   height: 100%;
@@ -3665,10 +3683,10 @@ body.theme-light .immersive-btn {
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  width: clamp(300px, 28vw, 440px);
+  width: clamp(320px, 30vw, 460px);
   max-width: 480px;
   flex-shrink: 0;
-  gap: 18px;
+  gap: 20px;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -3680,11 +3698,10 @@ body.theme-light .immersive-btn {
 
 .immersive-art-wrapper {
   position: relative;
-  width: clamp(260px, 25vw, 380px);
-  height: clamp(260px, 25vw, 380px);
-  max-width: 100%;
-  max-height: 44vh;
+  width: 100%;
+  max-width: 440px;
   aspect-ratio: 1/1;
+  height: auto;
   border-radius: 24px;
   overflow: hidden;
   box-shadow: 0 28px 75px -10px rgba(0, 0, 0, 0.78), 0 0 65px rgba(var(--accent-rgb, 255, 48, 64), 0.35);
@@ -3799,33 +3816,33 @@ body.fetching-lyrics .vinyl-disc-graphic {
 .immersive-meta {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   width: 100%;
   text-align: left;
 }
 
 .immersive-title {
-  font-size: clamp(20px, 1.9vw, 26px);
+  font-size: clamp(22px, 2.3vw, 32px);
   font-weight: 700;
   color: #ffffff;
   line-height: 1.25;
   margin: 0;
   letter-spacing: -0.015em;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.65);
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: visible;
   word-break: break-word;
 }
 
 .immersive-artist {
-  font-size: clamp(14px, 1.2vw, 16px);
+  font-size: clamp(15px, 1.3vw, 18px);
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.70);
-  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.35;
   margin: 0;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3955,7 +3972,7 @@ body.fetching-lyrics .vinyl-disc-graphic {
 /* Right Section: Synchronized Scrolling Lyrics */
 .immersive-right {
   flex: 1;
-  max-width: 680px;
+  max-width: 860px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -3971,7 +3988,8 @@ body.fetching-lyrics .vinyl-disc-graphic {
 
 .immersive-lyrics-viewport {
   width: 100%;
-  height: 80vh;
+  height: 100%;
+  max-height: calc(100vh - 210px);
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
@@ -3980,8 +3998,8 @@ body.fetching-lyrics .vinyl-disc-graphic {
   box-shadow: none !important;
   border: none !important;
   outline: none !important;
-  mask-image: none !important;
-  -webkit-mask-image: none !important;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%) !important;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%) !important;
   scroll-behavior: smooth;
   scrollbar-width: none;
 }
@@ -3993,14 +4011,14 @@ body.fetching-lyrics .vinyl-disc-graphic {
 .immersive-lyrics-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 34vh 0;
+  gap: 18px;
+  padding: 30vh 0;
   width: 100%;
   box-sizing: border-box;
 }
 
 .immersive-lyric-line {
-  font-size: clamp(17px, 1.55vw, 21px);
+  font-size: var(--immersive-font-size, 22px) !important;
   font-weight: 600;
   line-height: 1.48;
   color: rgba(255, 255, 255, 0.32);
@@ -4012,22 +4030,22 @@ body.fetching-lyrics .vinyl-disc-graphic {
 }
 
 .immersive-lyric-line:hover {
-  color: rgba(255, 255, 255, 0.82);
-  transform: translateX(5px);
+  color: rgba(255, 255, 255, 0.85);
+  transform: translateX(6px);
 }
 
 .immersive-lyric-line.near-active {
-  color: rgba(255, 255, 255, 0.58);
+  color: rgba(255, 255, 255, 0.60);
   transform: translateX(3px);
 }
 
 .immersive-lyric-line.active {
-  font-size: clamp(22px, 2.1vw, 27px);
+  font-size: calc(var(--immersive-font-size, 22px) * 1.35) !important;
   font-weight: 700;
   color: #ffffff;
   line-height: 1.40;
-  text-shadow: 0 0 24px rgba(255, 255, 255, 0.40), 0 2px 10px rgba(0, 0, 0, 0.5);
-  transform: translateX(7px);
+  text-shadow: 0 0 28px var(--lyric-glow-color, rgba(var(--accent-rgb, 255, 48, 64), 0.50)), 0 2px 10px rgba(0, 0, 0, 0.5) !important;
+  transform: translateX(8px);
   opacity: 1;
 }
 
@@ -4223,7 +4241,7 @@ body.fetching-lyrics .vinyl-disc-graphic {
 }
 
 .immersive-layout-centered .immersive-lyric-line {
-  font-size: clamp(17px, 1.55vw, 21px);
+  font-size: var(--immersive-font-size, 20px) !important;
   transform-origin: center center;
   text-align: center;
 }
@@ -4238,40 +4256,557 @@ body.fetching-lyrics .vinyl-disc-graphic {
 }
 
 .immersive-layout-centered .immersive-lyric-line.active {
-  font-size: clamp(22px, 2.1vw, 27px);
+  font-size: calc(var(--immersive-font-size, 20px) * 1.30) !important;
   transform: scale(1.04);
   text-align: center;
+  text-shadow: 0 0 24px var(--lyric-glow-color, rgba(var(--accent-rgb, 255, 48, 64), 0.45)), 0 2px 10px rgba(0, 0, 0, 0.5) !important;
 }
 
-/* Auto-hide Minimal UI after Inactivity */
+/* ==========================================================================
+   Full Immerse Mode — Seamless Borderless Full-Width Bottom Media Controls
+   ========================================================================== */
+.immersive-bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: auto;
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  z-index: 35;
+  padding: 0 4vw 22px 4vw;
+  box-sizing: border-box;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.28) 60%, transparent 100%);
+  transition: none !important;
+}
+
+.immersive-bottom-controls-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  pointer-events: auto;
+  background: transparent !important;
+  border: none !important;
+  padding: 0;
+  border-radius: 0;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+
+.immersive-bottom-controls-wrap:hover {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.immersive-bottom-bar .immersive-timeline-wrap {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+}
+
+.immersive-bottom-bar .immersive-controls {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   Full Immerse Mode — Auto-Collapsing Settings Drawer (Opens on Hover)
+   ========================================================================== */
+.immersive-settings-drawer {
+  position: relative;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: auto;
+  transition: none !important;
+}
+
+/* Sleek Collapsed Pill Button */
+.immersive-settings-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6.5px;
+  height: 30px;
+  padding: 0 13px;
+  border-radius: 9999px;
+  background: rgba(18, 20, 28, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff !important;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 0 12px rgba(var(--accent-rgb, 255, 48, 64), 0.14);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.immersive-settings-trigger svg {
+  width: 13px;
+  height: 13px;
+  color: var(--accent, #FF3040);
+  filter: drop-shadow(0 0 4px rgba(var(--accent-rgb, 255, 48, 64), 0.45));
+}
+
+.imm-trigger-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent, #FF3040);
+  box-shadow: 0 0 6px var(--accent, #FF3040);
+  flex-shrink: 0;
+}
+
+.immersive-settings-drawer:hover .immersive-settings-trigger,
+.immersive-settings-drawer.is-open .immersive-settings-trigger {
+  background: rgba(var(--accent-rgb, 255, 48, 64), 0.22);
+  border-color: rgba(var(--accent-rgb, 255, 48, 64), 0.65);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 16px rgba(var(--accent-rgb, 255, 48, 64), 0.35);
+  color: #ffffff !important;
+}
+
+/* Expanded Floating Glass Panel */
+.immersive-settings-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: rgba(16, 18, 26, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  padding: 16px 18px 18px 18px;
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75), 0 0 30px rgba(var(--accent-rgb, 255, 48, 64), 0.20);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px) scale(0.97);
+  transform-origin: top right;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Invisible bridge so mouse moving from trigger to panel never flickers */
+.immersive-settings-panel::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  height: 10px;
+}
+
+.immersive-settings-drawer:hover .immersive-settings-panel,
+.immersive-settings-drawer.is-open .immersive-settings-panel {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.immersive-settings-header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 14px;
+}
+
+.imm-set-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.imm-set-title-icon {
+  width: 15px;
+  height: 15px;
+  color: var(--accent, #FF3040);
+}
+
+.imm-set-heading {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.imm-exit-chip {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.imm-exit-chip svg {
+  width: 12px;
+  height: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.2s ease;
+}
+
+.imm-exit-chip:hover {
+  background: rgba(255, 68, 68, 0.22);
+  border-color: rgba(255, 77, 77, 0.55);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(255, 68, 68, 0.3);
+}
+
+.imm-exit-chip:hover svg {
+  color: #ff5c5c;
+}
+
+.imm-set-subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.50);
+}
+
+.immersive-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.imm-set-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.imm-set-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.imm-set-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.imm-set-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent, #FF3040);
+  background: rgba(var(--accent-rgb, 255, 48, 64), 0.18);
+  border: 1px solid rgba(var(--accent-rgb, 255, 48, 64), 0.35);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.imm-set-slider-wrap {
+  width: 100%;
+}
+
+.imm-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.18);
+  outline: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.imm-slider:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.imm-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 10px var(--accent-glow, rgba(255, 48, 64, 0.5)), 0 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.imm-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  background: var(--accent, #FF3040);
+}
+
+/* Preset Buttons */
+.imm-font-presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.imm-preset-btn {
+  padding: 5px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.70);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.imm-preset-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.imm-preset-btn.active {
+  color: #ffffff;
+  background: rgba(var(--accent-rgb, 255, 48, 64), 0.32);
+  border-color: var(--accent, #FF3040);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb, 255, 48, 64), 0.35);
+}
+
+/* Layout Switcher */
+.imm-layout-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.imm-layout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.imm-layout-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.imm-layout-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.imm-layout-btn.active {
+  color: #ffffff;
+  background: rgba(var(--accent-rgb, 255, 48, 64), 0.32);
+  border-color: var(--accent, #FF3040);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb, 255, 48, 64), 0.35);
+}
+
+.imm-layout-btn.active svg {
+  color: var(--accent, #FF3040);
+}
+
+/* Timing Sync Controls */
+.imm-sync-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+
+.imm-sync-btn {
+  padding: 6px 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.80);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.imm-sync-btn:hover {
+  color: #ffffff;
+  background: rgba(var(--accent-rgb, 255, 48, 64), 0.24);
+  border-color: var(--accent, #FF3040);
+}
+
+.imm-sync-btn.imm-sync-reset:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+/* Toggle Switch */
+.imm-toggle-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  transition: opacity 0.2s ease;
+}
+
+.imm-toggle-row:hover {
+  opacity: 0.95;
+}
+
+.imm-toggle-label-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.imm-set-desc {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.imm-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.imm-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.imm-switch-slider {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-color: rgba(255, 255, 255, 0.18);
+  transition: 0.25s;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.imm-switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.25s;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.imm-switch input:checked + .imm-switch-slider {
+  background-color: var(--accent, #FF3040);
+  border-color: var(--accent, #FF3040);
+  box-shadow: 0 0 12px var(--accent-glow, rgba(255, 48, 64, 0.45));
+}
+
+.imm-switch input:checked + .imm-switch-slider:before {
+  transform: translateX(20px);
+}
+
+/* ==========================================================================
+   Full Immerse Mode — Inactivity State (Instant Hide, Clean Progress Bar, No Fading)
+   ========================================================================== */
 body.immersive-idle {
   cursor: none !important;
 }
 
+/* Completely hide the top pills bar when idle (instant, no fading) */
 body.immersive-idle .immersive-top-bar {
-  opacity: 0.85;
-  transform: translateY(0);
-  pointer-events: auto;
+  display: none !important;
 }
 
-.immersive-top-bar:hover,
-body.immersive-idle .immersive-top-bar:hover {
+/* Completely hide the playback buttons (prev, play/pause, next) when idle */
+body.immersive-idle .immersive-controls {
+  display: none !important;
+}
+
+/* Completely hide time numbers (0:23 / 4:56) when idle */
+body.immersive-idle .immersive-time {
+  display: none !important;
+}
+
+/* Keep the playing progress bar cleanly visible at the bottom */
+body.immersive-idle .immersive-bottom-bar {
   opacity: 1 !important;
-  transform: translateY(0) !important;
+  transform: none !important;
+  pointer-events: auto;
+  background: transparent !important;
+  min-height: 0 !important;
+  padding: 0 4vw 22px 4vw;
+  transition: none !important;
 }
 
-body.immersive-idle .immersive-controls,
+body.immersive-idle .immersive-bottom-controls-wrap {
+  gap: 0;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 body.immersive-idle .immersive-timeline-wrap {
-  opacity: 0.22;
-  transition: opacity 0.4s ease;
+  gap: 0;
+  width: 100%;
+  margin: 0;
 }
 
-.immersive-controls:hover,
-.immersive-timeline-wrap:hover,
-body.immersive-idle .immersive-controls:hover,
-body.immersive-idle .immersive-timeline-wrap:hover {
-  opacity: 1 !important;
-  pointer-events: auto;
+body.immersive-idle .immersive-progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: default;
+}
+
+body.immersive-idle .immersive-progress-thumb {
+  display: none !important;
 }
 
 /* ==========================================================================

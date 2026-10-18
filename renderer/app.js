@@ -1555,6 +1555,7 @@ function setupEventListeners() {
   // Setup interactive audio progress bar scrubber (click & drag to pull/seek)
   setupProgressScrubber();
   setupImmersiveProgressScrubber();
+  setupImmersiveSettingsDrawer();
 
   // Setup reliable pointer-captured window dragging from clicking anywhere outside interactive controls
   setupWindowDrag(document.body);
@@ -1718,6 +1719,242 @@ function setupImmersiveProgressScrubber() {
   immersiveProgressBar.addEventListener('pointercancel', finishScrub);
 }
 
+// ============================================================================
+// Immersive Mode Dedicated Auto-Collapsing Settings Drawer
+// ============================================================================
+function setupImmersiveSettingsDrawer() {
+  const drawer = document.getElementById('immersiveSettingsDrawer');
+  const trigger = document.getElementById('immersiveSettingsTrigger');
+  const panel = document.getElementById('immersiveSettingsPanel');
+  const sliderFontSize = document.getElementById('immSliderFontSize');
+  const fontSizeVal = document.getElementById('immFontSizeVal');
+  const fontPresets = document.querySelectorAll('.imm-preset-btn');
+  const sliderBgDim = document.getElementById('immSliderBgDim');
+  const bgDimVal = document.getElementById('immBgDimVal');
+  const btnSplit = document.getElementById('btnImmLayoutSplit');
+  const btnCentered = document.getElementById('btnImmLayoutCentered');
+  const syncEarlier = document.getElementById('btnImmSyncEarlier');
+  const syncReset = document.getElementById('btnImmSyncReset');
+  const syncLater = document.getElementById('btnImmSyncLater');
+  const syncOffsetVal = document.getElementById('immSyncOffsetVal');
+  const toggleGlow = document.getElementById('immToggleGlow');
+
+  if (!drawer) return;
+
+  // Load saved immersive settings
+  let immSettings = {
+    fontSize: 22,
+    bgDim: 50,
+    glow: true
+  };
+
+  try {
+    const raw = localStorage.getItem('overly_immersive_settings');
+    if (raw) {
+      immSettings = { ...immSettings, ...JSON.parse(raw) };
+    }
+  } catch (e) {}
+
+  function saveImmSettings() {
+    try {
+      localStorage.setItem('overly_immersive_settings', JSON.stringify(immSettings));
+    } catch (e) {}
+  }
+
+  // Apply Font Size
+  function applyImmFontSize(size, persist = true) {
+    const clamped = Math.max(14, Math.min(38, parseInt(size, 10) || 22));
+    immSettings.fontSize = clamped;
+    document.documentElement.style.setProperty('--immersive-font-size', `${clamped}px`);
+    if (fontSizeVal) fontSizeVal.textContent = `${clamped}px`;
+    if (sliderFontSize && parseInt(sliderFontSize.value, 10) !== clamped) {
+      sliderFontSize.value = clamped;
+    }
+    fontPresets.forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.size, 10) === clamped);
+    });
+    if (persist) saveImmSettings();
+  }
+
+  // Apply Background Dim
+  function applyImmBgDim(dim, persist = true) {
+    const clamped = Math.max(10, Math.min(90, parseInt(dim, 10) || 50));
+    immSettings.bgDim = clamped;
+    const ratio = (clamped / 100).toFixed(2);
+    document.documentElement.style.setProperty('--immersive-bg-dim', ratio);
+    if (bgDimVal) bgDimVal.textContent = `${clamped}%`;
+    if (sliderBgDim && parseInt(sliderBgDim.value, 10) !== clamped) {
+      sliderBgDim.value = clamped;
+    }
+    if (persist) saveImmSettings();
+  }
+
+  // Apply Lyric Glow
+  function applyImmGlow(enabled, persist = true) {
+    immSettings.glow = Boolean(enabled);
+    if (toggleGlow) toggleGlow.checked = immSettings.glow;
+    const glowColor = immSettings.glow
+      ? 'rgba(var(--accent-rgb, 255, 48, 64), 0.50)'
+      : 'transparent';
+    document.documentElement.style.setProperty('--lyric-glow-color', glowColor);
+    if (persist) saveImmSettings();
+  }
+
+  // Update sync offset display
+  function updateImmSyncDisplay() {
+    if (syncOffsetVal) {
+      const off = state.offset || 0;
+      const sign = off > 0 ? '+' : '';
+      syncOffsetVal.textContent = `${sign}${off.toFixed(1)}s`;
+    }
+  }
+
+  // Update layout button states
+  function updateImmLayoutBtns(layout) {
+    if (btnSplit) btnSplit.classList.toggle('active', layout === 'split');
+    if (btnCentered) btnCentered.classList.toggle('active', layout === 'centered');
+  }
+
+  // Initialize values
+  applyImmFontSize(immSettings.fontSize, false);
+  applyImmBgDim(immSettings.bgDim, false);
+  applyImmGlow(immSettings.glow, false);
+  updateImmSyncDisplay();
+  updateImmLayoutBtns(state.immersiveLayout || 'split');
+
+  // Slider events
+  if (sliderFontSize) {
+    sliderFontSize.addEventListener('input', (e) => {
+      resetImmersiveIdleTimer();
+      applyImmFontSize(e.target.value);
+    });
+  }
+
+  fontPresets.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resetImmersiveIdleTimer();
+      const sz = parseInt(btn.dataset.size, 10);
+      if (sz) applyImmFontSize(sz);
+    });
+  });
+
+  if (sliderBgDim) {
+    sliderBgDim.addEventListener('input', (e) => {
+      resetImmersiveIdleTimer();
+      applyImmBgDim(e.target.value);
+    });
+  }
+
+  if (toggleGlow) {
+    const toggleRow = toggleGlow.closest('.imm-toggle-row');
+    if (toggleRow) {
+      toggleRow.addEventListener('click', (e) => {
+        if (e.target !== toggleGlow) {
+          e.preventDefault();
+          toggleGlow.checked = !toggleGlow.checked;
+          resetImmersiveIdleTimer();
+          applyImmGlow(toggleGlow.checked);
+        }
+      });
+    }
+
+    toggleGlow.addEventListener('change', () => {
+      resetImmersiveIdleTimer();
+      applyImmGlow(toggleGlow.checked);
+    });
+  }
+
+  // Layout switcher buttons
+  if (btnSplit) {
+    btnSplit.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resetImmersiveIdleTimer();
+      setImmersiveLayout('split', true);
+      updateImmLayoutBtns('split');
+    });
+  }
+
+  if (btnCentered) {
+    btnCentered.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resetImmersiveIdleTimer();
+      setImmersiveLayout('centered', true);
+      updateImmLayoutBtns('centered');
+    });
+  }
+
+  // Sync Offset Adjusters
+  if (syncEarlier) {
+    syncEarlier.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resetImmersiveIdleTimer();
+      state.offset = Math.round((state.offset - 0.5) * 10) / 10;
+      updateImmSyncDisplay();
+      if (state.hasMedia) {
+        const isPlaying = state.status === 'Playing';
+        const elapsed = isPlaying ? (Date.now() - state.lastPositionTime) / 1000 : 0;
+        syncLyrics(state.position + elapsed, true);
+      }
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('offset', state.offset);
+      }
+    });
+  }
+
+  if (syncReset) {
+    syncReset.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resetImmersiveIdleTimer();
+      state.offset = 0;
+      updateImmSyncDisplay();
+      if (state.hasMedia) {
+        const isPlaying = state.status === 'Playing';
+        const elapsed = isPlaying ? (Date.now() - state.lastPositionTime) / 1000 : 0;
+        syncLyrics(state.position + elapsed, true);
+      }
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('offset', 0);
+      }
+    });
+  }
+
+  if (syncLater) {
+    syncLater.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resetImmersiveIdleTimer();
+      state.offset = Math.round((state.offset + 0.5) * 10) / 10;
+      updateImmSyncDisplay();
+      if (state.hasMedia) {
+        const isPlaying = state.status === 'Playing';
+        const elapsed = isPlaying ? (Date.now() - state.lastPositionTime) / 1000 : 0;
+        syncLyrics(state.position + elapsed, true);
+      }
+      if (window.overlyAPI?.updateSetting) {
+        window.overlyAPI.updateSetting('offset', state.offset);
+      }
+    });
+  }
+
+  // Auto-collapse / open on hover with smooth grace timeout
+  let drawerCollapseTimeout = null;
+  drawer.addEventListener('mouseenter', () => {
+    resetImmersiveIdleTimer();
+    if (drawerCollapseTimeout) {
+      clearTimeout(drawerCollapseTimeout);
+      drawerCollapseTimeout = null;
+    }
+    drawer.classList.add('is-open');
+  });
+
+  drawer.addEventListener('mouseleave', () => {
+    if (drawerCollapseTimeout) clearTimeout(drawerCollapseTimeout);
+    drawerCollapseTimeout = setTimeout(() => {
+      drawer.classList.remove('is-open');
+    }, 380);
+  });
+}
+
 // Inactivity timer for immersive mode
 let immersiveIdleTimer = null;
 
@@ -1728,10 +1965,11 @@ function resetImmersiveIdleTimer() {
     clearTimeout(immersiveIdleTimer);
   }
   immersiveIdleTimer = setTimeout(() => {
-    if (state.isImmersive) {
+    const drawer = document.getElementById('immersiveSettingsDrawer');
+    if (state.isImmersive && !drawer?.classList.contains('is-open') && !drawer?.matches(':hover')) {
       body.classList.add('immersive-idle');
     }
-  }, 4500);
+  }, 4000);
 }
 
 function stopImmersiveIdleTimer() {
@@ -1768,7 +2006,7 @@ function enterImmersiveMode(isRestore = false) {
   renderTrackInfo();
   renderLyricsList();
   if (immersiveBgArt && state.coverUrl) {
-    if (!immersiveBgArt.src || !immersiveBgArt.src.endsWith(state.coverUrl)) {
+    if (immersiveBgArt.src !== state.coverUrl) {
       immersiveBgArt.src = state.coverUrl;
     }
     immersiveBgArt.style.display = '';
@@ -1837,6 +2075,10 @@ function setImmersiveLayout(layout, persist = true) {
       layoutIcon.innerHTML = '<rect x="3" y="3" width="18" height="18" rx="3"/><line x1="12" y1="3" x2="12" y2="21"/>';
     }
   }
+  const btnImmSplit = document.getElementById('btnImmLayoutSplit');
+  const btnImmCent = document.getElementById('btnImmLayoutCentered');
+  if (btnImmSplit) btnImmSplit.classList.toggle('active', state.immersiveLayout === 'split');
+  if (btnImmCent) btnImmCent.classList.toggle('active', state.immersiveLayout === 'centered');
   if (state.activeLyricIndex >= 0) {
     setActiveLyric(state.activeLyricIndex, true);
   }
@@ -2910,6 +3152,7 @@ function handleMediaUpdate(data) {
   const isDifferentTrack = (state.title !== (data.title || '') || state.artist !== (data.artist || ''));
   if (isDifferentTrack) {
     updateVisSongProfile(data.title, data.artist);
+    state.hasTriedArtFallback = false;
   }
   const hadNoLyrics = (!state.lyrics || state.lyrics.length === 0) && !state.plainLyrics;
   const hasNowLyrics = Boolean((data.lyrics && data.lyrics.length > 0) || (data.plainLyrics && data.plainLyrics.trim()));
@@ -3001,7 +3244,11 @@ function handleMediaUpdate(data) {
   }
 
   if (isDifferentTrack || hasNewLyrics || hasNewCover) {
-    state.coverUrl = data.coverUrl || '';
+    let incomingCover = data.coverUrl || '';
+    if (typeof incomingCover === 'string' && incomingCover.startsWith('http://')) {
+      incomingCover = incomingCover.replace(/^http:\/\//i, 'https://');
+    }
+    state.coverUrl = incomingCover;
     state.lyrics = data.lyrics || [];
     state.hasSynced = Boolean(data.hasSynced);
     state.plainLyrics = data.plainLyrics || '';
@@ -3181,6 +3428,62 @@ function renderTrackInfo() {
   updatePillInstrumentalView();
 
   if (state.coverUrl) {
+    if (typeof state.coverUrl === 'string' && state.coverUrl.startsWith('http://')) {
+      state.coverUrl = state.coverUrl.replace(/^http:\/\//i, 'https://');
+    }
+
+    const applyResolvedArt = (url) => {
+      if (!url) return;
+      let finalUrl = url;
+      if (typeof finalUrl === 'string' && finalUrl.startsWith('http://')) {
+        finalUrl = finalUrl.replace(/^http:\/\//i, 'https://');
+      }
+      state.coverUrl = finalUrl;
+      albumArt.src = finalUrl;
+      if (immersiveArt) immersiveArt.src = finalUrl;
+      if (immersiveBgArt) immersiveBgArt.src = finalUrl;
+    };
+
+    const handleArtError = async (failedImg) => {
+      const currentSrc = (failedImg && failedImg.getAttribute('src')) || state.coverUrl;
+      if (currentSrc && (currentSrc.startsWith('http://') || currentSrc.startsWith('https://')) && !failedImg.dataset.triedBase64) {
+        failedImg.dataset.triedBase64 = 'true';
+        if (window.overlyAPI?.getImageBase64) {
+          try {
+            const base64 = await window.overlyAPI.getImageBase64(currentSrc);
+            if (base64) {
+              applyResolvedArt(base64);
+              return;
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (window.overlyAPI?.fetchCoverArt && state.title && !state.hasTriedArtFallback) {
+        state.hasTriedArtFallback = true;
+        try {
+          const newUrl = await window.overlyAPI.fetchCoverArt(state.artist, state.title, state.album);
+          if (newUrl && newUrl !== currentSrc) {
+            applyResolvedArt(newUrl);
+            return;
+          }
+        } catch (_) {}
+      }
+
+      albumArt.removeAttribute('src');
+      albumArt.classList.remove('visible');
+      albumPlaceholder.classList.remove('hidden');
+      if (immersiveArt) {
+        immersiveArt.removeAttribute('src');
+        immersiveArt.classList.remove('visible');
+        immersiveArtPlaceholder?.classList.remove('hidden');
+      }
+      if (immersiveBgArt) {
+        immersiveBgArt.removeAttribute('src');
+        immersiveBgArt.classList.remove('visible');
+      }
+    };
+
     const onArtLoaded = () => {
       albumArt.classList.add('visible');
       albumPlaceholder.classList.add('hidden');
@@ -3189,11 +3492,7 @@ function renderTrackInfo() {
       }
     };
     albumArt.onload = onArtLoaded;
-    albumArt.onerror = () => {
-      albumArt.removeAttribute('src');
-      albumArt.classList.remove('visible');
-      albumPlaceholder.classList.remove('hidden');
-    };
+    albumArt.onerror = () => handleArtError(albumArt);
 
     if (albumArt.src !== state.coverUrl) {
       albumArt.src = state.coverUrl;
@@ -3207,11 +3506,7 @@ function renderTrackInfo() {
         immersiveArt.classList.add('visible');
         immersiveArtPlaceholder?.classList.add('hidden');
       };
-      immersiveArt.onerror = () => {
-        immersiveArt.removeAttribute('src');
-        immersiveArt.classList.remove('visible');
-        immersiveArtPlaceholder?.classList.remove('hidden');
-      };
+      immersiveArt.onerror = () => handleArtError(immersiveArt);
       if (immersiveArt.src !== state.coverUrl) {
         immersiveArt.src = state.coverUrl;
       }
@@ -3222,7 +3517,7 @@ function renderTrackInfo() {
     }
     if (immersiveBgArt) {
       if (state.coverUrl) {
-        if (!immersiveBgArt.src || !immersiveBgArt.src.endsWith(state.coverUrl)) {
+        if (immersiveBgArt.src !== state.coverUrl) {
           immersiveBgArt.src = state.coverUrl;
         }
         immersiveBgArt.style.display = '';

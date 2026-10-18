@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https: http: blob:; connect-src 'self' https: http:;">
   <title>overLy</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -138,7 +138,7 @@
       <div class="track-header">
         <div class="art-container no-drag">
           <div id="artWrapper" class="art-wrapper">
-            <img id="albumArt" class="album-art" src="" alt="Album Art">
+            <img id="albumArt" class="album-art" src="" alt="Album Art" referrerpolicy="no-referrer">
             <div id="albumPlaceholder" class="album-placeholder">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
@@ -402,7 +402,7 @@
   <div id="immersiveView" class="immersive-view hidden" aria-hidden="true">
     <!-- Heavily blurred dynamic artwork background with ambient color auras -->
     <div class="immersive-bg" id="immersiveBg">
-      <img id="immersiveBgArt" class="immersive-bg-art" src="" alt="">
+      <img id="immersiveBgArt" class="immersive-bg-art" src="" alt="" referrerpolicy="no-referrer">
       <div class="immersive-bg-glow1"></div>
       <div class="immersive-bg-glow2"></div>
       <div class="immersive-bg-glow3"></div>
@@ -415,21 +415,105 @@
         <span class="immersive-badge"><span class="immersive-badge-dot"></span>IMMERSIVE</span>
       </div>
       <div class="immersive-top-actions">
-        <!-- Toggle layout between Split (Artwork Left + Lyrics Right) and Centered (Centered Lyrics) -->
-        <button id="btnImmersiveLayoutToggle" class="immersive-btn" title="Toggle Layout (Split / Centered)">
-          <svg id="iconImmersiveLayout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="3"/>
-            <line x1="12" y1="3" x2="12" y2="21"/>
-          </svg>
-          <span id="immersiveLayoutLabel">Split View</span>
-        </button>
-        <!-- Exit Fullscreen button -->
-        <button id="btnImmersiveExit" class="immersive-btn exit-btn" title="Exit Immersive Mode (Esc)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-          </svg>
-          <span>Esc Exit</span>
-        </button>
+        <!-- Dedicated Auto-Collapsing Immersive Settings Drawer (Opens on Hover) -->
+        <aside class="immersive-settings-drawer" id="immersiveSettingsDrawer" aria-label="Immersive Display Settings">
+          <!-- Collapsed Floating Glass Trigger Pill -->
+          <div class="immersive-settings-trigger" id="immersiveSettingsTrigger" title="Hover to adjust text size & visuals">
+            <svg class="immersive-settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            <span class="imm-trigger-label">Text & Visuals</span>
+            <span class="imm-trigger-dot"></span>
+          </div>
+
+          <!-- Expanded Settings Panel -->
+          <div class="immersive-settings-panel" id="immersiveSettingsPanel">
+            <div class="immersive-settings-header">
+              <div class="imm-set-title-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="imm-set-title-icon">
+                  <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+                <span class="imm-set-heading">Immersive Controls</span>
+                <button id="btnImmersiveExit" class="imm-exit-chip" title="Exit Immersive Mode (Esc)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+                  <span>Exit (Esc)</span>
+                </button>
+              </div>
+              <span class="imm-set-subtitle">Auto-collapses on mouse leave</span>
+            </div>
+
+            <div class="immersive-settings-body">
+              <!-- Lyrics Font Size Adjustment -->
+              <div class="imm-set-row">
+                <div class="imm-set-label-row">
+                  <span class="imm-set-label">Lyrics Text Size</span>
+                  <span id="immFontSizeVal" class="imm-set-badge">22px</span>
+                </div>
+                <div class="imm-set-slider-wrap">
+                  <input type="range" id="immSliderFontSize" class="imm-slider" min="14" max="38" step="1" value="22">
+                </div>
+                <div class="imm-font-presets">
+                  <button class="imm-preset-btn" data-size="16">Small</button>
+                  <button class="imm-preset-btn active" data-size="22">Default</button>
+                  <button class="imm-preset-btn" data-size="28">Large</button>
+                  <button class="imm-preset-btn" data-size="34">XL</button>
+                </div>
+              </div>
+
+              <!-- Background Dimness / Contrast -->
+              <div class="imm-set-row">
+                <div class="imm-set-label-row">
+                  <span class="imm-set-label">Background Dimness</span>
+                  <span id="immBgDimVal" class="imm-set-badge">50%</span>
+                </div>
+                <div class="imm-set-slider-wrap">
+                  <input type="range" id="immSliderBgDim" class="imm-slider" min="10" max="90" step="5" value="50">
+                </div>
+              </div>
+
+              <!-- Layout Switcher (Split vs Centered) -->
+              <div class="imm-set-row">
+                <span class="imm-set-label">Stage Layout</span>
+                <div class="imm-layout-switch">
+                  <button id="btnImmLayoutSplit" class="imm-layout-btn active" title="Artwork left, lyrics right">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+                    <span>Split</span>
+                  </button>
+                  <button id="btnImmLayoutCentered" class="imm-layout-btn" title="Centered lyrics focus">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
+                    <span>Centered</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Quick Lyrics Timing Sync Tuning -->
+              <div class="imm-set-row">
+                <div class="imm-set-label-row">
+                  <span class="imm-set-label">Lyrics Timing Sync</span>
+                  <span id="immSyncOffsetVal" class="imm-set-badge">0.0s</span>
+                </div>
+                <div class="imm-sync-controls">
+                  <button id="btnImmSyncEarlier" class="imm-sync-btn" title="Display lyrics 0.5s earlier">-0.5s</button>
+                  <button id="btnImmSyncReset" class="imm-sync-btn imm-sync-reset" title="Reset sync offset">Reset</button>
+                  <button id="btnImmSyncLater" class="imm-sync-btn" title="Display lyrics 0.5s later">+0.5s</button>
+                </div>
+              </div>
+
+              <!-- Active Lyric Ambient Glow Toggle -->
+              <div class="imm-set-row imm-toggle-row">
+                <div class="imm-toggle-label-wrap">
+                  <span class="imm-set-label">Lyric Glow Aura</span>
+                  <span class="imm-set-desc">Album-colored halo around active lyric</span>
+                </div>
+                <label class="imm-switch">
+                  <input type="checkbox" id="immToggleGlow" checked>
+                  <span class="imm-switch-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
     </header>
 
@@ -439,7 +523,7 @@
       <section class="immersive-left" id="immersiveLeft">
         <div class="immersive-art-container">
           <div class="immersive-art-wrapper" id="immersiveArtWrapper">
-            <img id="immersiveArt" class="immersive-art" alt="">
+            <img id="immersiveArt" class="immersive-art" alt="" referrerpolicy="no-referrer">
             <div id="immersiveArtPlaceholder" class="immersive-art-placeholder">
               <div class="vinyl-disc-graphic" aria-hidden="true">
                 <div class="vinyl-center-label">
@@ -456,29 +540,6 @@
           <p id="immersiveArtist" class="immersive-artist">Spotify • Apple Music • Any Player</p>
         </div>
 
-        <!-- Timeline Progress Bar -->
-        <div class="immersive-timeline-wrap">
-          <span id="immersiveTimeCurrent" class="immersive-time">0:00</span>
-          <div id="immersiveProgressBar" class="immersive-progress-bar" role="slider" aria-label="Playback progress" tabindex="0">
-            <div id="immersiveProgressFill" class="immersive-progress-fill"></div>
-            <div id="immersiveProgressThumb" class="immersive-progress-thumb"></div>
-          </div>
-          <span id="immersiveTimeDuration" class="immersive-time">0:00</span>
-        </div>
-
-        <!-- Playback Controls -->
-        <div class="immersive-controls">
-          <button id="btnImmersivePrev" class="immersive-ctrl-btn" title="Previous Track">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-          </button>
-          <button id="btnImmersivePlayPause" class="immersive-ctrl-btn play-btn" title="Play / Pause">
-            <svg id="iconImmersivePlay" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            <svg id="iconImmersivePause" class="hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-          </button>
-          <button id="btnImmersiveNext" class="immersive-ctrl-btn" title="Next Track">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-          </button>
-        </div>
       </section>
 
       <!-- Right Column: Synchronized Lyrics Scroll View (or Instrumental Visualizer) -->
@@ -514,6 +575,35 @@
         </div>
       </section>
     </main>
+
+    <!-- Centered Bottom Controls Dock in Full Immerse Mode -->
+    <footer class="immersive-bottom-bar" id="immersiveBottomBar">
+      <div class="immersive-bottom-controls-wrap">
+        <!-- Timeline Progress Bar -->
+        <div class="immersive-timeline-wrap">
+          <span id="immersiveTimeCurrent" class="immersive-time">0:00</span>
+          <div id="immersiveProgressBar" class="immersive-progress-bar" role="slider" aria-label="Playback progress" tabindex="0">
+            <div id="immersiveProgressFill" class="immersive-progress-fill"></div>
+            <div id="immersiveProgressThumb" class="immersive-progress-thumb"></div>
+          </div>
+          <span id="immersiveTimeDuration" class="immersive-time">0:00</span>
+        </div>
+
+        <!-- Playback Controls (Aligned Center) -->
+        <div class="immersive-controls">
+          <button id="btnImmersivePrev" class="immersive-ctrl-btn" title="Previous Track">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          <button id="btnImmersivePlayPause" class="immersive-ctrl-btn play-btn" title="Play / Pause">
+            <svg id="iconImmersivePlay" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="iconImmersivePause" class="hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          </button>
+          <button id="btnImmersiveNext" class="immersive-ctrl-btn" title="Next Track">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </footer>
   </div>
 
   <script src="app.js"></script>

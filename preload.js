@@ -50,6 +50,8 @@ contextBridge.exposeInMainWorld('overlyAPI', {
   closeSettingsWindow: () => ipcRenderer.send('close-settings-window'),
   updateSetting: (key, value) => ipcRenderer.send('update-setting', { key, value }),
   extractCoverColors: (coverUrl) => ipcRenderer.invoke('extract-cover-colors', coverUrl),
+  fetchCoverArt: (artist, title, album) => ipcRenderer.invoke('fetch-cover-art', artist, title, album),
+  getImageBase64: (url) => ipcRenderer.invoke('get-image-base64', url),
   previewLayoutMode: (mode) => ipcRenderer.send('preview-layout-mode', mode),
   restoreLayoutMode: () => ipcRenderer.send('restore-layout-mode'),
   onPreviewLayoutMode: (callback) => {

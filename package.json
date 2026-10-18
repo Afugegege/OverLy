@@ -1,7 +1,7 @@
 {
   "name": "overly",
   "productName": "overLy",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Lightweight floating synced lyrics overlay for Windows",
   "main": "main.js",
   "author": "Afugegege",
@@ -19,6 +19,7 @@
     "prebuild": "electron scripts/generate-bitmaps.js",
     "predist": "electron scripts/generate-bitmaps.js",
     "build": "electron-builder --win",
+    "postbuild": "node scripts/generate-checksums.js",
     "dist": "electron-builder --win",
     "dist:zip": "electron-builder --win zip",
     "checksums": "node scripts/generate-checksums.js",

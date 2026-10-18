@@ -674,7 +674,7 @@ app.whenReady().then(() => {
         }
 
         // Concurrently fetch high-res artwork if initial cover is missing or needs upgrade
-        if (!initialCover && currentTrackKey === fetchKey) {
+        if ((!initialCover || initialCover.startsWith('data:image/')) && currentTrackKey === fetchKey) {
           lyricsService.fetchCoverArt(mediaData.artist, mediaData.title, mediaData.album)
             .then(coverUrl => {
               if (currentTrackKey === fetchKey && coverUrl && currentTrackData) {
@@ -1627,6 +1627,29 @@ async function extractCoverColorsInternal(urlOrPath) {
 
 ipcMain.handle('extract-cover-colors', async (_event, urlOrPath) => {
   return extractCoverColorsInternal(urlOrPath);
+});
+
+ipcMain.handle('fetch-cover-art', async (_event, artist, title, album) => {
+  const url = await lyricsService.fetchCoverArt(artist, title, album);
+  if (url && typeof url === 'string' && url.startsWith('http://')) {
+    return url.replace(/^http:\/\//i, 'https://');
+  }
+  return url;
+});
+
+ipcMain.handle('get-image-base64', async (_event, imageUrl) => {
+  try {
+    if (!imageUrl || typeof imageUrl !== 'string') return null;
+    if (imageUrl.startsWith('data:image/')) return imageUrl;
+    const response = await net.fetch(imageUrl);
+    if (!response.ok) return null;
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return `data:${contentType};base64,${buffer.toString('base64')}`;
+  } catch (err) {
+    console.error('Failed to get-image-base64 in main:', err);
+    return null;
+  }
 });
 
 ipcMain.handle('get-startup', () => {
